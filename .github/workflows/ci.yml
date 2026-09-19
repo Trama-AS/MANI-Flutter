@@ -1,0 +1,49 @@
+name: CI - Pull Request Validation
+
+on:
+  pull_request:
+    branches: [ main, release, develop ]
+  push:
+    branches: [ main, release, develop ]
+
+jobs:
+  validate:
+    name: Flutter Lint, Test & Build Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      # `pubspec.yaml` declara `.env` como asset y `.gitignore` lo excluye del
+      # repositorio. Sin este archivo fallan tanto `flutter test` como
+      # `flutter build`. En CI se usan valores de marcador: ninguna prueba
+      # golpea Supabase.
+      - name: Prepare environment file
+        run: cp .env.example .env
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Check code formatting
+        run: dart format --output=none --set-exit-if-changed .
+
+      - name: Analyze code (Linter)
+        run: flutter analyze
+
+      # Sin continue-on-error ni `|| true`: una prueba roja marca el job como
+      # failed y bloquea el merge (CFG-06 / SCRUM-956).
+      - name: Run widget & unit tests
+        run: flutter test test
+
+      - name: Run integration tests (RF-14)
+        run: flutter test test/integration
+
+      - name: Verify Web Build
+        run: flutter build web --release
