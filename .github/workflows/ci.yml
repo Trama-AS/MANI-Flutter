@@ -1,10 +1,11 @@
-name: CI - Pull Request Validation
+name: CI - Develop Pull Request Validation
 
 on:
   pull_request:
-    branches: [ main, release, develop ]
+    branches: [ develop ]
   push:
-    branches: [ main, release, develop ]
+    branches: [ develop ]
+  workflow_dispatch:
 
 jobs:
   validate:
@@ -14,6 +15,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -39,11 +42,24 @@ jobs:
 
       # Sin continue-on-error ni `|| true`: una prueba roja marca el job como
       # failed y bloquea el merge (CFG-06 / SCRUM-956).
-      - name: Run widget & unit tests
-        run: flutter test test
+      - name: Run widget & unit tests with coverage
+        run: flutter test --coverage
 
       - name: Run integration tests (RF-14)
         run: flutter test test/integration
+
+      - name: SonarQube Scan
+        uses: sonarsource/sonarqube-scan-action@v4
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: https://sonarcloud.io
+
+      - name: SonarQube Quality Gate Check
+        uses: sonarsource/sonarqube-quality-gate-action@v1
+        timeout-minutes: 5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: https://sonarcloud.io
 
       - name: Verify Web Build
         run: flutter build web --release
