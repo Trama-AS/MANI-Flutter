@@ -1,8 +1,8 @@
-name: Build & Publish Docker Image to GHCR (Development)
+name: Build & Publish Docker Image to GHCR (Testing / Staging)
 
 on:
   push:
-    branches: [ develop ]
+    branches: [ release, 'release/**', 'release/*' ]
   workflow_dispatch:
 
 env:
@@ -11,7 +11,7 @@ env:
 
 jobs:
   build-and-push:
-    name: Build & Push Development Image
+    name: Build & Push Testing/Staging Image
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -37,10 +37,11 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=develop
-            type=raw,value=dev
-            type=sha,format=short,prefix=dev-
+            type=raw,value=staging
+            type=raw,value=testing
+            type=raw,value=release
             type=ref,event=branch
+            type=sha,format=short,prefix=staging-
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5

@@ -1,0 +1,39 @@
+name: Staging - Build Web Artifact for QA Testing
+
+on:
+  push:
+    branches: [ release, 'release/**', 'release/*' ]
+  workflow_dispatch:
+
+jobs:
+  build-qa-artifact:
+    name: Build & Package Web QA Artifact
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run Tests
+        run: flutter test
+
+      - name: Build Web Staging
+        run: |
+          flutter build web --release
+          cd build/web && zip -r ../../flutter-web-staging.zip . && cd ../..
+
+      - name: Upload QA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: flutter-web-staging
+          path: flutter-web-staging.zip
+          retention-days: 14

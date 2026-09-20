@@ -1,10 +1,10 @@
-name: CI - Develop Pull Request Validation
+name: CI - Release & Staging Validation
 
 on:
   pull_request:
-    branches: [ develop ]
+    branches: [ release, 'release/**', 'release/*' ]
   push:
-    branches: [ develop ]
+    branches: [ release, 'release/**', 'release/*' ]
   workflow_dispatch:
 
 jobs:
@@ -35,7 +35,6 @@ jobs:
 
       - name: Run widget & unit tests with coverage
         run: flutter test --coverage
-
 
       - name: Ensure environment file exists
         run: cp .env.example .env 2>/dev/null || touch .env
