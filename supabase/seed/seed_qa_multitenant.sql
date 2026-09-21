@@ -5,6 +5,12 @@
 -- Ambiente: SOLO QA (proyecto Supabase hpsxdotaizzclkeufzct)
 -- Esquema de referencia: Product/DDL_MANI.sql de Trama-AS/MANI-docs
 --
+-- Verificado contra QA el 2026-09-21 (bloque 0 de verificar_aislamiento.sql):
+--   * auth.identities trae provider_id NOT NULL e id uuid -> rama moderna.
+--   * auth.users: todas las columnas usadas aqui existen.
+--   * zona estaba VACIA (0 activas): las 3 zonas de este seed son las
+--     primeras del ambiente. SCRUM-1002 queda respondido con eso.
+--
 -- QUE HACE
 --   Deja QA con 2 tenants completos y aislados entre si, cada uno con:
 --   admin_tenant + cliente + aliado aprobado + categoria activa + sitio +
@@ -174,46 +180,67 @@ DELETE FROM auth.users WHERE id IN (
 -- ---------------------------------------------------------------------
 -- PARTE B.1 — Usuarios de Supabase Auth
 -- ---------------------------------------------------------------------
--- Solo columnas presentes en toda version de GoTrue que usa Supabase. El
--- resto tiene DEFAULT. `aud`/`role` son los valores estandar de un usuario
--- final autenticado.
+-- Columnas verificadas contra el esquema real de auth.users de este
+-- proyecto. `aud`/`role` son los valores estandar de un usuario final
+-- autenticado. `is_sso_user`/`is_anonymous` son NOT NULL: van explicitos
+-- para no depender de que el DEFAULT exista. Las columnas generadas
+-- (`confirmed_at`) no se tocan.
 
 INSERT INTO auth.users (
   id, instance_id, aud, role, email, encrypted_password, email_confirmed_at,
-  raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+  raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
+  is_sso_user, is_anonymous
 )
 VALUES
   -- Tenant 1 — acme-servicios
   ('30000000-0000-4000-8000-000000000011', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
    'admin.t1@qa.mani.test',   crypt('QaSeed2026!', gen_salt('bf')), now(),
    '{"provider":"email","providers":["email"],"tenant_id":"10000000-0000-4000-8000-000000000011","user_role":"admin_tenant","rol":"admin_tenant"}'::jsonb,
-   '{"nombre":"Admin QA Tenant 1"}'::jsonb, now(), now()),
+   '{"nombre":"Admin QA Tenant 1"}'::jsonb, now(), now(), false, false),
 
   ('30000000-0000-4000-8000-000000000012', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
    'cliente.t1@qa.mani.test', crypt('QaSeed2026!', gen_salt('bf')), now(),
    '{"provider":"email","providers":["email"],"tenant_id":"10000000-0000-4000-8000-000000000011","user_role":"cliente","rol":"cliente"}'::jsonb,
-   '{"nombre":"Cliente QA Tenant 1"}'::jsonb, now(), now()),
+   '{"nombre":"Cliente QA Tenant 1"}'::jsonb, now(), now(), false, false),
 
   ('30000000-0000-4000-8000-000000000013', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
    'aliado.t1@qa.mani.test',  crypt('QaSeed2026!', gen_salt('bf')), now(),
    '{"provider":"email","providers":["email"],"tenant_id":"10000000-0000-4000-8000-000000000011","user_role":"aliado","rol":"aliado"}'::jsonb,
-   '{"nombre":"Aliado QA Tenant 1"}'::jsonb, now(), now()),
+   '{"nombre":"Aliado QA Tenant 1"}'::jsonb, now(), now(), false, false),
 
   -- Tenant 2 — nova-mantenimiento
   ('30000000-0000-4000-8000-000000000021', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
    'admin.t2@qa.mani.test',   crypt('QaSeed2026!', gen_salt('bf')), now(),
    '{"provider":"email","providers":["email"],"tenant_id":"10000000-0000-4000-8000-000000000021","user_role":"admin_tenant","rol":"admin_tenant"}'::jsonb,
-   '{"nombre":"Admin QA Tenant 2"}'::jsonb, now(), now()),
+   '{"nombre":"Admin QA Tenant 2"}'::jsonb, now(), now(), false, false),
 
   ('30000000-0000-4000-8000-000000000022', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
    'cliente.t2@qa.mani.test', crypt('QaSeed2026!', gen_salt('bf')), now(),
    '{"provider":"email","providers":["email"],"tenant_id":"10000000-0000-4000-8000-000000000021","user_role":"cliente","rol":"cliente"}'::jsonb,
-   '{"nombre":"Cliente QA Tenant 2"}'::jsonb, now(), now()),
+   '{"nombre":"Cliente QA Tenant 2"}'::jsonb, now(), now(), false, false),
 
   ('30000000-0000-4000-8000-000000000023', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
    'aliado.t2@qa.mani.test',  crypt('QaSeed2026!', gen_salt('bf')), now(),
    '{"provider":"email","providers":["email"],"tenant_id":"10000000-0000-4000-8000-000000000021","user_role":"aliado","rol":"aliado"}'::jsonb,
-   '{"nombre":"Aliado QA Tenant 2"}'::jsonb, now(), now());
+   '{"nombre":"Aliado QA Tenant 2"}'::jsonb, now(), now(), false, false);
+
+-- GoTrue lee varias columnas de token como string de Go, no como puntero:
+-- si quedan en NULL, el login falla con "converting NULL to string is
+-- unsupported". Cadena vacia es lo que escribe el propio servicio cuando
+-- no hay un flujo de confirmacion/recuperacion en curso. Sin esto los 6
+-- usuarios existen pero no pueden iniciar sesion, que es justo para lo que
+-- los necesitamos (CFG-12 y la suite de ADR-0015).
+UPDATE auth.users
+   SET confirmation_token         = COALESCE(confirmation_token, ''),
+       recovery_token             = COALESCE(recovery_token, ''),
+       email_change               = COALESCE(email_change, ''),
+       email_change_token_new     = COALESCE(email_change_token_new, ''),
+       email_change_token_current = COALESCE(email_change_token_current, ''),
+       reauthentication_token     = COALESCE(reauthentication_token, ''),
+       phone_change               = COALESCE(phone_change, ''),
+       phone_change_token         = COALESCE(phone_change_token, '')
+ WHERE id IN ('30000000-0000-4000-8000-000000000011','30000000-0000-4000-8000-000000000012','30000000-0000-4000-8000-000000000013',
+              '30000000-0000-4000-8000-000000000021','30000000-0000-4000-8000-000000000022','30000000-0000-4000-8000-000000000023');
 
 -- auth.identities: su forma cambio entre versiones de GoTrue (la columna
 -- `provider_id` se agrego despues, y `id` paso de text a uuid). Detectamos
