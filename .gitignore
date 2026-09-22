@@ -50,3 +50,11 @@ qa/k6/tokens.json
 
 # Dependencias del benchmark de JWT de CFG-12
 qa/jwt/node_modules/
+
+# Dependencias y reportes crudos de las suites de Newman de CFG-12.
+# El reporte sin redactar guarda cabeceras Authorization y los cuerpos de
+# login con access_token y refresh_token. Se versiona el .redactado.json,
+# producido por qa/newman/redactar_evidencia.mjs
+qa/newman/node_modules/
+qa/newman/evidencia/*.json
+!qa/newman/evidencia/*.redactado.json
