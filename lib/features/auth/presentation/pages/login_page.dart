@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mani/core/theme/app_theme.dart';
-import 'package:mani/features/auth/domain/repositories/i_auth_repository.dart';
 import 'package:mani/core/di/injection_container.dart';
+import 'package:mani/features/auth/presentation/bloc/auth_cubit.dart';
 
 /// Pantalla de inicio de sesión de MANI.
 /// Replicada pixel-perfect del prototipo oficial en Figma:
@@ -16,23 +16,33 @@ import 'package:mani/core/di/injection_container.dart';
 /// - Inputs con bordes negros 2px, fondo blanco y placeholder gris
 /// - Botón "INGRESAR A MANI" amarillo con sombra dura de 4px
 /// - Enlaces inferiores: "¿Olvidaste tu contraseña?" • "Registrarme"
-class LoginPage extends StatefulWidget {
+class LoginPage extends StatelessWidget {
   const LoginPage({super.key});
 
   @override
-  State<LoginPage> createState() => _LoginPageState();
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => sl<AuthCubit>(),
+      child: const _LoginView(),
+    );
+  }
 }
 
-class _LoginPageState extends State<LoginPage> {
+class _LoginView extends StatefulWidget {
+  const _LoginView();
+
+  @override
+  State<_LoginView> createState() => _LoginViewState();
+}
+
+class _LoginViewState extends State<_LoginView> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _authRepo = sl<IAuthRepository>();
 
   String _selectedRole = 'cliente'; // 'cliente', 'aliado', 'admin'
   String _selectedTenant = 'Plomería Express CDMX SA';
   bool _showPassword = false;
-  bool _isLoading = false;
 
   final List<String> _tenants = const [
     'Plomería Express CDMX SA',
@@ -47,45 +57,12 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  Future<void> _handleLogin() async {
+  void _handleLogin() {
     if (!(_formKey.currentState?.validate() ?? false)) return;
-
-    setState(() => _isLoading = true);
-
-    try {
-      final user = await _authRepo.signInWithEmail(
-        email: _emailController.text,
-        password: _passwordController.text,
-      );
-
-      if (!mounted) return;
-
-      if (user.id.isNotEmpty) {
-        _showNotification('¡Bienvenido a MANI!', isError: false);
-      }
-    } on AuthException catch (e) {
-      if (!mounted) return;
-      _showNotification(_mapAuthError(e.message));
-    } catch (_) {
-      if (!mounted) return;
-      _showNotification('Error al conectar. Verifica tus credenciales.');
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  String _mapAuthError(String message) {
-    if (message.contains('Invalid login credentials') ||
-        message.contains('invalid_credentials')) {
-      return 'Email o contraseña incorrectos.';
-    }
-    if (message.contains('Email not confirmed')) {
-      return 'Por favor confirma tu email antes de ingresar.';
-    }
-    if (message.contains('Too many requests')) {
-      return 'Demasiados intentos. Espera un momento.';
-    }
-    return 'Error: $message';
+    context.read<AuthCubit>().login(
+      _emailController.text,
+      _passwordController.text,
+    );
   }
 
   void _showNotification(String message, {bool isError = true}) {
@@ -111,48 +88,63 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.background,
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 380),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // ── Header (Logo + Títulos) ───────────────────────────
-                    _buildLogoHeader(),
-                    const SizedBox(height: 24),
+    return BlocConsumer<AuthCubit, AuthState>(
+      listener: (context, state) {
+        if (state is AuthAuthenticated) {
+          _showNotification('¡Bienvenido a MANI!', isError: false);
+        } else if (state is AuthError) {
+          _showNotification(state.message);
+        }
+      },
+      builder: (context, state) {
+        final isLoading = state is AuthLoading;
+        return Scaffold(
+          backgroundColor: AppTheme.background,
+          body: SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 32,
+                ),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 380),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // ── Header (Logo + Títulos) ───────────────────────
+                        _buildLogoHeader(),
+                        const SizedBox(height: 24),
 
-                    // ── Selector de Tenant ───────────────────────────────
-                    _buildTenantSelector(),
-                    const SizedBox(height: 16),
+                        // ── Selector de Tenant ─────────────────────────────
+                        _buildTenantSelector(),
+                        const SizedBox(height: 16),
 
-                    // ── Selector de Rol (Tabs) ───────────────────────────
-                    _buildRoleTabs(),
-                    const SizedBox(height: 18),
+                        // ── Selector de Rol (Tabs) ─────────────────────────
+                        _buildRoleTabs(),
+                        const SizedBox(height: 18),
 
-                    // ── Inputs ───────────────────────────────────────────
-                    _buildInputs(),
-                    const SizedBox(height: 24),
+                        // ── Inputs ─────────────────────────────────────────
+                        _buildInputs(),
+                        const SizedBox(height: 24),
 
-                    // ── Botón INGRESAR A MANI ────────────────────────────
-                    _buildSubmitButton(),
-                    const SizedBox(height: 20),
+                        // ── Botón INGRESAR A MANI ──────────────────────────
+                        _buildSubmitButton(isLoading),
+                        const SizedBox(height: 20),
 
-                    // ── Enlaces inferiores ───────────────────────────────
-                    _buildFooterLinks(),
-                  ],
+                        // ── Enlaces inferiores ─────────────────────────────
+                        _buildFooterLinks(),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -419,20 +411,20 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  Widget _buildSubmitButton() {
+  Widget _buildSubmitButton(bool isLoading) {
     return GestureDetector(
-      onTap: _isLoading ? null : _handleLogin,
+      onTap: isLoading ? null : _handleLogin,
       child: Container(
         width: double.infinity,
         height: 52,
         decoration: BoxDecoration(
-          color: _isLoading ? AppTheme.textTertiary : AppTheme.primary,
+          color: isLoading ? AppTheme.textTertiary : AppTheme.primary,
           borderRadius: BorderRadius.circular(AppTheme.radiusXl),
           border: Border.all(color: AppTheme.dark, width: 2),
-          boxShadow: _isLoading ? [] : const [AppTheme.hardShadowMd],
+          boxShadow: isLoading ? [] : const [AppTheme.hardShadowMd],
         ),
         alignment: Alignment.center,
-        child: _isLoading
+        child: isLoading
             ? const SizedBox(
                 height: 22,
                 width: 22,

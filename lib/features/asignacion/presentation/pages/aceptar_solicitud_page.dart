@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import 'package:mani/features/asignacion/domain/repositories/i_asignacion_repository.dart';
-import 'package:mani/features/asignacion/domain/entities/solicitud_entity.dart';
 
 /// Pantalla mínima del flujo de aceptación (RF-14).
 ///
@@ -40,6 +39,8 @@ class _AceptarSolicitudPageState extends State<AceptarSolicitudPage> {
       mensaje = 'Ya no disponible';
     } on SolicitudNoEncontrada {
       mensaje = 'Solicitud no encontrada';
+    } catch (_) {
+      mensaje = 'Error inesperado al aceptar la solicitud';
     }
     if (!mounted) return;
     setState(() {

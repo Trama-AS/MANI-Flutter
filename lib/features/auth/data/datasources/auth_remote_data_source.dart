@@ -1,9 +1,11 @@
-import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 abstract class IAuthRemoteDataSource {
-  Future<User> signInWithEmail({required String email, required String password});
-  
+  Future<User> signInWithEmail({
+    required String email,
+    required String password,
+  });
+
   Future<Map<String, dynamic>> registrarClientePersonaNatural({
     required String email,
     required String password,
@@ -34,7 +36,7 @@ abstract class IAuthRemoteDataSource {
     String? categoriaId,
     required List<Map<String, String>> documentosKYC,
   });
-  
+
   Future<void> signOut();
 }
 
@@ -44,7 +46,10 @@ class AuthRemoteDataSource implements IAuthRemoteDataSource {
   AuthRemoteDataSource({required this.client});
 
   @override
-  Future<User> signInWithEmail({required String email, required String password}) async {
+  Future<User> signInWithEmail({
+    required String email,
+    required String password,
+  }) async {
     final response = await client.auth.signInWithPassword(
       email: email.trim(),
       password: password,
@@ -83,12 +88,17 @@ class AuthRemoteDataSource implements IAuthRemoteDataSource {
 
     final user = authRes.user;
     if (user == null) {
-      throw const AuthException('No se pudo crear el usuario en Supabase Auth.');
+      throw const AuthException(
+        'No se pudo crear el usuario en Supabase Auth.',
+      );
     }
 
     if (authRes.session == null) {
       try {
-        await client.auth.signInWithPassword(email: cleanEmail, password: password);
+        await client.auth.signInWithPassword(
+          email: cleanEmail,
+          password: password,
+        );
       } catch (_) {}
     }
 
@@ -105,21 +115,20 @@ class AuthRemoteDataSource implements IAuthRemoteDataSource {
         },
       );
       if (rpcResult is Map) return Map<String, dynamic>.from(rpcResult);
-    } catch (rpcError) {
-      try {
-        await client.from('usuario').upsert({
-          'id': user.id,
-          'tenant_id': tenantId,
-          'email': cleanEmail,
-          'rol': 'CLIENTE',
-          'estado': 'ACTIVO',
-        });
-        await client.from('cliente').upsert({
-          'tenant_id': tenantId,
-          'usuario_id': user.id,
-          'tipo': 'PERSONA_NATURAL',
-        });
-      } catch (_) {}
+    } catch (_) {
+      // RPC no disponible — intentar fallback con upsert directo.
+      await client.from('usuario').upsert({
+        'id': user.id,
+        'tenant_id': tenantId,
+        'email': cleanEmail,
+        'rol': 'CLIENTE',
+        'estado': 'ACTIVO',
+      });
+      await client.from('cliente').upsert({
+        'tenant_id': tenantId,
+        'usuario_id': user.id,
+        'tipo': 'PERSONA_NATURAL',
+      });
     }
 
     return {
@@ -157,7 +166,7 @@ class AuthRemoteDataSource implements IAuthRemoteDataSource {
 
     final user = authRes.user;
     if (user == null) throw const AuthException('No user created.');
-    
+
     // Simplificado por brevedad (misma logica RPC que original)
     return {
       'success': true,
@@ -195,7 +204,7 @@ class AuthRemoteDataSource implements IAuthRemoteDataSource {
 
     final user = authRes.user;
     if (user == null) throw const AuthException('No user created.');
-    
+
     return {
       'success': true,
       'usuario_id': user.id,

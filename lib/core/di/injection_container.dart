@@ -20,12 +20,14 @@ Future<void> init() async {
 
   // Features - Auth
   // Bloc
-  sl.registerFactory(() => AuthCubit(
-    loginUseCase: sl(),
-    registerClienteUseCase: sl(),
-    registerAliadoUseCase: sl(),
-    registerEmpresaUseCase: sl(),
-  ));
+  sl.registerFactory(
+    () => AuthCubit(
+      loginUseCase: sl(),
+      registerClienteUseCase: sl(),
+      registerAliadoUseCase: sl(),
+      registerEmpresaUseCase: sl(),
+    ),
+  );
 
   // Use cases
   sl.registerLazySingleton(() => LoginUseCase(sl()));
