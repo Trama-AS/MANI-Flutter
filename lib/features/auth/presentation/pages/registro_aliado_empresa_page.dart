@@ -1,25 +1,37 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:mani/core/theme/app_theme.dart';
-import 'package:mani/features/auth/domain/repositories/i_auth_repository.dart';
 import 'package:mani/core/di/injection_container.dart';
+import 'package:mani/features/auth/presentation/bloc/auth_cubit.dart';
 
 /// Pantalla independiente de Registro para Empresas de Servicios (Persona Jurídica).
 /// US-02.1.2: Registro de empresa con Cámara de Comercio y datos del representante legal.
-class RegistroAliadoEmpresaPage extends StatefulWidget {
+class RegistroAliadoEmpresaPage extends StatelessWidget {
   const RegistroAliadoEmpresaPage({super.key});
 
   @override
-  State<RegistroAliadoEmpresaPage> createState() =>
-      _RegistroAliadoEmpresaPageState();
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => sl<AuthCubit>(),
+      child: const _RegistroAliadoEmpresaView(),
+    );
+  }
 }
 
-class _RegistroAliadoEmpresaPageState extends State<RegistroAliadoEmpresaPage> {
+class _RegistroAliadoEmpresaView extends StatefulWidget {
+  const _RegistroAliadoEmpresaView();
+
+  @override
+  State<_RegistroAliadoEmpresaView> createState() =>
+      _RegistroAliadoEmpresaViewState();
+}
+
+class _RegistroAliadoEmpresaViewState
+    extends State<_RegistroAliadoEmpresaView> {
   final _formKey = GlobalKey<FormState>();
-  final _authRepo = sl<IAuthRepository>();
 
   // Controladores de Empresa y Representante Legal
   final _razonSocialController = TextEditingController();
@@ -31,7 +43,6 @@ class _RegistroAliadoEmpresaPageState extends State<RegistroAliadoEmpresaPage> {
   final _passwordController = TextEditingController();
 
   bool _showPassword = false;
-  bool _isLoading = false;
 
   // Tenant seleccionado
   String _selectedTenantId = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11';
@@ -90,7 +101,7 @@ class _RegistroAliadoEmpresaPageState extends State<RegistroAliadoEmpresaPage> {
     }
   }
 
-  Future<void> _handleRegistro() async {
+  void _handleRegistro() {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
     if (_camaraComercioFile == null) {
@@ -105,51 +116,35 @@ class _RegistroAliadoEmpresaPageState extends State<RegistroAliadoEmpresaPage> {
       return;
     }
 
-    setState(() => _isLoading = true);
-
-    try {
-      final documentos = <Map<String, String>>[
+    final documentos = <Map<String, String>>[
+      {
+        'tipo_documento': 'CAMARA_COMERCIO',
+        'ruta_storage':
+            'kyc/$_selectedTenantId/camara_${_camaraComercioFile!.name}',
+      },
+      {
+        'tipo_documento': 'RUT_EMPRESA',
+        'ruta_storage': 'kyc/$_selectedTenantId/rut_${_rutEmpresaFile!.name}',
+      },
+      if (_cedulaRepFile != null)
         {
-          'tipo_documento': 'CAMARA_COMERCIO',
-          'ruta_storage':
-              'kyc/$_selectedTenantId/camara_${_camaraComercioFile!.name}',
+          'tipo_documento': 'CEDULA_REPRESENTANTE',
+          'ruta_storage': 'kyc/$_selectedTenantId/rep_${_cedulaRepFile!.name}',
         },
-        {
-          'tipo_documento': 'RUT_EMPRESA',
-          'ruta_storage': 'kyc/$_selectedTenantId/rut_${_rutEmpresaFile!.name}',
-        },
-        if (_cedulaRepFile != null)
-          {
-            'tipo_documento': 'CEDULA_REPRESENTANTE',
-            'ruta_storage':
-                'kyc/$_selectedTenantId/rep_${_cedulaRepFile!.name}',
-          },
-      ];
+    ];
 
-      await _authRepo.registrarAliadoEmpresa(
-        email: _emailController.text,
-        password: _passwordController.text,
-        razonSocial: _razonSocialController.text,
-        nit: _nitController.text,
-        tenantId: _selectedTenantId,
-        nombreRepresentante: _nombreRepController.text,
-        docRepresentante: _docRepController.text,
-        telefonoContacto: _telefonoController.text,
-        categoriaId: _selectedCategoriaId,
-        documentosKYC: documentos,
-      );
-
-      if (!mounted) return;
-      _mostrarExitoEmpresaDialog();
-    } on AuthException catch (e) {
-      if (!mounted) return;
-      _showNotification('Error en autenticación: ${e.message}');
-    } catch (e) {
-      if (!mounted) return;
-      _showNotification('Error en registro: $e');
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
+    context.read<AuthCubit>().registerEmpresa(
+      email: _emailController.text,
+      password: _passwordController.text,
+      razonSocial: _razonSocialController.text,
+      nit: _nitController.text,
+      tenantId: _selectedTenantId,
+      nombreRepresentante: _nombreRepController.text,
+      docRepresentante: _docRepController.text,
+      telefonoContacto: _telefonoController.text,
+      categoriaId: _selectedCategoriaId,
+      documentosKYC: documentos,
+    );
   }
 
   void _mostrarExitoEmpresaDialog() {
@@ -293,78 +288,91 @@ class _RegistroAliadoEmpresaPageState extends State<RegistroAliadoEmpresaPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.background,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // ── Top Navigation Bar ─────────────────────────────────────────
-            _buildTopNavBar(),
+    return BlocConsumer<AuthCubit, AuthState>(
+      listener: (context, state) {
+        if (state is AuthRegistrationSuccess) {
+          _mostrarExitoEmpresaDialog();
+        } else if (state is AuthError) {
+          _showNotification(state.message);
+        }
+      },
+      builder: (context, state) {
+        final isLoading = state is AuthLoading;
+        return Scaffold(
+          backgroundColor: AppTheme.background,
+          body: SafeArea(
+            child: Column(
+              children: [
+                // ── Top Navigation Bar ─────────────────────────────────────
+                _buildTopNavBar(),
 
-            // ── Contenido Principal ────────────────────────────────────────
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 36,
-                  vertical: 24,
-                ),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 1200),
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          // Banner Hero de Empresa
-                          _buildHeroBanner(),
-                          const SizedBox(height: 28),
+                // ── Contenido Principal ──────────────────────────────────
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 36,
+                      vertical: 24,
+                    ),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 1200),
+                        child: Form(
+                          key: _formKey,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              // Banner Hero de Empresa
+                              _buildHeroBanner(),
+                              const SizedBox(height: 28),
 
-                          // Layout en 2 columnas Web
-                          LayoutBuilder(
-                            builder: (context, constraints) {
-                              final isDesktop = constraints.maxWidth >= 850;
-                              if (isDesktop) {
-                                return Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Expanded(
-                                      flex: 5,
-                                      child: _buildLeftColumn(),
-                                    ),
-                                    const SizedBox(width: 28),
-                                    Expanded(
-                                      flex: 5,
-                                      child: _buildRightColumn(),
-                                    ),
-                                  ],
-                                );
-                              } else {
-                                return Column(
-                                  children: [
-                                    _buildLeftColumn(),
-                                    const SizedBox(height: 24),
-                                    _buildRightColumn(),
-                                  ],
-                                );
-                              }
-                            },
+                              // Layout en 2 columnas Web
+                              LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final isDesktop = constraints.maxWidth >= 850;
+                                  if (isDesktop) {
+                                    return Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Expanded(
+                                          flex: 5,
+                                          child: _buildLeftColumn(),
+                                        ),
+                                        const SizedBox(width: 28),
+                                        Expanded(
+                                          flex: 5,
+                                          child: _buildRightColumn(),
+                                        ),
+                                      ],
+                                    );
+                                  } else {
+                                    return Column(
+                                      children: [
+                                        _buildLeftColumn(),
+                                        const SizedBox(height: 24),
+                                        _buildRightColumn(),
+                                      ],
+                                    );
+                                  }
+                                },
+                              ),
+                              const SizedBox(height: 32),
+
+                              // Barra de acción inferior
+                              _buildBottomAction(isLoading),
+                              const SizedBox(height: 40),
+                            ],
                           ),
-                          const SizedBox(height: 32),
-
-                          // Barra de acción inferior
-                          _buildBottomAction(),
-                          const SizedBox(height: 40),
-                        ],
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -780,7 +788,7 @@ class _RegistroAliadoEmpresaPageState extends State<RegistroAliadoEmpresaPage> {
   }
 
   // ── Botón Inferior ─────────────────────────────────────────────────────────
-  Widget _buildBottomAction() {
+  Widget _buildBottomAction(bool isLoading) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -826,16 +834,16 @@ class _RegistroAliadoEmpresaPageState extends State<RegistroAliadoEmpresaPage> {
             width: 350,
             height: 52,
             child: GestureDetector(
-              onTap: _isLoading ? null : _handleRegistro,
+              onTap: isLoading ? null : _handleRegistro,
               child: Container(
                 decoration: BoxDecoration(
-                  color: _isLoading ? AppTheme.textTertiary : AppTheme.primary,
+                  color: isLoading ? AppTheme.textTertiary : AppTheme.primary,
                   borderRadius: BorderRadius.circular(AppTheme.radiusXl),
                   border: Border.all(color: AppTheme.dark, width: 2),
-                  boxShadow: _isLoading ? [] : const [AppTheme.hardShadowSm],
+                  boxShadow: isLoading ? [] : const [AppTheme.hardShadowSm],
                 ),
                 alignment: Alignment.center,
-                child: _isLoading
+                child: isLoading
                     ? const SizedBox(
                         height: 22,
                         width: 22,

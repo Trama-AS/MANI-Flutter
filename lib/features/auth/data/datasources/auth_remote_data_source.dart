@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 abstract class IAuthRemoteDataSource {
@@ -105,21 +104,20 @@ class AuthRemoteDataSource implements IAuthRemoteDataSource {
         },
       );
       if (rpcResult is Map) return Map<String, dynamic>.from(rpcResult);
-    } catch (rpcError) {
-      try {
-        await client.from('usuario').upsert({
-          'id': user.id,
-          'tenant_id': tenantId,
-          'email': cleanEmail,
-          'rol': 'CLIENTE',
-          'estado': 'ACTIVO',
-        });
-        await client.from('cliente').upsert({
-          'tenant_id': tenantId,
-          'usuario_id': user.id,
-          'tipo': 'PERSONA_NATURAL',
-        });
-      } catch (_) {}
+    } catch (_) {
+      // RPC no disponible — intentar fallback con upsert directo.
+      await client.from('usuario').upsert({
+        'id': user.id,
+        'tenant_id': tenantId,
+        'email': cleanEmail,
+        'rol': 'CLIENTE',
+        'estado': 'ACTIVO',
+      });
+      await client.from('cliente').upsert({
+        'tenant_id': tenantId,
+        'usuario_id': user.id,
+        'tipo': 'PERSONA_NATURAL',
+      });
     }
 
     return {

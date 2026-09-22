@@ -1,13 +1,14 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mani/features/asignacion/asignacion_repository.dart';
-import 'package:mani/features/asignacion/solicitud.dart';
+import 'package:mani/features/asignacion/data/repositories/asignacion_repository_impl.dart';
+import 'package:mani/features/asignacion/domain/entities/solicitud_entity.dart';
+import 'package:mani/features/asignacion/domain/repositories/i_asignacion_repository.dart';
 
 void main() {
   const solicitudId = 'sol-001';
 
-  InMemoryAsignacionRepository nuevoRepo() => InMemoryAsignacionRepository(
-    solicitudes: const [Solicitud.pendiente(solicitudId)],
-  );
+  AsignacionRepositoryImpl nuevoRepo() => AsignacionRepositoryImpl(
+        solicitudes: const [SolicitudEntity.pendiente(solicitudId)],
+      );
 
   group('RF-14 · aceptación de solicitud', () {
     test('el primer aliado en aceptar se queda con la solicitud', () async {
@@ -47,6 +48,24 @@ void main() {
         throwsA(isA<SolicitudNoEncontrada>()),
       );
     });
+
+    test('obtener devuelve la solicitud correcta', () async {
+      final repo = nuevoRepo();
+
+      final solicitud = await repo.obtener(solicitudId);
+
+      expect(solicitud.id, solicitudId);
+      expect(solicitud.estado, EstadoSolicitud.pendiente);
+    });
+
+    test('obtener lanza SolicitudNoEncontrada si no existe', () async {
+      final repo = nuevoRepo();
+
+      expect(
+        () => repo.obtener('sol-inexistente'),
+        throwsA(isA<SolicitudNoEncontrada>()),
+      );
+    });
   });
 
   group('RNF-05 · exclusión concurrente', () {
@@ -65,8 +84,9 @@ void main() {
           ),
         );
 
-        final asignaciones = resultados.whereType<Solicitud>().toList();
-        final rechazos = resultados.whereType<SolicitudNoDisponible>().toList();
+        final asignaciones = resultados.whereType<SolicitudEntity>().toList();
+        final rechazos =
+            resultados.whereType<SolicitudNoDisponible>().toList();
 
         expect(asignaciones, hasLength(1));
         expect(rechazos, hasLength(aliados.length - 1));

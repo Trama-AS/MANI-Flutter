@@ -19,6 +19,14 @@ class AuthAuthenticated extends AuthState {
   List<Object?> get props => [user];
 }
 
+class AuthRegistrationSuccess extends AuthState {
+  final Map<String, dynamic> result;
+  const AuthRegistrationSuccess({required this.result});
+
+  @override
+  List<Object?> get props => [result];
+}
+
 class AuthError extends AuthState {
   final String message;
   const AuthError({required this.message});

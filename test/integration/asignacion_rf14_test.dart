@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mani/features/asignacion/aceptar_solicitud_page.dart';
-import 'package:mani/features/asignacion/asignacion_repository.dart';
-import 'package:mani/features/asignacion/solicitud.dart';
+import 'package:mani/features/asignacion/data/repositories/asignacion_repository_impl.dart';
+import 'package:mani/features/asignacion/domain/entities/solicitud_entity.dart';
+import 'package:mani/features/asignacion/domain/repositories/i_asignacion_repository.dart';
+import 'package:mani/features/asignacion/presentation/pages/aceptar_solicitud_page.dart';
 
-/// Prueba de integración del flujo de asignación (RF-14).
+/// Prueba de integración del flujo de aceptación (RF-14).
 ///
 /// Recorre la interfaz completa: dos aliados abren la misma solicitud, el
 /// primero la acepta y el segundo debe ver "Ya no disponible".
@@ -16,19 +17,19 @@ import 'package:mani/features/asignacion/solicitud.dart';
 void main() {
   const solicitudId = 'sol-001';
 
-  Widget appPara(AsignacionRepository repo, String aliadoId) => MaterialApp(
-    home: AceptarSolicitudPage(
-      repository: repo,
-      solicitudId: solicitudId,
-      aliadoId: aliadoId,
-    ),
-  );
+  Widget appPara(IAsignacionRepository repo, String aliadoId) => MaterialApp(
+        home: AceptarSolicitudPage(
+          repository: repo,
+          solicitudId: solicitudId,
+          aliadoId: aliadoId,
+        ),
+      );
 
   testWidgets(
     'una solicitud se asigna a un único aliado y el resto ve ya_no_disponible',
     (tester) async {
-      final repo = InMemoryAsignacionRepository(
-        solicitudes: const [Solicitud.pendiente(solicitudId)],
+      final repo = AsignacionRepositoryImpl(
+        solicitudes: const [SolicitudEntity.pendiente(solicitudId)],
       );
 
       // Aliado A acepta primero.
