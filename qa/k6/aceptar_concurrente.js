@@ -21,11 +21,17 @@
 //     CORRIDA  etiqueta que separa corridas en la bitacora (default: fecha)
 //     ESPERA   ventana del control negativo en segundos (default 0.05)
 //
-// POR QUE EL LOGIN VA EN setup()
-//   Autenticar 50 cuentas cuesta un verify de bcrypt cada una. Si eso
-//   ocurriera dentro del escenario medido, las peticiones de aceptacion
-//   saldrian escalonadas por el costo del login y no habria carrera. En
-//   setup() se paga una sola vez, antes de que el reloj empiece.
+// POR QUE LOS TOKENS VIENEN DE UN ARCHIVO
+//   Dos razones. La de metodo: autenticar N cuentas cuesta un verify de
+//   bcrypt cada una, y hacerlo dentro del escenario escalonaria las
+//   peticiones por el costo del login en vez de por el comportamiento de
+//   la base. La practica: Supabase Auth limita el endpoint de token a ~30
+//   peticiones por 5 minutos por IP, asi que 50 logins seguidos devuelven
+//   429 over_request_rate_limit y abortan la corrida.
+//
+//   qa/k6/obtener_tokens.sh los obtiene por lotes y los deja en
+//   tokens.json. Se reutilizan en todas las corridas mientras los JWT
+//   sigan vigentes (1 hora por defecto).
 //
 // POR QUE HAY UNA BARRERA DE TIEMPO
 //   k6 arranca los VU casi a la vez, pero "casi" no alcanza: la PoC vive o
@@ -36,6 +42,8 @@
 // =====================================================================
 
 import http from 'k6/http';
+// Tokens precalculados por qa/k6/obtener_tokens.sh. Ver setup().
+const TOKENS_CACHE = JSON.parse(open('./tokens.json'));
 import { Counter, Trend } from 'k6/metrics';
 import { check } from 'k6';
 
@@ -97,24 +105,23 @@ export function setup() {
     throw new Error('Faltan SUPABASE_URL y/o SUPABASE_ANON_KEY. Cargalas desde .env.');
   }
 
-  // Login secuencial por lotes: paralelizar los 50 a la vez satura el
-  // endpoint de Auth y algunos responden 429, que no tiene nada que ver con
-  // lo que la PoC mide.
-  const tokens = [];
-  for (let i = 1; i <= N; i++) {
-    const r = http.post(
-      `${URL}/auth/v1/token?grant_type=password`,
-      JSON.stringify({ email: email(i), password: PASSWORD }),
-      { headers: { apikey: ANON, 'Content-Type': 'application/json' }, tags: { fase: 'login' } },
-    );
-    if (r.status !== 200) {
-      throw new Error(`Login fallido para ${email(i)}: ${r.status} ${r.body}`);
-    }
-    tokens.push(JSON.parse(r.body).access_token);
+  const tokens = TOKENS_CACHE;
+  if (tokens.length < N) {
+    throw new Error(
+      `tokens.json trae ${tokens.length} tokens y N=${N}. Corre qa/k6/obtener_tokens.sh.`);
   }
 
-  // Instante comun de disparo. Se calcula DESPUES de los logins para que el
-  // margen no se consuma autenticando.
+  // Un token vencido devolveria 401 y se contaria como "otros", ensuciando
+  // la metrica. Mejor fallar aqui con un mensaje claro.
+  const sonda = http.post(`${URL}/rest/v1/rpc/aceptar_solicitud`,
+    JSON.stringify({ p_solicitud: '00000000-0000-4000-8000-000000000000',
+                     p_aliado: aliadoId(1), p_corrida: 'sonda' }),
+    { headers: { apikey: ANON, Authorization: `Bearer ${tokens[0]}`,
+                 'Content-Type': 'application/json' }, tags: { fase: 'sonda' } });
+  if (sonda.status === 401) {
+    throw new Error('Tokens vencidos. Vuelve a correr qa/k6/obtener_tokens.sh.');
+  }
+
   return { tokens, disparo: Date.now() + MARGEN_MS, corrida: CORRIDA };
 }
 
@@ -133,7 +140,12 @@ export default function (data) {
     p_aliado: aliadoId(i),
     p_corrida: data.corrida,
   };
-  if (MODO === 'sin_exclusion') cuerpo.p_espera = ESPERA;
+  // Las tres variantes reciben la misma espera. No toca el mecanismo de
+  // exclusion —el UPDATE sigue siendo atomico y condicional— solo alinea la
+  // llegada para que las N peticiones entren a la funcion dentro de la misma
+  // ventana. Sin esto llegan repartidas en ~900 ms y no compiten: darian
+  // 1 asignacion por falta de carrera, no por exclusion.
+  cuerpo.p_espera = ESPERA;
 
   const r = http.post(`${URL}/rest/v1/rpc/${RPC}`, JSON.stringify(cuerpo), {
     headers: {
