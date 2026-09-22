@@ -1,25 +1,36 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:mani/core/theme/app_theme.dart';
-import 'package:mani/features/auth/domain/repositories/i_auth_repository.dart';
 import 'package:mani/core/di/injection_container.dart';
+import 'package:mani/features/auth/presentation/bloc/auth_cubit.dart';
 
 /// Pantalla independiente de Registro para Clientes de MANI Web.
 /// - Formulario enfocado y sin fricción para el hogar.
 /// - Asignación automática de empresa (sin selector para el cliente).
 /// - Enrutamiento independiente sin navegación cruzada con Aliado.
-class RegistroClientePage extends StatefulWidget {
+class RegistroClientePage extends StatelessWidget {
   const RegistroClientePage({super.key});
 
   @override
-  State<RegistroClientePage> createState() => _RegistroClientePageState();
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => sl<AuthCubit>(),
+      child: const _RegistroClienteView(),
+    );
+  }
 }
 
-class _RegistroClientePageState extends State<RegistroClientePage> {
+class _RegistroClienteView extends StatefulWidget {
+  const _RegistroClienteView();
+
+  @override
+  State<_RegistroClienteView> createState() => _RegistroClienteViewState();
+}
+
+class _RegistroClienteViewState extends State<_RegistroClienteView> {
   final _formKey = GlobalKey<FormState>();
-  final _authRepo = sl<IAuthRepository>();
 
   // Controladores de Cliente
   final _nombreController = TextEditingController();
@@ -29,7 +40,6 @@ class _RegistroClientePageState extends State<RegistroClientePage> {
   final _passwordController = TextEditingController();
 
   bool _showPassword = false;
-  bool _isLoading = false;
 
   // Tenant por defecto para el cliente (asignado internamente sin selector)
   static const String _defaultTenantId = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11';
@@ -44,32 +54,17 @@ class _RegistroClientePageState extends State<RegistroClientePage> {
     super.dispose();
   }
 
-  Future<void> _handleRegistro() async {
+  void _handleRegistro() {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
-    setState(() => _isLoading = true);
-
-    try {
-      await _authRepo.registrarClientePersonaNatural(
-        email: _emailController.text,
-        password: _passwordController.text,
-        nombreCompleto: _nombreController.text,
-        tenantId: _defaultTenantId,
-        telefono: _telefonoController.text,
-        direccionHogar: _direccionHogarController.text,
-      );
-
-      if (!mounted) return;
-      _mostrarExitoClienteDialog();
-    } on AuthException catch (e) {
-      if (!mounted) return;
-      _showNotification('Error en autenticación: ${e.message}');
-    } catch (e) {
-      if (!mounted) return;
-      _showNotification('Error en registro: $e');
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
+    context.read<AuthCubit>().registerCliente(
+      email: _emailController.text,
+      password: _passwordController.text,
+      nombreCompleto: _nombreController.text,
+      tenantId: _defaultTenantId,
+      telefono: _telefonoController.text,
+      direccionHogar: _direccionHogarController.text,
+    );
   }
 
   void _mostrarExitoClienteDialog() {
@@ -213,78 +208,91 @@ class _RegistroClientePageState extends State<RegistroClientePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.background,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // ── Top Navigation Bar ─────────────────────────────────────────
-            _buildTopNavBar(),
+    return BlocConsumer<AuthCubit, AuthState>(
+      listener: (context, state) {
+        if (state is AuthRegistrationSuccess) {
+          _mostrarExitoClienteDialog();
+        } else if (state is AuthError) {
+          _showNotification(state.message);
+        }
+      },
+      builder: (context, state) {
+        final isLoading = state is AuthLoading;
+        return Scaffold(
+          backgroundColor: AppTheme.background,
+          body: SafeArea(
+            child: Column(
+              children: [
+                // ── Top Navigation Bar ─────────────────────────────────────
+                _buildTopNavBar(),
 
-            // ── Contenido Principal ────────────────────────────────────────
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 36,
-                  vertical: 24,
-                ),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 1200),
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          // Banner Hero de Cliente
-                          _buildHeroBanner(),
-                          const SizedBox(height: 28),
+                // ── Contenido Principal ──────────────────────────────────
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 36,
+                      vertical: 24,
+                    ),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 1200),
+                        child: Form(
+                          key: _formKey,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              // Banner Hero de Cliente
+                              _buildHeroBanner(),
+                              const SizedBox(height: 28),
 
-                          // Layout en 2 columnas Web
-                          LayoutBuilder(
-                            builder: (context, constraints) {
-                              final isDesktop = constraints.maxWidth >= 850;
-                              if (isDesktop) {
-                                return Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Expanded(
-                                      flex: 5,
-                                      child: _buildLeftColumn(),
-                                    ),
-                                    const SizedBox(width: 28),
-                                    Expanded(
-                                      flex: 5,
-                                      child: _buildRightColumn(),
-                                    ),
-                                  ],
-                                );
-                              } else {
-                                return Column(
-                                  children: [
-                                    _buildLeftColumn(),
-                                    const SizedBox(height: 24),
-                                    _buildRightColumn(),
-                                  ],
-                                );
-                              }
-                            },
+                              // Layout en 2 columnas Web
+                              LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final isDesktop = constraints.maxWidth >= 850;
+                                  if (isDesktop) {
+                                    return Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Expanded(
+                                          flex: 5,
+                                          child: _buildLeftColumn(),
+                                        ),
+                                        const SizedBox(width: 28),
+                                        Expanded(
+                                          flex: 5,
+                                          child: _buildRightColumn(),
+                                        ),
+                                      ],
+                                    );
+                                  } else {
+                                    return Column(
+                                      children: [
+                                        _buildLeftColumn(),
+                                        const SizedBox(height: 24),
+                                        _buildRightColumn(),
+                                      ],
+                                    );
+                                  }
+                                },
+                              ),
+                              const SizedBox(height: 32),
+
+                              // Barra de acción inferior
+                              _buildBottomAction(isLoading),
+                              const SizedBox(height: 40),
+                            ],
                           ),
-                          const SizedBox(height: 32),
-
-                          // Barra de acción inferior
-                          _buildBottomAction(),
-                          const SizedBox(height: 40),
-                        ],
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -662,7 +670,7 @@ class _RegistroClientePageState extends State<RegistroClientePage> {
   }
 
   // ── Botón Inferior ─────────────────────────────────────────────────────────
-  Widget _buildBottomAction() {
+  Widget _buildBottomAction(bool isLoading) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -708,16 +716,16 @@ class _RegistroClientePageState extends State<RegistroClientePage> {
             width: 320,
             height: 52,
             child: GestureDetector(
-              onTap: _isLoading ? null : _handleRegistro,
+              onTap: isLoading ? null : _handleRegistro,
               child: Container(
                 decoration: BoxDecoration(
-                  color: _isLoading ? AppTheme.textTertiary : AppTheme.primary,
+                  color: isLoading ? AppTheme.textTertiary : AppTheme.primary,
                   borderRadius: BorderRadius.circular(AppTheme.radiusXl),
                   border: Border.all(color: AppTheme.dark, width: 2),
-                  boxShadow: _isLoading ? [] : const [AppTheme.hardShadowSm],
+                  boxShadow: isLoading ? [] : const [AppTheme.hardShadowSm],
                 ),
                 alignment: Alignment.center,
-                child: _isLoading
+                child: isLoading
                     ? const SizedBox(
                         height: 22,
                         width: 22,

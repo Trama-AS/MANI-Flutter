@@ -1,25 +1,36 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:mani/core/theme/app_theme.dart';
-import 'package:mani/features/auth/domain/repositories/i_auth_repository.dart';
 import 'package:mani/core/di/injection_container.dart';
+import 'package:mani/features/auth/presentation/bloc/auth_cubit.dart';
 
 /// Pantalla independiente de Registro para Aliados Técnicos de MANI Web.
 /// - Formulario con selección de especialidad técnica y validación KYC.
 /// - Enrutamiento independiente sin navegación cruzada con Cliente.
-class RegistroAliadoPage extends StatefulWidget {
+class RegistroAliadoPage extends StatelessWidget {
   const RegistroAliadoPage({super.key});
 
   @override
-  State<RegistroAliadoPage> createState() => _RegistroAliadoPageState();
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => sl<AuthCubit>(),
+      child: const _RegistroAliadoView(),
+    );
+  }
 }
 
-class _RegistroAliadoPageState extends State<RegistroAliadoPage> {
+class _RegistroAliadoView extends StatefulWidget {
+  const _RegistroAliadoView();
+
+  @override
+  State<_RegistroAliadoView> createState() => _RegistroAliadoViewState();
+}
+
+class _RegistroAliadoViewState extends State<_RegistroAliadoView> {
   final _formKey = GlobalKey<FormState>();
-  final _authRepo = sl<IAuthRepository>();
 
   // Controladores
   final _nombreController = TextEditingController();
@@ -27,7 +38,6 @@ class _RegistroAliadoPageState extends State<RegistroAliadoPage> {
   final _passwordController = TextEditingController();
 
   bool _showPassword = false;
-  bool _isLoading = false;
 
   // Tenant seleccionado
   String _selectedTenantId = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11';
@@ -78,7 +88,7 @@ class _RegistroAliadoPageState extends State<RegistroAliadoPage> {
     }
   }
 
-  Future<void> _handleRegistro() async {
+  void _handleRegistro() {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
     if (_cedulaFile == null) {
@@ -88,41 +98,26 @@ class _RegistroAliadoPageState extends State<RegistroAliadoPage> {
       return;
     }
 
-    setState(() => _isLoading = true);
-
-    try {
-      final documentos = <Map<String, String>>[
+    final documentos = <Map<String, String>>[
+      {
+        'tipo_documento': 'CEDULA_CIUDADANIA',
+        'ruta_storage': 'kyc/$_selectedTenantId/cedula_${_cedulaFile!.name}',
+      },
+      if (_rutFile != null)
         {
-          'tipo_documento': 'CEDULA_CIUDADANIA',
-          'ruta_storage': 'kyc/$_selectedTenantId/cedula_${_cedulaFile!.name}',
+          'tipo_documento': 'RUT_CERTIFICADO',
+          'ruta_storage': 'kyc/$_selectedTenantId/rut_${_rutFile!.name}',
         },
-        if (_rutFile != null)
-          {
-            'tipo_documento': 'RUT_CERTIFICADO',
-            'ruta_storage': 'kyc/$_selectedTenantId/rut_${_rutFile!.name}',
-          },
-      ];
+    ];
 
-      await _authRepo.registrarAliadoPersonaNatural(
-        email: _emailController.text,
-        password: _passwordController.text,
-        nombreCompleto: _nombreController.text,
-        tenantId: _selectedTenantId,
-        categoriaId: _selectedCategoriaId,
-        documentosKYC: documentos,
-      );
-
-      if (!mounted) return;
-      _mostrarExitoAliadoDialog();
-    } on AuthException catch (e) {
-      if (!mounted) return;
-      _showNotification('Error en autenticación: ${e.message}');
-    } catch (e) {
-      if (!mounted) return;
-      _showNotification('Error en registro: $e');
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
+    context.read<AuthCubit>().registerAliado(
+      email: _emailController.text,
+      password: _passwordController.text,
+      nombreCompleto: _nombreController.text,
+      tenantId: _selectedTenantId,
+      categoriaId: _selectedCategoriaId,
+      documentosKYC: documentos,
+    );
   }
 
   void _mostrarExitoAliadoDialog() {
@@ -266,78 +261,91 @@ class _RegistroAliadoPageState extends State<RegistroAliadoPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.background,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // ── Top Navigation Bar ─────────────────────────────────────────
-            _buildTopNavBar(),
+    return BlocConsumer<AuthCubit, AuthState>(
+      listener: (context, state) {
+        if (state is AuthRegistrationSuccess) {
+          _mostrarExitoAliadoDialog();
+        } else if (state is AuthError) {
+          _showNotification(state.message);
+        }
+      },
+      builder: (context, state) {
+        final isLoading = state is AuthLoading;
+        return Scaffold(
+          backgroundColor: AppTheme.background,
+          body: SafeArea(
+            child: Column(
+              children: [
+                // ── Top Navigation Bar ─────────────────────────────────────
+                _buildTopNavBar(),
 
-            // ── Contenido Principal ────────────────────────────────────────
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 36,
-                  vertical: 24,
-                ),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 1200),
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          // Banner Hero de Aliado
-                          _buildHeroBanner(),
-                          const SizedBox(height: 28),
+                // ── Contenido Principal ──────────────────────────────────
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 36,
+                      vertical: 24,
+                    ),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 1200),
+                        child: Form(
+                          key: _formKey,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              // Banner Hero de Aliado
+                              _buildHeroBanner(),
+                              const SizedBox(height: 28),
 
-                          // Layout en 2 columnas Web
-                          LayoutBuilder(
-                            builder: (context, constraints) {
-                              final isDesktop = constraints.maxWidth >= 850;
-                              if (isDesktop) {
-                                return Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Expanded(
-                                      flex: 5,
-                                      child: _buildLeftColumn(),
-                                    ),
-                                    const SizedBox(width: 28),
-                                    Expanded(
-                                      flex: 5,
-                                      child: _buildRightColumn(),
-                                    ),
-                                  ],
-                                );
-                              } else {
-                                return Column(
-                                  children: [
-                                    _buildLeftColumn(),
-                                    const SizedBox(height: 24),
-                                    _buildRightColumn(),
-                                  ],
-                                );
-                              }
-                            },
+                              // Layout en 2 columnas Web
+                              LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final isDesktop = constraints.maxWidth >= 850;
+                                  if (isDesktop) {
+                                    return Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Expanded(
+                                          flex: 5,
+                                          child: _buildLeftColumn(),
+                                        ),
+                                        const SizedBox(width: 28),
+                                        Expanded(
+                                          flex: 5,
+                                          child: _buildRightColumn(),
+                                        ),
+                                      ],
+                                    );
+                                  } else {
+                                    return Column(
+                                      children: [
+                                        _buildLeftColumn(),
+                                        const SizedBox(height: 24),
+                                        _buildRightColumn(),
+                                      ],
+                                    );
+                                  }
+                                },
+                              ),
+                              const SizedBox(height: 32),
+
+                              // Barra de acción inferior
+                              _buildBottomAction(isLoading),
+                              const SizedBox(height: 40),
+                            ],
                           ),
-                          const SizedBox(height: 32),
-
-                          // Barra de acción inferior
-                          _buildBottomAction(),
-                          const SizedBox(height: 40),
-                        ],
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -663,7 +671,7 @@ class _RegistroAliadoPageState extends State<RegistroAliadoPage> {
   }
 
   // ── Botón Inferior ─────────────────────────────────────────────────────────
-  Widget _buildBottomAction() {
+  Widget _buildBottomAction(bool isLoading) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -709,16 +717,16 @@ class _RegistroAliadoPageState extends State<RegistroAliadoPage> {
             width: 320,
             height: 52,
             child: GestureDetector(
-              onTap: _isLoading ? null : _handleRegistro,
+              onTap: isLoading ? null : _handleRegistro,
               child: Container(
                 decoration: BoxDecoration(
-                  color: _isLoading ? AppTheme.textTertiary : AppTheme.primary,
+                  color: isLoading ? AppTheme.textTertiary : AppTheme.primary,
                   borderRadius: BorderRadius.circular(AppTheme.radiusXl),
                   border: Border.all(color: AppTheme.dark, width: 2),
-                  boxShadow: _isLoading ? [] : const [AppTheme.hardShadowSm],
+                  boxShadow: isLoading ? [] : const [AppTheme.hardShadowSm],
                 ),
                 alignment: Alignment.center,
-                child: _isLoading
+                child: isLoading
                     ? const SizedBox(
                         height: 22,
                         width: 22,

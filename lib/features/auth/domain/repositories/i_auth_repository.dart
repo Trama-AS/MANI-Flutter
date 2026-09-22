@@ -1,8 +1,11 @@
 import 'package:mani/features/auth/domain/entities/user_entity.dart';
 
 abstract class IAuthRepository {
-  Future<UserEntity> signInWithEmail({required String email, required String password});
-  
+  Future<UserEntity> signInWithEmail({
+    required String email,
+    required String password,
+  });
+
   Future<Map<String, dynamic>> registrarClientePersonaNatural({
     required String email,
     required String password,
@@ -33,6 +36,6 @@ abstract class IAuthRepository {
     String? categoriaId,
     required List<Map<String, String>> documentosKYC,
   });
-  
+
   Future<void> signOut();
 }

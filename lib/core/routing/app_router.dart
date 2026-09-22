@@ -1,16 +1,67 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:mani/features/auth/presentation/pages/login_page.dart';
 import 'package:mani/features/auth/presentation/pages/registro_cliente_page.dart';
 import 'package:mani/features/auth/presentation/pages/registro_aliado_page.dart';
 import 'package:mani/features/auth/presentation/pages/registro_aliado_empresa_page.dart';
+
+/// Notifica a go_router cada vez que cambia el estado de autenticación de
+/// Supabase, para que el `redirect` de abajo se reevalúe automáticamente
+/// (por ejemplo, cuando expira la sesión o el usuario cierra sesión).
+class _AuthChangeNotifier extends ChangeNotifier {
+  late final StreamSubscription<AuthState> _subscription;
+
+  _AuthChangeNotifier() {
+    _subscription = Supabase.instance.client.auth.onAuthStateChange.listen(
+      (_) => notifyListeners(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _subscription.cancel();
+    super.dispose();
+  }
+}
+
+/// Rutas accesibles sin sesión activa (login y los flujos de registro).
+const _publicPaths = {
+  '/login',
+  '/register-cliente',
+  '/register-aliado',
+  '/register-empresa',
+};
+
+bool _isPublicPath(String path) {
+  return _publicPaths.contains(path) ||
+      path == '/register' ||
+      path == '/registro' ||
+      path.startsWith('/registro-');
+}
 
 /// Configuración de rutas declarativas limpias para MANI Web (sin hash #).
 /// - `/login`: Pantalla de inicio de sesión
 /// - `/register-cliente`: Pantalla independiente de registro para clientes (US-02.2.1)
 /// - `/register-aliado`: Pantalla independiente de registro para aliados técnicos (US-02.1.1)
 /// - `/register-empresa`: Pantalla independiente de registro para aliados empresas (US-02.1.2)
+///
+/// El `redirect` protege cualquier ruta que no esté en `_publicPaths`: si no
+/// hay sesión activa en Supabase, el usuario es enviado a `/login`. Al no
+/// existir todavía una pantalla "home" post-login, esto no afecta las rutas
+/// actuales, pero deja el guard listo para cuando se agreguen rutas privadas.
 final appRouter = GoRouter(
   initialLocation: '/login',
+  refreshListenable: _AuthChangeNotifier(),
+  redirect: (context, state) {
+    final isLoggedIn = Supabase.instance.client.auth.currentSession != null;
+    if (!isLoggedIn && !_isPublicPath(state.matchedLocation)) {
+      return '/login';
+    }
+    return null;
+  },
   routes: [
     GoRoute(path: '/', redirect: (context, state) => '/login'),
     GoRoute(
