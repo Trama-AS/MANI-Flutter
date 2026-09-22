@@ -104,7 +104,8 @@ END $$;
 --     un `null` produce NULL, que no es true: cero filas. El usuario
 --     queda autenticado y sin acceso a nada, que es el comportamiento
 --     seguro. La Fase 3 VERIFICA esa propiedad; aqui solo se garantiza
---     que el claim salga presente y nulo, no ausente.
+--     que el claim salga presente y nulo, no ausente. Conseguirlo exige
+--     el `coalesce` de la Parte 1 — ver el comentario de esas lineas.
 --
 --   * Se escriben `tenant_id`, `user_role` Y `rol`. ADR-0018 y las 15
 --     politicas de QA leen `user_role`; el comentario del DDL dice
@@ -151,12 +152,28 @@ BEGIN
     v_claims := jsonb_set(v_claims, '{app_metadata}', '{}'::jsonb);
   END IF;
 
-  -- to_jsonb(NULL::text) da el literal JSON `null`, no SQL NULL: el
-  -- claim queda presente y nulo. Es lo que hace explicito el fail
-  -- closed en vez de dejar la clave ausente.
-  v_claims := jsonb_set(v_claims, '{app_metadata,tenant_id}', to_jsonb(v_tenant::text));
-  v_claims := jsonb_set(v_claims, '{app_metadata,user_role}', to_jsonb(v_rol));
-  v_claims := jsonb_set(v_claims, '{app_metadata,rol}',       to_jsonb(v_rol));
+  -- ⚠️ El `coalesce` NO es decorativo: es lo que hace que el fail closed
+  -- exista. `to_jsonb(NULL::text)` NO devuelve el literal JSON `null`,
+  -- devuelve SQL NULL. Y `jsonb_set(x, path, NULL)` devuelve NULL, que
+  -- se propaga: sin el coalesce, la funcion entera retorna NULL para
+  -- cualquier usuario sin fila o sin tenant, y GoTrue recibe NULL en vez
+  -- de un evento con claims — comportamiento indefinido, no degradado
+  -- seguro.
+  --
+  -- La primera version de este archivo tenia ese error, con un comentario
+  -- que afirmaba lo contrario. Lo atrapo la verificacion V4 al aplicarlo
+  -- en QA el 2026-09-22: V4 devolvio `null` donde esperaba un objeto con
+  -- las tres claves presentes y nulas. Por eso V4 existe.
+  --
+  -- `'null'::jsonb` es el literal JSON null. Asi el claim queda PRESENTE
+  -- y nulo, que contra el predicado de ADR-0018 da NULL, que no es true:
+  -- cero filas.
+  v_claims := jsonb_set(v_claims, '{app_metadata,tenant_id}',
+                        coalesce(to_jsonb(v_tenant::text), 'null'::jsonb));
+  v_claims := jsonb_set(v_claims, '{app_metadata,user_role}',
+                        coalesce(to_jsonb(v_rol), 'null'::jsonb));
+  v_claims := jsonb_set(v_claims, '{app_metadata,rol}',
+                        coalesce(to_jsonb(v_rol), 'null'::jsonb));
 
   RETURN jsonb_set(event, '{claims}', v_claims);
 END;
@@ -261,15 +278,31 @@ COMMIT;
 --          'claims',  jsonb_build_object('role', 'authenticated')
 --        )));
 --
--- V4 — Fail closed contra un user_id inexistente.
---   Esperado: "tenant_id": null y "user_role": null, ambos PRESENTES.
---   Si alguna clave saliera ausente en vez de nula, el fail closed no
---   estaria garantizado y habria que revisar la funcion.
+-- V4 — Fail closed contra un user_id inexistente. LA VERIFICACION CLAVE.
+--   Esperado: "tenant_id": null y "user_role": null, ambos PRESENTES, y
+--   el retorno de la funcion NO nulo.
+--
+--   Esta es la que atrapo el bug de la primera version (ver el comentario
+--   del coalesce en la Parte 1): devolvia NULL entero en vez de claims
+--   nulos. Si alguna clave sale ausente, o si la funcion retorna NULL, el
+--   fail closed no esta garantizado y no se puede seguir a la Fase 3.
 --
 -- SELECT jsonb_pretty(public.custom_access_token_hook(jsonb_build_object(
 --          'user_id', '00000000-0000-4000-8000-000000000000',
 --          'claims',  jsonb_build_object('role', 'authenticated')
 --        )));
+--
+-- V5 — El hook no pisa los claims propios de GoTrue.
+--   La funcion recibe el evento entero y devuelve el evento entero. Si
+--   reconstruyera `claims` en vez de modificarlo, se perderian `sub`,
+--   `aal`, `session_id`, `exp` y demas, y el token saldria invalido o
+--   degradado. Esperado: los tres claims de prueba intactos, mas
+--   app_metadata poblado.
+--
+-- SELECT jsonb_pretty(public.custom_access_token_hook(jsonb_build_object(
+--          'user_id', (SELECT id FROM public.usuario WHERE email = 'aliado.t1@qa.mani.test'),
+--          'claims',  jsonb_build_object('role','authenticated','sub','abc','aal','aal1')
+--        )) -> 'claims');
 
 
 -- =====================================================================
