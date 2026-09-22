@@ -854,7 +854,8 @@
               "mode": "raw",
               "raw": "{\"email\":\"admin.t1@qa.mani.test\",\"password\":\"{{password}}\"}"
             }
-          }
+          },
+          "description": "Preparacion: no cubre criterio por si sola."
         },
         {
           "name": "prep: login admin.t2",
@@ -892,7 +893,8 @@
               "mode": "raw",
               "raw": "{\"email\":\"admin.t2@qa.mani.test\",\"password\":\"{{password}}\"}"
             }
-          }
+          },
+          "description": "Preparacion: no cubre criterio por si sola."
         },
         {
           "name": "prep: login cliente.t1",
@@ -930,7 +932,8 @@
               "mode": "raw",
               "raw": "{\"email\":\"cliente.t1@qa.mani.test\",\"password\":\"{{password}}\"}"
             }
-          }
+          },
+          "description": "Preparacion: no cubre criterio por si sola."
         },
         {
           "name": "prep: login hook.t1 (segundo aliado del tenant 1)",
@@ -976,11 +979,12 @@
               "mode": "raw",
               "raw": "{\"email\":\"hook.t1@cfg12.mani.test\",\"password\":\"{{password}}\"}"
             }
-          }
+          },
+          "description": "Preparacion: no cubre criterio por si sola."
         },
         {
           "name": "P1 POSITIVO: aliado.t1 descarga su cedula",
-          "description": "Si esto falla, los negativos no significan nada.",
+          "description": "Criterio que cubre: CA-2 de SCRUM-930 — acceso denegado cross-tenant (ADR-0015 caso 6, QS-02). Caso POSITIVO del criterio (DoR punto 7).\n\nSi esto falla, los negativos no significan nada.",
           "event": [
             {
               "listen": "test",
@@ -1010,7 +1014,7 @@
         },
         {
           "name": "P1b POSITIVO: aliado.t1 firma su cedula (TTL 60 s)",
-          "description": "La URL queda en una variable para C1 y N9. No se imprime.",
+          "description": "Criterio que cubre: CA-2 de SCRUM-930 — acceso denegado cross-tenant (ADR-0015 caso 6, QS-02). Caso POSITIVO del criterio (DoR punto 7).\n\nLa URL queda en una variable para C1 y N9. No se imprime.",
           "event": [
             {
               "listen": "test",
@@ -1050,7 +1054,7 @@
         },
         {
           "name": "P2 POSITIVO: admin.t1 descarga la cedula de un aliado de su tenant",
-          "description": "admin_tenant lee cualquier carpeta de SU tenant.",
+          "description": "Criterio que cubre: CA-2 de SCRUM-930 — acceso denegado cross-tenant (ADR-0015 caso 6, QS-02). Caso POSITIVO del criterio (DoR punto 7).\n\nadmin_tenant lee cualquier carpeta de SU tenant.",
           "event": [
             {
               "listen": "test",
@@ -1080,7 +1084,7 @@
         },
         {
           "name": "P2b POSITIVO: admin.t1 firma la cedula del aliado",
-          "description": null,
+          "description": "Criterio que cubre: CA-2 de SCRUM-930 — acceso denegado cross-tenant (ADR-0015 caso 6, QS-02). Caso POSITIVO del criterio (DoR punto 7).",
           "event": [
             {
               "listen": "test",
@@ -1117,7 +1121,7 @@
         },
         {
           "name": "P3 POSITIVO: aliado.t1 lista su carpeta",
-          "description": null,
+          "description": "Criterio que cubre: CA-2 de SCRUM-930 — acceso denegado cross-tenant (ADR-0015 caso 6, QS-02). Caso POSITIVO del criterio (DoR punto 7).",
           "event": [
             {
               "listen": "test",
@@ -1157,7 +1161,7 @@
         },
         {
           "name": "N1 negativo: aliado.t2 intenta firmar la cedula del tenant 1",
-          "description": "La emision SI pasa por RLS: aqui es donde se niega el acceso cross-tenant a la URL firmada.",
+          "description": "Criterio que cubre: CA-2 de SCRUM-930 — acceso denegado cross-tenant (ADR-0015 caso 6, QS-02). Caso negativo que intenta violar la regla explicitamente (DoR punto 7).\n\nLa emision SI pasa por RLS: aqui es donde se niega el acceso cross-tenant a la URL firmada.",
           "event": [
             {
               "listen": "test",
@@ -1200,7 +1204,7 @@
         },
         {
           "name": "N1b negativo: admin.t2 intenta firmar la cedula del tenant 1",
-          "description": "admin_tenant solo vale en SU tenant.",
+          "description": "Criterio que cubre: CA-2 de SCRUM-930 — acceso denegado cross-tenant (ADR-0015 caso 6, QS-02). Caso negativo que intenta violar la regla explicitamente (DoR punto 7).\n\nadmin_tenant solo vale en SU tenant.",
           "event": [
             {
               "listen": "test",
@@ -1243,7 +1247,7 @@
         },
         {
           "name": "N2 negativo: aliado.t2 descarga autenticada de la cedula del tenant 1",
-          "description": null,
+          "description": "Criterio que cubre: CA-2 de SCRUM-930 — acceso denegado cross-tenant (ADR-0015 caso 6, QS-02). Caso negativo que intenta violar la regla explicitamente (DoR punto 7).",
           "event": [
             {
               "listen": "test",
@@ -1278,7 +1282,7 @@
         },
         {
           "name": "N2b negativo: admin.t2 descarga autenticada de la cedula del tenant 1",
-          "description": null,
+          "description": "Criterio que cubre: CA-2 de SCRUM-930 — acceso denegado cross-tenant (ADR-0015 caso 6, QS-02). Caso negativo que intenta violar la regla explicitamente (DoR punto 7).",
           "event": [
             {
               "listen": "test",
@@ -1313,7 +1317,7 @@
         },
         {
           "name": "N3 negativo: aliado.t2 lista la carpeta de aliado.t1",
-          "description": null,
+          "description": "Criterio que cubre: CA-2 de SCRUM-930 — acceso denegado cross-tenant (ADR-0015 caso 6, QS-02). Caso negativo que intenta violar la regla explicitamente (DoR punto 7).",
           "event": [
             {
               "listen": "test",
@@ -1352,7 +1356,7 @@
         },
         {
           "name": "N3b negativo: admin.t2 lista el tenant 1 completo",
-          "description": null,
+          "description": "Criterio que cubre: CA-2 de SCRUM-930 — acceso denegado cross-tenant (ADR-0015 caso 6, QS-02). Caso negativo que intenta violar la regla explicitamente (DoR punto 7).",
           "event": [
             {
               "listen": "test",
@@ -1391,7 +1395,7 @@
         },
         {
           "name": "N4 negativo: aliado.t2 sube a la carpeta de aliado.t1",
-          "description": null,
+          "description": "Criterio que cubre: CA-2 de SCRUM-930 — acceso denegado cross-tenant (ADR-0015 caso 6, QS-02). Caso negativo que intenta violar la regla explicitamente (DoR punto 7).",
           "event": [
             {
               "listen": "test",
@@ -1438,7 +1442,7 @@
         },
         {
           "name": "N5 negativo: aliado.t2 sube con SU uid pero bajo el tenant 1",
-          "description": "Ataca el primer segmento: la ruta la arma el cliente, el tenant lo pone el JWT.",
+          "description": "Criterio que cubre: CA-2 de SCRUM-930 — acceso denegado cross-tenant (ADR-0015 caso 6, QS-02). Caso negativo que intenta violar la regla explicitamente (DoR punto 7).\n\nAtaca el primer segmento: la ruta la arma el cliente, el tenant lo pone el JWT.",
           "event": [
             {
               "listen": "test",
@@ -1485,7 +1489,7 @@
         },
         {
           "name": "N6 negativo: hook.t1 (otro aliado, mismo tenant) descarga la cedula de aliado.t1",
-          "description": "Bug previsible B-02.1.1.",
+          "description": "Criterio que cubre: aislamiento entre usuarios del MISMO tenant (ADR-0013 contexto, bug previsible B-02.1.1). Caso negativo que intenta violar la regla (DoR punto 7).\n\nBug previsible B-02.1.1.",
           "event": [
             {
               "listen": "test",
@@ -1520,7 +1524,7 @@
         },
         {
           "name": "N6b negativo: hook.t1 intenta firmar la cedula de aliado.t1",
-          "description": null,
+          "description": "Criterio que cubre: aislamiento entre usuarios del MISMO tenant (ADR-0013 contexto, bug previsible B-02.1.1). Caso negativo que intenta violar la regla (DoR punto 7).",
           "event": [
             {
               "listen": "test",
@@ -1563,7 +1567,7 @@
         },
         {
           "name": "N6c negativo: hook.t1 sube a la carpeta de aliado.t1",
-          "description": null,
+          "description": "Criterio que cubre: aislamiento entre usuarios del MISMO tenant (ADR-0013 contexto, bug previsible B-02.1.1). Caso negativo que intenta violar la regla (DoR punto 7).",
           "event": [
             {
               "listen": "test",
@@ -1610,7 +1614,7 @@
         },
         {
           "name": "N6d POSITIVO: hook.t1 sube a SU carpeta",
-          "description": "Espejo de N6-N6c: hook.t1 no esta simplemente roto.",
+          "description": "Criterio que cubre: aislamiento entre usuarios del MISMO tenant (ADR-0013 contexto, B-02.1.1). Caso POSITIVO del criterio (DoR punto 7).\n\nEspejo de N6-N6c: hook.t1 no esta simplemente roto.",
           "event": [
             {
               "listen": "test",
@@ -1655,7 +1659,7 @@
         },
         {
           "name": "N7 negativo: cliente.t1 descarga la cedula de un aliado de su tenant",
-          "description": null,
+          "description": "Criterio que cubre: aislamiento entre usuarios del MISMO tenant (ADR-0013 contexto, bug previsible B-02.1.1). Caso negativo que intenta violar la regla (DoR punto 7).",
           "event": [
             {
               "listen": "test",
@@ -1690,7 +1694,7 @@
         },
         {
           "name": "N8 negativo: anonimo (solo anon key) descarga autenticada",
-          "description": null,
+          "description": "Criterio que cubre: CA-2 de SCRUM-930 — acceso denegado cross-tenant (ADR-0015 caso 6, QS-02). Caso negativo que intenta violar la regla explicitamente (DoR punto 7).",
           "event": [
             {
               "listen": "test",
@@ -1725,7 +1729,7 @@
         },
         {
           "name": "N8b negativo: ruta publica del bucket privado",
-          "description": "Sin cabeceras. El bucket es privado: /object/public no debe servirlo.",
+          "description": "Criterio que cubre: CA-2 de SCRUM-930 — acceso denegado cross-tenant (ADR-0015 caso 6, QS-02). Caso negativo que intenta violar la regla explicitamente (DoR punto 7).\n\nSin cabeceras. El bucket es privado: /object/public no debe servirlo.",
           "event": [
             {
               "listen": "test",
@@ -1751,7 +1755,7 @@
         },
         {
           "name": "N9 negativo: token firmado de la cedula t1 reusado sobre la cedula t2",
-          "description": "El token de la URL firmada fija la ruta: cambiarla invalida la firma.",
+          "description": "Criterio que cubre: CA-2 de SCRUM-930 — acceso denegado cross-tenant (ADR-0015 caso 6, QS-02). Caso negativo que intenta violar la regla explicitamente (DoR punto 7).\n\nEl token de la URL firmada fija la ruta: cambiarla invalida la firma.",
           "event": [
             {
               "listen": "prerequest",
@@ -1819,11 +1823,12 @@
             "method": "GET",
             "header": [],
             "url": "{{url_n9b}}"
-          }
+          },
+          "description": "Criterio que cubre: CA-2 de SCRUM-930 — acceso denegado cross-tenant (ADR-0015 caso 6, QS-02). Caso negativo que intenta violar la regla explicitamente (DoR punto 7)."
         },
         {
           "name": "N10 prep: aliado.t1 firma con TTL de 2 s",
-          "description": null,
+          "description": "Preparacion: no cubre criterio por si sola.",
           "event": [
             {
               "listen": "test",
@@ -1861,7 +1866,7 @@
         },
         {
           "name": "N10 negativo: URL firmada despues de su TTL",
-          "description": "Espera 5 s (TTL 2 s + margen de reloj) antes de pedirla.",
+          "description": "Criterio que cubre: CA-2 de SCRUM-930 — acceso denegado cross-tenant (ADR-0015 caso 6, QS-02). Caso negativo que intenta violar la regla explicitamente (DoR punto 7).\n\nEspera 5 s (TTL 2 s + margen de reloj) antes de pedirla.",
           "event": [
             {
               "listen": "prerequest",
@@ -1896,7 +1901,7 @@
         },
         {
           "name": "N11 negativo: aliado.t1 sube a <tenant>/<aliado.id>/ como dice el texto de ADR-0013",
-          "description": "aliado.id (50000000-...) no es auth.uid() (30000000-...). Si el backend construyera la ruta con aliado.id, el DUEÑO no podria subir ni leer sus documentos. Esto es un hallazgo sobre el ADR, no un caso de aislamiento.",
+          "description": "Criterio que cubre: ninguno de SCRUM-930; verifica la convencion de ruta de ADR-0013 (hallazgo 2, KI-05 del SAD).\n\naliado.id (50000000-...) no es auth.uid() (30000000-...). Si el backend construyera la ruta con aliado.id, el DUEÑO no podria subir ni leer sus documentos. Esto es un hallazgo sobre el ADR, no un caso de aislamiento.",
           "event": [
             {
               "listen": "test",
@@ -1943,7 +1948,7 @@
         },
         {
           "name": "C1 CONTROL POSITIVO ESPERADO: URL firmada de t1 usada sin sesion (como la usaria el tenant 2 si la obtuviera)",
-          "description": "NO es un fallo de aislamiento: es el diseño de las URLs firmadas de Supabase. La URL es una credencial al portador hasta su TTL. Si esto deja de dar 200, cambio el comportamiento de la plataforma y hay que revisar el informe de CFG-13.",
+          "description": "Criterio que cubre: CA-2 de SCRUM-930 — acceso denegado cross-tenant (ADR-0015 caso 6, QS-02). Delimita el alcance del criterio: lo que la politica NO puede denegar.\n\nNO es un fallo de aislamiento: es el diseño de las URLs firmadas de Supabase. La URL es una credencial al portador hasta su TTL. Si esto deja de dar 200, cambio el comportamiento de la plataforma y hay que revisar el informe de CFG-13.",
           "event": [
             {
               "listen": "test",
@@ -1964,7 +1969,7 @@
         },
         {
           "name": "complemento: lectura cruzada de la FILA de documento_kyc",
-          "description": "Aislamiento de la fila en public.documento_kyc. Complementa al objeto en Storage; ya no hace de sustituto del caso 6.",
+          "description": "Criterio que cubre: CA-2 de SCRUM-930, sobre la fila de documento_kyc (ADR-0015 caso 1).\n\nAislamiento de la fila en public.documento_kyc. Complementa al objeto en Storage; ya no hace de sustituto del caso 6.",
           "event": [
             {
               "listen": "test",
@@ -1999,7 +2004,7 @@
         },
         {
           "name": "limpieza: admin.t1 borra los objetos que la suite pudo haber creado",
-          "description": "No es un caso: deja el bucket como lo dejo cargar_kyc.mjs. La cedula de aliado.t1 NO se borra.",
+          "description": "Limpieza: no cubre criterio.\n\nNo es un caso: deja el bucket como lo dejo cargar_kyc.mjs. La cedula de aliado.t1 NO se borra.",
           "event": [
             {
               "listen": "test",
