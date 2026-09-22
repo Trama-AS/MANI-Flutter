@@ -33,13 +33,15 @@ class _ManiButtonState extends State<ManiButton> {
   bool get _habilitado => widget.onPressed != null && !widget.cargando;
 
   (Color fondo, Color texto) get _colores => switch (widget.variante) {
-        ManiButtonVariante.primario => (AppTheme.primary, AppTheme.dark),
-        ManiButtonVariante.peligro => (AppTheme.error, Colors.white),
-        ManiButtonVariante.secundario => (AppTheme.surface, AppTheme.dark),
-      };
+    ManiButtonVariante.primario => (AppTheme.primary, AppTheme.dark),
+    ManiButtonVariante.peligro => (AppTheme.error, Colors.white),
+    ManiButtonVariante.secundario => (AppTheme.surface, AppTheme.dark),
+  };
 
   void _presionar(bool valor) {
-    if (_habilitado && _presionado != valor) setState(() => _presionado = valor);
+    if (_habilitado && _presionado != valor) {
+      setState(() => _presionado = valor);
+    }
   }
 
   @override
@@ -47,10 +49,10 @@ class _ManiButtonState extends State<ManiButton> {
     final (fondo, texto) = _colores;
     final hundido = _presionado || !_habilitado;
     final estilo = Theme.of(context).textTheme.labelLarge?.copyWith(
-          color: texto,
-          fontWeight: FontWeight.w900,
-          letterSpacing: 0.3,
-        );
+      color: texto,
+      fontWeight: FontWeight.w900,
+      letterSpacing: 0.3,
+    );
 
     final contenido = Row(
       mainAxisSize: widget.expandir ? MainAxisSize.max : MainAxisSize.min,
@@ -64,7 +66,13 @@ class _ManiButtonState extends State<ManiButton> {
         else if (widget.icono != null)
           Icon(widget.icono, size: 18, color: texto),
         if (widget.cargando || widget.icono != null) const SizedBox(width: 8),
-        Flexible(child: Text(widget.etiqueta, style: estilo, overflow: TextOverflow.ellipsis)),
+        Flexible(
+          child: Text(
+            widget.etiqueta,
+            style: estilo,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
       ],
     );
 
@@ -80,13 +88,19 @@ class _ManiButtonState extends State<ManiButton> {
         onTapCancel: () => _presionar(false),
         onTap: _habilitado ? widget.onPressed : null,
         child: MouseRegion(
-          cursor: _habilitado ? SystemMouseCursors.click : SystemMouseCursors.forbidden,
+          cursor: _habilitado
+              ? SystemMouseCursors.click
+              : SystemMouseCursors.forbidden,
           child: AnimatedOpacity(
             duration: const Duration(milliseconds: 120),
             opacity: _habilitado || widget.cargando ? 1 : 0.45,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 90),
-              transform: Matrix4.translationValues(hundido ? 3 : 0, hundido ? 3 : 0, 0),
+              transform: Matrix4.translationValues(
+                hundido ? 3 : 0,
+                hundido ? 3 : 0,
+                0,
+              ),
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13),
               decoration: BoxDecoration(
                 color: fondo,

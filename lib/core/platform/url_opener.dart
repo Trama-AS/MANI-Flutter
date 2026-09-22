@@ -10,5 +10,6 @@ class UrlLauncherOpener implements UrlOpener {
   const UrlLauncherOpener();
 
   @override
-  Future<bool> abrir(Uri url) => launchUrl(url, mode: LaunchMode.externalApplication);
+  Future<bool> abrir(Uri url) =>
+      launchUrl(url, mode: LaunchMode.externalApplication);
 }

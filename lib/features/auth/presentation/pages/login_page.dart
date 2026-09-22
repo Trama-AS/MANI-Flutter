@@ -92,6 +92,13 @@ class _LoginViewState extends State<_LoginView> {
       listener: (context, state) {
         if (state is AuthAuthenticated) {
           _showNotification('¡Bienvenido a MANI!', isError: false);
+          // US-02.1.3: el admin del tenant entra directo a su bandeja de
+          // verificación. Si la cuenta no es ADMIN_TENANT, el servidor
+          // responde 403 y la bandeja lo informa; la pestaña no otorga
+          // permisos por sí sola.
+          if (_selectedRole == 'admin') {
+            context.go('/admin/verificacion-aliados');
+          }
         } else if (state is AuthError) {
           _showNotification(state.message);
         }

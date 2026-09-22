@@ -31,8 +31,16 @@ ServidorVerificacionFake _servidorConRegistros() {
       categorias: ['Plomería'],
       fecha: DateTime.now().subtract(const Duration(days: 4)),
       documentos: [
-        (id: 'c-ced', tipo: 'CEDULA_CIUDADANIA', ruta: 'kyc/tenant-a/cedula_carlos.pdf'),
-        (id: 'c-rut', tipo: 'RUT_CERTIFICADO', ruta: 'kyc/tenant-a/rut_carlos.pdf'),
+        (
+          id: 'c-ced',
+          tipo: 'CEDULA_CIUDADANIA',
+          ruta: 'kyc/tenant-a/cedula_carlos.pdf',
+        ),
+        (
+          id: 'c-rut',
+          tipo: 'RUT_CERTIFICADO',
+          ruta: 'kyc/tenant-a/rut_carlos.pdf',
+        ),
       ],
     )
     ..registrarAliado(
@@ -44,9 +52,21 @@ ServidorVerificacionFake _servidorConRegistros() {
       categorias: ['Electricidad'],
       fecha: DateTime.now().subtract(const Duration(days: 1)),
       documentos: [
-        (id: 't-cam', tipo: 'CAMARA_COMERCIO', ruta: 'kyc/tenant-a/camara_tecnisur.pdf'),
-        (id: 't-rut', tipo: 'RUT_EMPRESA', ruta: 'kyc/tenant-a/rut_tecnisur.pdf'),
-        (id: 't-rep', tipo: 'CEDULA_REPRESENTANTE', ruta: 'kyc/tenant-a/rep_tecnisur.png'),
+        (
+          id: 't-cam',
+          tipo: 'CAMARA_COMERCIO',
+          ruta: 'kyc/tenant-a/camara_tecnisur.pdf',
+        ),
+        (
+          id: 't-rut',
+          tipo: 'RUT_EMPRESA',
+          ruta: 'kyc/tenant-a/rut_tecnisur.pdf',
+        ),
+        (
+          id: 't-rep',
+          tipo: 'CEDULA_REPRESENTANTE',
+          ruta: 'kyc/tenant-a/rep_tecnisur.png',
+        ),
       ],
     )
     // Aliado de OTRA franquicia: nunca debe aparecer en la bandeja del tenant A.
@@ -54,7 +74,9 @@ ServidorVerificacionFake _servidorConRegistros() {
       id: 'intruso',
       tenantId: _tenantB,
       nombre: 'Aliado De Otro Tenant',
-      documentos: [(id: 'x', tipo: 'CEDULA_CIUDADANIA', ruta: 'kyc/tenant-b/x.pdf')],
+      documentos: [
+        (id: 'x', tipo: 'CEDULA_CIUDADANIA', ruta: 'kyc/tenant-b/x.pdf'),
+      ],
     );
   s.archivosSubidos.add('kyc/tenant-a/cedula_carlos.pdf');
   return s;
@@ -67,7 +89,10 @@ class _App {
   final FakeUrlOpener opener;
 }
 
-Future<_App> _montarApp(WidgetTester t, ServidorVerificacionFake servidor) async {
+Future<_App> _montarApp(
+  WidgetTester t,
+  ServidorVerificacionFake servidor,
+) async {
   t.view.physicalSize = const Size(1400, 900);
   t.view.devicePixelRatio = 1;
   addTearDown(t.view.reset);
@@ -76,14 +101,22 @@ Future<_App> _montarApp(WidgetTester t, ServidorVerificacionFake servidor) async
   final opener = FakeUrlOpener();
   final repo = VerificacionAliadosRepositoryImpl(
     servidor,
-    logger: StructuredLogger(canal: 'test', sink: (l) => logs.add(jsonDecode(l) as Map<String, dynamic>)),
+    logger: StructuredLogger(
+      canal: 'test',
+      sink: (l) => logs.add(jsonDecode(l) as Map<String, dynamic>),
+    ),
   );
   final cubit = crearCubit(repo, opener: opener);
   addTearDown(cubit.close);
 
-  await t.pumpWidget(MaterialApp(
-    home: BlocProvider.value(value: cubit, child: const BandejaVerificacionPage()),
-  ));
+  await t.pumpWidget(
+    MaterialApp(
+      home: BlocProvider.value(
+        value: cubit,
+        child: const BandejaVerificacionPage(),
+      ),
+    ),
+  );
   await cubit.cargar();
   await t.pumpAndSettle();
   return _App(servidor, logs, opener);
@@ -121,9 +154,17 @@ void main() {
       expect(find.text('Carlos Mendoza'), findsOneWidget);
       expect(find.text('Tecnisur SAS'), findsOneWidget);
       expect(find.text('Aliado De Otro Tenant'), findsNothing);
-      final yCarlos = t.getTopLeft(find.byKey(const ValueKey('card-aliado-carlos'))).dy;
-      final yTecnisur = t.getTopLeft(find.byKey(const ValueKey('card-aliado-tecnisur'))).dy;
-      expect(yCarlos, lessThan(yTecnisur), reason: 'FIFO: quien más espera va primero');
+      final yCarlos = t
+          .getTopLeft(find.byKey(const ValueKey('card-aliado-carlos')))
+          .dy;
+      final yTecnisur = t
+          .getTopLeft(find.byKey(const ValueKey('card-aliado-tecnisur')))
+          .dy;
+      expect(
+        yCarlos,
+        lessThan(yTecnisur),
+        reason: 'FIFO: quien más espera va primero',
+      );
 
       // CA-2: el detalle muestra el perfil con TODOS sus documentos.
       await _abrir(t, 'carlos');
@@ -134,21 +175,31 @@ void main() {
       // CA-3: el admin puede abrir el documento (URL firmada, no pública).
       await t.tap(find.byKey(const ValueKey('ver-doc-c-ced')));
       await t.pumpAndSettle();
-      expect(app.opener.abiertas.single.queryParameters, containsPair('token', 'abc'));
+      expect(
+        app.opener.abiertas.single.queryParameters,
+        containsPair('token', 'abc'),
+      );
 
       // CA-4: aprobar → el aliado queda VERIFICADO, sus documentos también, y
       // se le notifica sin que tenga que preguntar (QS-04).
       await _aprobar(t);
       expect(app.servidor.estadoDe('carlos'), 'VERIFICADO');
-      expect(app.servidor.notificaciones.last, containsPair('decision', 'VERIFICADO'));
-      expect(find.textContaining('Carlos Mendoza fue aprobado'), findsOneWidget);
+      expect(
+        app.servidor.notificaciones.last,
+        containsPair('decision', 'VERIFICADO'),
+      );
+      expect(
+        find.textContaining('Carlos Mendoza fue aprobado'),
+        findsOneWidget,
+      );
 
       // La bandeja avanza sola al siguiente pendiente: Tecnisur (empresa, 3 documentos).
       expect(find.text('Documentos KYC (3)'), findsOneWidget);
 
       // CA-5: rechazar exige motivo; con motivo válido queda RECHAZADO y se
       // notifica al aliado con el motivo.
-      const motivo = 'La cámara de comercio tiene más de 90 días. Carga una vigente.';
+      const motivo =
+          'La cámara de comercio tiene más de 90 días. Carga una vigente.';
       await _rechazar(t, motivo);
       expect(app.servidor.estadoDe('tecnisur'), 'RECHAZADO');
       expect(app.servidor.notificaciones.last, containsPair('motivo', motivo));
@@ -163,11 +214,16 @@ void main() {
       await t.tap(find.byKey(const ValueKey('tab-rechazado')));
       await t.pumpAndSettle();
       await _abrir(t, 'tecnisur');
-      expect(find.byKey(const ValueKey('resultado-verificacion')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('resultado-verificacion')),
+        findsOneWidget,
+      );
       expect(find.text(motivo), findsOneWidget);
 
       // Trazabilidad: un log estructurado por decisión, sin datos personales.
-      final decisiones = app.logs.where((l) => l['event'] == 'US-02.1.3.resolver_verificacion').toList();
+      final decisiones = app.logs
+          .where((l) => l['event'] == 'US-02.1.3.resolver_verificacion')
+          .toList();
       expect(decisiones.map((l) => l['decision']), ['VERIFICADO', 'RECHAZADO']);
       expect(decisiones.every((l) => l['tenant_id'] == _tenantA), isTrue);
       expect(jsonEncode(app.logs), isNot(contains('carlos@correo.com')));
@@ -185,18 +241,40 @@ void main() {
       expect(find.byKey(const ValueKey('btn-aprobar')), findsOneWidget);
 
       // …mientras el admin B lo rechaza desde otro dispositivo.
-      await VerificacionAliadosRepositoryImpl(servidor, logger: StructuredLogger(canal: 'b', sink: (_) {}))
-          .resolver('carlos', DecisionVerificacion.rechazar('Documento ilegible, vuelve a cargarlo.'));
+      await VerificacionAliadosRepositoryImpl(
+        servidor,
+        logger: StructuredLogger(canal: 'b', sink: (_) {}),
+      ).resolver(
+        'carlos',
+        DecisionVerificacion.rechazar('Documento ilegible, vuelve a cargarlo.'),
+      );
 
       // El admin A intenta aprobar: el servidor responde 409.
       await _aprobar(t);
 
-      expect(servidor.estadoDe('carlos'), 'RECHAZADO', reason: 'la decisión de B no se sobrescribe');
-      expect(servidor.notificaciones, hasLength(1), reason: 'el aliado recibe una sola notificación');
-      expect(find.textContaining('Otro administrador ya resolvió'), findsOneWidget);
+      expect(
+        servidor.estadoDe('carlos'),
+        'RECHAZADO',
+        reason: 'la decisión de B no se sobrescribe',
+      );
+      expect(
+        servidor.notificaciones,
+        hasLength(1),
+        reason: 'el aliado recibe una sola notificación',
+      );
+      expect(
+        find.textContaining('Otro administrador ya resolvió'),
+        findsOneWidget,
+      );
       // La pantalla de A se actualiza con el estado real.
-      expect(find.byKey(const ValueKey('resultado-verificacion')), findsOneWidget);
-      expect(find.text('Documento ilegible, vuelve a cargarlo.'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('resultado-verificacion')),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Documento ilegible, vuelve a cargarlo.'),
+        findsOneWidget,
+      );
     },
   );
 
@@ -204,7 +282,10 @@ void main() {
     final servidor = _servidorConRegistros()..rolSesion = 'ALIADO';
     await _montarApp(t, servidor);
 
-    expect(find.text('Solo el administrador del tenant puede verificar aliados.'), findsOneWidget);
+    expect(
+      find.text('Solo el administrador del tenant puede verificar aliados.'),
+      findsOneWidget,
+    );
     expect(find.text('Carlos Mendoza'), findsNothing);
   });
 
@@ -215,7 +296,9 @@ void main() {
     expect(find.textContaining('Tu sesión expiró'), findsOneWidget);
   });
 
-  testWidgets('un documento que no está en Storage muestra un mensaje claro', (t) async {
+  testWidgets('un documento que no está en Storage muestra un mensaje claro', (
+    t,
+  ) async {
     final app = await _montarApp(t, _servidorConRegistros());
 
     await _abrir(t, 'tecnisur');
@@ -223,6 +306,9 @@ void main() {
     await t.pumpAndSettle();
 
     expect(app.opener.abiertas, isEmpty);
-    expect(find.textContaining('No pudimos abrir el documento'), findsOneWidget);
+    expect(
+      find.textContaining('No pudimos abrir el documento'),
+      findsOneWidget,
+    );
   });
 }
