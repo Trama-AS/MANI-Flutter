@@ -44,3 +44,6 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 .env
+
+# Tokens de sesion del harness de CFG-09 (credenciales)
+qa/k6/tokens.json
