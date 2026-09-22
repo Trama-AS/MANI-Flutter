@@ -12,4 +12,3 @@ class AuthFailure implements Exception {
   @override
   String toString() => 'AuthFailure: $message';
 }
-

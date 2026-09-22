@@ -7,8 +7,8 @@ void main() {
   const solicitudId = 'sol-001';
 
   AsignacionRepositoryImpl nuevoRepo() => AsignacionRepositoryImpl(
-        solicitudes: const [SolicitudEntity.pendiente(solicitudId)],
-      );
+    solicitudes: const [SolicitudEntity.pendiente(solicitudId)],
+  );
 
   group('RF-14 · aceptación de solicitud', () {
     test('el primer aliado en aceptar se queda con la solicitud', () async {
@@ -85,8 +85,7 @@ void main() {
         );
 
         final asignaciones = resultados.whereType<SolicitudEntity>().toList();
-        final rechazos =
-            resultados.whereType<SolicitudNoDisponible>().toList();
+        final rechazos = resultados.whereType<SolicitudNoDisponible>().toList();
 
         expect(asignaciones, hasLength(1));
         expect(rechazos, hasLength(aliados.length - 1));

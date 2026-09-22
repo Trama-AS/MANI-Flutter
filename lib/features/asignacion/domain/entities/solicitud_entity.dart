@@ -18,8 +18,8 @@ class SolicitudEntity extends Equatable {
   });
 
   const SolicitudEntity.pendiente(this.id)
-      : estado = EstadoSolicitud.pendiente,
-        aliadoId = null;
+    : estado = EstadoSolicitud.pendiente,
+      aliadoId = null;
 
   final String id;
   final EstadoSolicitud estado;
@@ -27,10 +27,10 @@ class SolicitudEntity extends Equatable {
 
   /// Devuelve una copia de la solicitud asignada al [aliadoId] dado.
   SolicitudEntity asignadaA(String aliadoId) => SolicitudEntity(
-        id: id,
-        estado: EstadoSolicitud.asignada,
-        aliadoId: aliadoId,
-      );
+    id: id,
+    estado: EstadoSolicitud.asignada,
+    aliadoId: aliadoId,
+  );
 
   @override
   List<Object?> get props => [id, estado, aliadoId];

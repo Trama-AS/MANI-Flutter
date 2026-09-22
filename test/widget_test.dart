@@ -15,9 +15,7 @@ void main() {
     // Verificamos que se puede construir un MaterialApp básico sin errores.
     await tester.pumpWidget(
       const MaterialApp(
-        home: Scaffold(
-          body: Center(child: Text('MANI Services')),
-        ),
+        home: Scaffold(body: Center(child: Text('MANI Services'))),
       ),
     );
 

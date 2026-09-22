@@ -1,8 +1,11 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 abstract class IAuthRemoteDataSource {
-  Future<User> signInWithEmail({required String email, required String password});
-  
+  Future<User> signInWithEmail({
+    required String email,
+    required String password,
+  });
+
   Future<Map<String, dynamic>> registrarClientePersonaNatural({
     required String email,
     required String password,
@@ -33,7 +36,7 @@ abstract class IAuthRemoteDataSource {
     String? categoriaId,
     required List<Map<String, String>> documentosKYC,
   });
-  
+
   Future<void> signOut();
 }
 
@@ -43,7 +46,10 @@ class AuthRemoteDataSource implements IAuthRemoteDataSource {
   AuthRemoteDataSource({required this.client});
 
   @override
-  Future<User> signInWithEmail({required String email, required String password}) async {
+  Future<User> signInWithEmail({
+    required String email,
+    required String password,
+  }) async {
     final response = await client.auth.signInWithPassword(
       email: email.trim(),
       password: password,
@@ -82,12 +88,17 @@ class AuthRemoteDataSource implements IAuthRemoteDataSource {
 
     final user = authRes.user;
     if (user == null) {
-      throw const AuthException('No se pudo crear el usuario en Supabase Auth.');
+      throw const AuthException(
+        'No se pudo crear el usuario en Supabase Auth.',
+      );
     }
 
     if (authRes.session == null) {
       try {
-        await client.auth.signInWithPassword(email: cleanEmail, password: password);
+        await client.auth.signInWithPassword(
+          email: cleanEmail,
+          password: password,
+        );
       } catch (_) {}
     }
 
@@ -155,7 +166,7 @@ class AuthRemoteDataSource implements IAuthRemoteDataSource {
 
     final user = authRes.user;
     if (user == null) throw const AuthException('No user created.');
-    
+
     // Simplificado por brevedad (misma logica RPC que original)
     return {
       'success': true,
@@ -193,7 +204,7 @@ class AuthRemoteDataSource implements IAuthRemoteDataSource {
 
     final user = authRes.user;
     if (user == null) throw const AuthException('No user created.');
-    
+
     return {
       'success': true,
       'usuario_id': user.id,

@@ -28,7 +28,12 @@ class _AuthChangeNotifier extends ChangeNotifier {
 }
 
 /// Rutas accesibles sin sesión activa (login y los flujos de registro).
-const _publicPaths = {'/login', '/register-cliente', '/register-aliado', '/register-empresa'};
+const _publicPaths = {
+  '/login',
+  '/register-cliente',
+  '/register-aliado',
+  '/register-empresa',
+};
 
 bool _isPublicPath(String path) {
   return _publicPaths.contains(path) ||

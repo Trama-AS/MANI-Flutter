@@ -5,9 +5,6 @@ class UserModel extends UserEntity {
   const UserModel({required super.id, required super.email});
 
   factory UserModel.fromSupabase(User user) {
-    return UserModel(
-      id: user.id,
-      email: user.email ?? '',
-    );
+    return UserModel(id: user.id, email: user.email ?? '');
   }
 }

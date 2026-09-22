@@ -18,12 +18,12 @@ void main() {
   const solicitudId = 'sol-001';
 
   Widget appPara(IAsignacionRepository repo, String aliadoId) => MaterialApp(
-        home: AceptarSolicitudPage(
-          repository: repo,
-          solicitudId: solicitudId,
-          aliadoId: aliadoId,
-        ),
-      );
+    home: AceptarSolicitudPage(
+      repository: repo,
+      solicitudId: solicitudId,
+      aliadoId: aliadoId,
+    ),
+  );
 
   testWidgets(
     'una solicitud se asigna a un único aliado y el resto ve ya_no_disponible',
