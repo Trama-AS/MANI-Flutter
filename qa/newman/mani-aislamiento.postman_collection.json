@@ -1023,7 +1023,7 @@
                   "pm.test('200', () => pm.response.to.have.status(200));",
                   "const u = pm.response.json().signedURL;",
                   "pm.test('trae signedURL', () => pm.expect(u).to.be.a('string'));",
-                  "pm.collectionVariables.set('firmada_t1', pm.collectionVariables.get('base_url') + '/storage/v1' + u);"
+                  "pm.collectionVariables.set('firmada_t1', pm.variables.get('base_url') + '/storage/v1' + u);"
                 ],
                 "type": "text/javascript"
               }
@@ -1763,7 +1763,7 @@
                 "exec": [
                   "const u = pm.collectionVariables.get('firmada_t1');",
                   "const token = u.split('token=')[1];",
-                  "pm.variables.set('url_n9', pm.collectionVariables.get('base_url') + '/storage/v1/object/sign/kyc-documentos/' + pm.collectionVariables.get('obj_t2') + '?token=' + token);"
+                  "pm.variables.set('url_n9', pm.variables.get('base_url') + '/storage/v1/object/sign/kyc-documentos/' + pm.collectionVariables.get('obj_t2') + '?token=' + token);"
                 ],
                 "type": "text/javascript"
               }
@@ -1835,7 +1835,7 @@
               "script": {
                 "exec": [
                   "pm.test('200', () => pm.response.to.have.status(200));",
-                  "pm.collectionVariables.set('firmada_corta_t1', pm.collectionVariables.get('base_url') + '/storage/v1' + pm.response.json().signedURL);"
+                  "pm.collectionVariables.set('firmada_corta_t1', pm.variables.get('base_url') + '/storage/v1' + pm.response.json().signedURL);"
                 ],
                 "type": "text/javascript"
               }
