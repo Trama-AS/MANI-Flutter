@@ -20,12 +20,42 @@
 -- COMO USARLO
 --   Pegar entero en el SQL Editor, ejecutar, y copiar la celda de salida.
 --
--- TOLERANCIA A AUSENCIAS
---   Cada sub-consulta que toca una tabla opcional esta protegida con
---   to_regclass. Si `schema_migrations`, `documento_kyc` o el esquema
---   `storage` no existen, ese campo sale en null en vez de abortar la
---   consulta entera y dejarnos sin ninguna de las otras respuestas.
+-- TOLERANCIA A AUSENCIAS — leer antes de correr el bloque grande
+--   Postgres resuelve los nombres de relacion al PARSEAR, antes de
+--   evaluar nada. Un `CASE WHEN to_regclass(...) IS NULL THEN NULL ELSE
+--   (SELECT ... FROM esa_tabla) END` NO protege: si la tabla no existe,
+--   la consulta entera falla con 42P01 aunque la rama nunca se ejecute.
+--   Se intento ese patron y fallo asi en la corrida del 2026-09-22.
+--
+--   Por eso primero se corre el SONDEO DE EXISTENCIAS de abajo, que solo
+--   usa to_regclass y nunca nombra una tabla directamente. Con esa salida
+--   se sabe que campos del bloque grande hay que comentar antes de
+--   pegarlo. Resultado en QA el 2026-09-22: existen las 18 tablas de
+--   `public`, `auth.users`, `storage.buckets` y `storage.objects`; NO
+--   existe `public.schema_migrations`, asi que su campo va comentado.
 -- =====================================================================
+
+
+-- ---------------------------------------------------------------------
+-- SONDEO DE EXISTENCIAS — correr esto PRIMERO, solo
+-- ---------------------------------------------------------------------
+SELECT jsonb_pretty(jsonb_build_object(
+  'schema_migrations', to_regclass('public.schema_migrations') IS NOT NULL,
+  'documento_kyc',     to_regclass('public.documento_kyc')     IS NOT NULL,
+  'storage_buckets',   to_regclass('storage.buckets')          IS NOT NULL,
+  'storage_objects',   to_regclass('storage.objects')          IS NOT NULL,
+  'usuario',           to_regclass('public.usuario')           IS NOT NULL,
+  'tenant',            to_regclass('public.tenant')            IS NOT NULL,
+  'auth_users',        to_regclass('auth.users')               IS NOT NULL,
+  'tablas_public',     (SELECT jsonb_agg(c.relname ORDER BY c.relname)
+                          FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+                         WHERE n.nspname = 'public' AND c.relkind = 'r')
+)) AS existencias;
+
+
+-- ---------------------------------------------------------------------
+-- BLOQUE GRANDE — correr despues del sondeo
+-- ---------------------------------------------------------------------
 
 SELECT jsonb_pretty(jsonb_build_object(
 
@@ -139,13 +169,18 @@ SELECT jsonb_pretty(jsonb_build_object(
     SELECT count(*) FROM pg_policies WHERE schemaname = 'public'
   ),
 
-  'b3d_migraciones_aplicadas', (
-    SELECT CASE WHEN to_regclass('public.schema_migrations') IS NULL THEN NULL
-           ELSE (SELECT jsonb_agg(jsonb_build_object(
-                          'version', m.version, 'descripcion', m.description,
-                          'aplicada', m.applied_at) ORDER BY m.version)
-                   FROM public.schema_migrations m) END
-  ),
+  -- b3d_migraciones_aplicadas — COMENTADO: public.schema_migrations no
+  -- existe en QA (sondeo del 2026-09-22). El paso "Apply DB Migrations to
+  -- Supabase QA" que CI agrego en 948bebb la crea con CREATE TABLE IF NOT
+  -- EXISTS en el primer push; que no este significa que ese paso nunca
+  -- corrio contra QA. Descomentar cuando exista.
+  --
+  -- 'b3d_migraciones_aplicadas', (
+  --   SELECT jsonb_agg(jsonb_build_object(
+  --            'version', m.version, 'descripcion', m.description,
+  --            'aplicada', m.applied_at) ORDER BY m.version)
+  --     FROM public.schema_migrations m
+  -- ),
 
   -- D3 — ¿el hook alcanza a leer la tabla?
   'b4a_roles', (
@@ -200,10 +235,9 @@ SELECT jsonb_pretty(jsonb_build_object(
 
   -- D4 — ¿es ejecutable el caso 6 de ADR-0015?
   'b6a_buckets', (
-    SELECT CASE WHEN to_regclass('storage.buckets') IS NULL THEN NULL
-           ELSE (SELECT jsonb_agg(jsonb_build_object(
+    SELECT jsonb_agg(jsonb_build_object(
                           'id', b.id, 'nombre', b.name, 'publico', b.public) ORDER BY b.name)
-                   FROM storage.buckets b) END
+      FROM storage.buckets b
   ),
 
   'b6b_politicas_storage', (
@@ -214,12 +248,11 @@ SELECT jsonb_pretty(jsonb_build_object(
   ),
 
   'b6c_documentos_kyc', (
-    SELECT CASE WHEN to_regclass('public.documento_kyc') IS NULL THEN NULL
-           ELSE (SELECT jsonb_agg(jsonb_build_object(
-                          'tenant_id', d.tenant_id, 'documentos', d.n, 'con_ruta', d.con_ruta))
-                   FROM (SELECT tenant_id, count(*) AS n,
-                                count(*) FILTER (WHERE ruta_storage IS NOT NULL) AS con_ruta
-                           FROM public.documento_kyc GROUP BY tenant_id) d) END
+    SELECT jsonb_agg(jsonb_build_object(
+             'tenant_id', d.tenant_id, 'documentos', d.n, 'con_ruta', d.con_ruta))
+      FROM (SELECT tenant_id, count(*) AS n,
+                   count(*) FILTER (WHERE ruta_storage IS NOT NULL) AS con_ruta
+              FROM public.documento_kyc GROUP BY tenant_id) d
   ),
 
   'b7_extensiones', (
