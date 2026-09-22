@@ -26,7 +26,7 @@ Newman** como evidencia de cierre: un JSON de un script propio no lo es.
 | Archivo | Cubre |
 | --- | --- |
 | `mani-claims.postman_collection.json` | SCRUM-972, SCRUM-973 y la suite anti-spoofing del punto 7 del DoR |
-| `mani-aislamiento.postman_collection.json` | Los 6 casos de acceso cruzado de ADR-0015 (SCRUM-975) |
+| `mani-aislamiento.postman_collection.json` | Los 6 casos de acceso cruzado de ADR-0015 (SCRUM-975). El caso 6, Storage, lo escribio CFG-13 (SCRUM-980) |
 
 `mani-aislamiento` se mantiene aparte a proposito: su vida util excede esta PoC. Es el
 artefacto que el DoR punto 4 y el DoD punto 2 exigen en cada ticket que toque auth, RLS o
@@ -90,6 +90,29 @@ Se compara contra `tenant`, que tiene `lectura_global_tenant USING (true)` y se 
 depender del claim. La asercion real es que el `tenant_id` del token corresponde al tenant
 cuyo `slug` es el esperado.
 
+## Caso 6 — Storage KYC (CFG-13)
+
+Hasta CFG-13 era no ejecutable: QA no tenia buckets. La carpeta `06 caso 6` tenia una
+peticion centinela que fallaba el dia que apareciera uno. CFG-13 aprovisiono el bucket
+(`supabase/poc-cfg13/10_bucket_kyc.sql`) y reemplazo la centinela por el caso real.
+
+Antes de correr la suite: `node qa/storage/cargar_kyc.mjs`, que sube la cedula de cada
+aliado con su propio JWT. Detalle del metodo y de los hallazgos en `qa/storage/README.md`.
+
+| Grupo | Casos |
+| --- | --- |
+| Positivos | P1–P3: el dueño y su `admin_tenant` descargan, firman y listan. N6d: el segundo aliado del tenant sube a su carpeta |
+| Cruce entre tenants | N1–N5: firmar, descargar, listar y subir con aliado y admin del tenant 2 |
+| Mismo tenant (B-02.1.1) | N6–N6c: otro aliado del tenant 1. N7: un cliente del tenant 1 |
+| Sin sesion | N8–N8b: anon key y ruta publica del bucket privado |
+| URL firmada | N9–N9b: token reusado en otra ruta y firma alterada. N10: URL despues de su TTL |
+| Hallazgo sobre ADR-0013 | N11: ruta con `aliado.id`, el dueño queda bloqueado |
+| Control positivo esperado | C1: la URL firmada de t1 se usa sin sesion y **descarga**. Es el diseño de Supabase, no un fallo |
+
+La suite registra en consola el status y el mensaje de cada negativo (`[caso 6] …`). Storage
+no es uniforme: segun la version devuelve 400 con el codigo real en el cuerpo, o 403/404
+directo. La asercion es "no 2xx, sin PDF y sin `signedURL`".
+
 ## Casos que NO son ejecutables, y por que
 
 Se declaran en vez de omitirse, como pide la plantilla de PoC.
@@ -98,10 +121,6 @@ Se declaran en vez de omitirse, como pide la plantilla de PoC.
   existe tabla de membresia: la doble pertenencia no es representable. ADR-0018 ya admite
   como consecuencia negativa que cambiar de tenant exige reexpedir el token; lo que la
   verificacion de terreno agrega es que hoy ese escenario ni siquiera se puede modelar.
-- **Caso 6 de ADR-0015, aislamiento de KYC en Storage.** QA tiene cero buckets y cero
-  politicas sobre `storage.objects`: ADR-0013 no esta implementado. El seed siembra un
-  `documento_kyc` por tenant, lo que habilita probar el aislamiento de la **fila** — util,
-  pero no es el caso 6, que es el del **objeto**.
 - **Token expirado.** Los JWT de QA duran una hora. Probarlo exige esperar o bajar
   temporalmente el TTL del proyecto, que es un cambio de configuracion de autenticacion.
   El vector 1 cubre la mitad del caso 5 de ADR-0015 —token **alterado**— demostrando que
@@ -115,3 +134,5 @@ Se declaran en vez de omitirse, como pide la plantilla de PoC.
 2. `supabase/poc-cfg12/20_seed_identidad.sql` aplicado.
 3. El seed de CFG-04 (`supabase/seed/seed_qa_multitenant.sql`), del que dependen los dos
    tenants y sus datos.
+4. Para el caso 6: `supabase/poc-cfg13/10_bucket_kyc.sql` y `20_seed_storage.sql`
+   aplicados, y `qa/storage/cargar_kyc.mjs` corrido.

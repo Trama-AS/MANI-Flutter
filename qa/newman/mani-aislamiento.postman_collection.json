@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "MANI — ADR-0015 aislamiento multi-tenant",
-    "description": "Los seis casos de prueba de acceso cruzado entre tenants que define ADR-0015, enumerados en Project/Documento_Herramientas_Politicas_Lineamientos_V2.md seccion 4.3.3.\n\nPOR QUE ESTA COLECCION VIVE APARTE DE mani-claims\n  Su vida util excede a CFG-12. Es el artefacto que el DoR punto 4 y el DoD punto 2 exigen en CADA ticket que toque autenticacion, RLS o esquema, y que hasta ahora no existia en ningun repositorio: ambos spikes lo dan por hecho (\"la suite ya definida en ADR-0015\"), pero nadie lo habia escrito.\n\nCADA CASO NEGATIVO TIENE SU ESPEJO POSITIVO\n  SCRUM-1039 encontro QA con RLS habilitado y CERO politicas. En ese estado Postgres niega todo, asi que los seis casos cruzados pasan —nadie accede a nada— y la suite da verde con el aislamiento sin implementar. Los que fallan son los positivos. Sin ellos, un verde no distingue aislamiento correcto de acceso roto. Es ademas el par positivo/negativo que exige el punto 7 del DoR.\n\nSOBRE QUE FILAS SE ESCRIBE Y POR QUE\n  Los casos de escritura y borrado cruzado actuan sobre las filas de documento_kyc que siembra supabase/poc-cfg12/20_seed_identidad.sql, no sobre los datos de CFG-04. Si el aislamiento estuviera roto, el caso destruiria datos reales del seed compartido; acotandolo a filas propias, el peor escenario cuesta volver a correr ese seed.\n\nVARIABLES REQUERIDAS\n  newman run mani-aislamiento.postman_collection.json \\\n    --env-var base_url=$SUPABASE_URL --env-var anon_key=$SUPABASE_ANON_KEY",
+    "description": "Los seis casos de prueba de acceso cruzado entre tenants que define ADR-0015, enumerados en Project/Documento_Herramientas_Politicas_Lineamientos_V2.md seccion 4.3.3.\n\nPOR QUE ESTA COLECCION VIVE APARTE DE mani-claims\n  Su vida util excede a CFG-12. Es el artefacto que el DoR punto 4 y el DoD punto 2 exigen en CADA ticket que toque autenticacion, RLS o esquema, y que hasta ahora no existia en ningun repositorio: ambos spikes lo dan por hecho (\"la suite ya definida en ADR-0015\"), pero nadie lo habia escrito.\n\nCADA CASO NEGATIVO TIENE SU ESPEJO POSITIVO\n  SCRUM-1039 encontro QA con RLS habilitado y CERO politicas. En ese estado Postgres niega todo, asi que los seis casos cruzados pasan —nadie accede a nada— y la suite da verde con el aislamiento sin implementar. Los que fallan son los positivos. Sin ellos, un verde no distingue aislamiento correcto de acceso roto. Es ademas el par positivo/negativo que exige el punto 7 del DoR.\n\nSOBRE QUE FILAS SE ESCRIBE Y POR QUE\n  Los casos de escritura y borrado cruzado actuan sobre las filas de documento_kyc que siembra supabase/poc-cfg12/20_seed_identidad.sql, no sobre los datos de CFG-04. Si el aislamiento estuviera roto, el caso destruiria datos reales del seed compartido; acotandolo a filas propias, el peor escenario cuesta volver a correr ese seed.\n\nCASO 6 (STORAGE)\n  Requiere supabase/poc-cfg13/10_bucket_kyc.sql aplicado y los fixtures de qa/storage/cargar_kyc.mjs.\n\nVARIABLES REQUERIDAS\n  newman run mani-aislamiento.postman_collection.json \\\n    --env-var base_url=$SUPABASE_URL --env-var anon_key=$SUPABASE_ANON_KEY",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -815,24 +815,179 @@
     },
     {
       "name": "06 caso 6 — aislamiento de KYC en Supabase Storage",
-      "description": "NO EJECUTABLE EN QA, y se declara en vez de omitirse.\n\nLa verificacion de terreno de SCRUM-971 encontro cero buckets en storage.buckets y cero politicas sobre storage.objects: ADR-0013 no esta implementado en este ambiente. La primera peticion de esta carpeta lo COMPRUEBA en cada corrida, para que el dia que el bucket exista la suite lo detecte y avise, en vez de seguir declarandolo no ejecutable por inercia.\n\nLa segunda peticion cubre lo que si es ejecutable: el aislamiento de la FILA de documento_kyc. Es el caso 1 aplicado a la tabla mas sensible del modelo, NO un sustituto del caso 6, que es el del objeto en Storage.",
+      "description": "Caso 6 de ADR-0015 sobre el bucket de ADR-0013 (SCRUM-930, CFG-13). Reemplaza la peticion centinela de CFG-12, que verificaba que no hubiera buckets.\n\nOBJETO BAJO PRUEBA: <tenant_t1>/<uid de aliado.t1>/cedula.pdf, subido por qa/storage/cargar_kyc.mjs con el JWT de su dueño. Correr ese script antes de la suite.\n\nCONVENCION DE RUTA: el segundo segmento es auth.uid() (usuario.id), que es lo que compara kyc_isolation. ADR-0013 lo llama aliado_id; N11 demuestra que con aliado.id el propio dueño queda bloqueado.\n\nLO QUE ESTA CARPETA NO PUEDE DENEGAR: una URL firmada ya emitida. La descarga por /object/sign valida el token de la URL, no RLS. C1 lo registra como control positivo esperado. La politica decide quien puede EMITIR la URL (N1, N6b).\n\nCADA NEGATIVO TIENE SU POSITIVO (P1-P3, N6d): Storage con RLS y sin politicas niega todo, y sin positivos un verde no distingue aislamiento de acceso roto.",
       "item": [
         {
-          "name": "verificar si ya existe un bucket de KYC",
-          "description": "Si esto empieza a devolver buckets, hay que escribir el caso 6 de verdad.",
+          "name": "prep: login admin.t1",
           "event": [
             {
               "listen": "test",
               "script": {
                 "exec": [
-                  "pm.test('el caso 6 sigue siendo no ejecutable (0 buckets alcanzables)', () => {",
-                  "  let n = 0;",
-                  "  try { const b = pm.response.json(); n = Array.isArray(b) ? b.length : 0; } catch (e) { n = 0; }",
-                  "  if (n > 0) {",
-                  "    console.log('AVISO: hay ' + n + ' bucket(s). ADR-0013 ya no esta sin implementar: escribir el caso 6 real.');",
-                  "  }",
-                  "  pm.expect(n, \"si esto falla, es una buena noticia: ya hay Storage que aislar\").to.eql(0);",
-                  "});"
+                  "const b64u = s => Buffer.from(String(s).replace(/-/g, \"+\").replace(/_/g, \"/\"), \"base64\").toString(\"utf8\");",
+                  "pm.test('login 200', () => pm.response.to.have.status(200));",
+                  "const tok = pm.response.json().access_token;",
+                  "pm.collectionVariables.set('token_admin_t1', tok);",
+                  "const p = JSON.parse(b64u(tok.split('.')[1]));",
+                  "pm.test('el token trae tenant_id', () => pm.expect(p.app_metadata.tenant_id).to.be.a('string'));",
+                  "pm.test('rol admin_tenant', () => pm.expect(p.app_metadata.user_role).to.eql('admin_tenant'));",
+                  "pm.test('mismo tenant que aliado.t1', () => pm.expect(p.app_metadata.tenant_id).to.eql(pm.collectionVariables.get('token_t1_tenant')));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/auth/v1/token?grant_type=password",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":\"admin.t1@qa.mani.test\",\"password\":\"{{password}}\"}"
+            }
+          }
+        },
+        {
+          "name": "prep: login admin.t2",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const b64u = s => Buffer.from(String(s).replace(/-/g, \"+\").replace(/_/g, \"/\"), \"base64\").toString(\"utf8\");",
+                  "pm.test('login 200', () => pm.response.to.have.status(200));",
+                  "const tok = pm.response.json().access_token;",
+                  "pm.collectionVariables.set('token_admin_t2', tok);",
+                  "const p = JSON.parse(b64u(tok.split('.')[1]));",
+                  "pm.test('el token trae tenant_id', () => pm.expect(p.app_metadata.tenant_id).to.be.a('string'));",
+                  "pm.test('rol admin_tenant', () => pm.expect(p.app_metadata.user_role).to.eql('admin_tenant'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/auth/v1/token?grant_type=password",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":\"admin.t2@qa.mani.test\",\"password\":\"{{password}}\"}"
+            }
+          }
+        },
+        {
+          "name": "prep: login cliente.t1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const b64u = s => Buffer.from(String(s).replace(/-/g, \"+\").replace(/_/g, \"/\"), \"base64\").toString(\"utf8\");",
+                  "pm.test('login 200', () => pm.response.to.have.status(200));",
+                  "const tok = pm.response.json().access_token;",
+                  "pm.collectionVariables.set('token_cliente_t1', tok);",
+                  "const p = JSON.parse(b64u(tok.split('.')[1]));",
+                  "pm.test('el token trae tenant_id', () => pm.expect(p.app_metadata.tenant_id).to.be.a('string'));",
+                  "pm.test('rol cliente', () => pm.expect(p.app_metadata.user_role).to.eql('cliente'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/auth/v1/token?grant_type=password",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":\"cliente.t1@qa.mani.test\",\"password\":\"{{password}}\"}"
+            }
+          }
+        },
+        {
+          "name": "prep: login hook.t1 (segundo aliado del tenant 1)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const b64u = s => Buffer.from(String(s).replace(/-/g, \"+\").replace(/_/g, \"/\"), \"base64\").toString(\"utf8\");",
+                  "pm.test('login 200', () => pm.response.to.have.status(200));",
+                  "const tok = pm.response.json().access_token;",
+                  "pm.collectionVariables.set('token_hook_t1', tok);",
+                  "const p = JSON.parse(b64u(tok.split('.')[1]));",
+                  "pm.collectionVariables.set('sub_hook_t1', p.sub);",
+                  "pm.test('el token trae tenant_id', () => pm.expect(p.app_metadata.tenant_id).to.be.a('string'));",
+                  "pm.test('rol aliado, mismo tenant que aliado.t1 (B-02.1.1)', () => {",
+                  "  pm.expect(p.app_metadata.user_role).to.eql('aliado');",
+                  "  pm.expect(p.app_metadata.tenant_id).to.eql(pm.collectionVariables.get('token_t1_tenant'));",
+                  "  pm.expect(p.sub).to.not.eql(pm.collectionVariables.get('sub_t1'));",
+                  "});",
+                  "const t1 = pm.collectionVariables.get('token_t1_tenant'), t2 = pm.collectionVariables.get('token_t2_tenant');",
+                  "pm.collectionVariables.set('obj_t1', t1 + '/' + pm.collectionVariables.get('sub_t1') + '/cedula.pdf');",
+                  "pm.collectionVariables.set('obj_t2', t2 + '/' + pm.collectionVariables.get('sub_t2') + '/cedula.pdf');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/auth/v1/token?grant_type=password",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":\"hook.t1@cfg12.mani.test\",\"password\":\"{{password}}\"}"
+            }
+          }
+        },
+        {
+          "name": "P1 POSITIVO: aliado.t1 descarga su cedula",
+          "description": "Si esto falla, los negativos no significan nada.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "pm.test('es el PDF', () => pm.expect(pm.response.text().startsWith('%PDF')).to.eql(true));"
                 ],
                 "type": "text/javascript"
               }
@@ -850,12 +1005,966 @@
                 "value": "Bearer {{token_t1}}"
               }
             ],
-            "url": "{{base_url}}/storage/v1/bucket"
+            "url": "{{base_url}}/storage/v1/object/authenticated/kyc-documentos/{{obj_t1}}"
           }
         },
         {
-          "name": "sustituto parcial: lectura cruzada de la FILA de KYC",
-          "description": "Cubre el aislamiento de la fila, no el del objeto.",
+          "name": "P1b POSITIVO: aliado.t1 firma su cedula (TTL 60 s)",
+          "description": "La URL queda en una variable para C1 y N9. No se imprime.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "const u = pm.response.json().signedURL;",
+                  "pm.test('trae signedURL', () => pm.expect(u).to.be.a('string'));",
+                  "pm.collectionVariables.set('firmada_t1', pm.collectionVariables.get('base_url') + '/storage/v1' + u);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_t1}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/storage/v1/object/sign/kyc-documentos/{{obj_t1}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"expiresIn\":60}"
+            }
+          }
+        },
+        {
+          "name": "P2 POSITIVO: admin.t1 descarga la cedula de un aliado de su tenant",
+          "description": "admin_tenant lee cualquier carpeta de SU tenant.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "pm.test('es el PDF', () => pm.expect(pm.response.text().startsWith('%PDF')).to.eql(true));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_admin_t1}}"
+              }
+            ],
+            "url": "{{base_url}}/storage/v1/object/authenticated/kyc-documentos/{{obj_t1}}"
+          }
+        },
+        {
+          "name": "P2b POSITIVO: admin.t1 firma la cedula del aliado",
+          "description": null,
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_admin_t1}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/storage/v1/object/sign/kyc-documentos/{{obj_t1}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"expiresIn\":60}"
+            }
+          }
+        },
+        {
+          "name": "P3 POSITIVO: aliado.t1 lista su carpeta",
+          "description": null,
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 y ve cedula.pdf', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().map(o => o.name)).to.include('cedula.pdf');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_t1}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/storage/v1/object/list/kyc-documentos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"prefix\":\"{{token_t1_tenant}}/{{sub_t1}}\",\"limit\":100}"
+            }
+          }
+        },
+        {
+          "name": "N1 negativo: aliado.t2 intenta firmar la cedula del tenant 1",
+          "description": "La emision SI pasa por RLS: aqui es donde se niega el acceso cross-tenant a la URL firmada.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('firmar cross-tenant: denegado (no 2xx)', () => pm.expect(pm.response.code).to.not.be.within(200, 299));",
+                  "const cuerpo = pm.response.text();",
+                  "pm.test('no se filtra el archivo ni una URL firmada', () => {",
+                  "  pm.expect(cuerpo.startsWith('%PDF'), 'devolvio el PDF').to.eql(false);",
+                  "  pm.expect(cuerpo, 'devolvio una URL firmada').to.not.include('signedURL');",
+                  "});",
+                  "console.log('[caso 6] ' + pm.info.requestName + ' -> ' + pm.response.code + ' ' + cuerpo.slice(0, 160));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_t2}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/storage/v1/object/sign/kyc-documentos/{{obj_t1}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"expiresIn\":60}"
+            }
+          }
+        },
+        {
+          "name": "N1b negativo: admin.t2 intenta firmar la cedula del tenant 1",
+          "description": "admin_tenant solo vale en SU tenant.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('admin ajeno firma: denegado (no 2xx)', () => pm.expect(pm.response.code).to.not.be.within(200, 299));",
+                  "const cuerpo = pm.response.text();",
+                  "pm.test('no se filtra el archivo ni una URL firmada', () => {",
+                  "  pm.expect(cuerpo.startsWith('%PDF'), 'devolvio el PDF').to.eql(false);",
+                  "  pm.expect(cuerpo, 'devolvio una URL firmada').to.not.include('signedURL');",
+                  "});",
+                  "console.log('[caso 6] ' + pm.info.requestName + ' -> ' + pm.response.code + ' ' + cuerpo.slice(0, 160));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_admin_t2}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/storage/v1/object/sign/kyc-documentos/{{obj_t1}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"expiresIn\":60}"
+            }
+          }
+        },
+        {
+          "name": "N2 negativo: aliado.t2 descarga autenticada de la cedula del tenant 1",
+          "description": null,
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('descarga cross-tenant: denegado (no 2xx)', () => pm.expect(pm.response.code).to.not.be.within(200, 299));",
+                  "const cuerpo = pm.response.text();",
+                  "pm.test('no se filtra el archivo ni una URL firmada', () => {",
+                  "  pm.expect(cuerpo.startsWith('%PDF'), 'devolvio el PDF').to.eql(false);",
+                  "  pm.expect(cuerpo, 'devolvio una URL firmada').to.not.include('signedURL');",
+                  "});",
+                  "console.log('[caso 6] ' + pm.info.requestName + ' -> ' + pm.response.code + ' ' + cuerpo.slice(0, 160));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_t2}}"
+              }
+            ],
+            "url": "{{base_url}}/storage/v1/object/authenticated/kyc-documentos/{{obj_t1}}"
+          }
+        },
+        {
+          "name": "N2b negativo: admin.t2 descarga autenticada de la cedula del tenant 1",
+          "description": null,
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('admin ajeno descarga: denegado (no 2xx)', () => pm.expect(pm.response.code).to.not.be.within(200, 299));",
+                  "const cuerpo = pm.response.text();",
+                  "pm.test('no se filtra el archivo ni una URL firmada', () => {",
+                  "  pm.expect(cuerpo.startsWith('%PDF'), 'devolvio el PDF').to.eql(false);",
+                  "  pm.expect(cuerpo, 'devolvio una URL firmada').to.not.include('signedURL');",
+                  "});",
+                  "console.log('[caso 6] ' + pm.info.requestName + ' -> ' + pm.response.code + ' ' + cuerpo.slice(0, 160));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_admin_t2}}"
+              }
+            ],
+            "url": "{{base_url}}/storage/v1/object/authenticated/kyc-documentos/{{obj_t1}}"
+          }
+        },
+        {
+          "name": "N3 negativo: aliado.t2 lista la carpeta de aliado.t1",
+          "description": null,
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('no ve nada del tenant 1', () => {",
+                  "  if (pm.response.code >= 200 && pm.response.code < 300) pm.expect(pm.response.json()).to.have.lengthOf(0);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_t2}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/storage/v1/object/list/kyc-documentos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"prefix\":\"{{token_t1_tenant}}/{{sub_t1}}\",\"limit\":100}"
+            }
+          }
+        },
+        {
+          "name": "N3b negativo: admin.t2 lista el tenant 1 completo",
+          "description": null,
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('no ve nada del tenant 1', () => {",
+                  "  if (pm.response.code >= 200 && pm.response.code < 300) pm.expect(pm.response.json()).to.have.lengthOf(0);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_admin_t2}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/storage/v1/object/list/kyc-documentos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"prefix\":\"{{token_t1_tenant}}\",\"limit\":100}"
+            }
+          }
+        },
+        {
+          "name": "N4 negativo: aliado.t2 sube a la carpeta de aliado.t1",
+          "description": null,
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('subida cross-tenant: denegado (no 2xx)', () => pm.expect(pm.response.code).to.not.be.within(200, 299));",
+                  "const cuerpo = pm.response.text();",
+                  "pm.test('no se filtra el archivo ni una URL firmada', () => {",
+                  "  pm.expect(cuerpo.startsWith('%PDF'), 'devolvio el PDF').to.eql(false);",
+                  "  pm.expect(cuerpo, 'devolvio una URL firmada').to.not.include('signedURL');",
+                  "});",
+                  "console.log('[caso 6] ' + pm.info.requestName + ' -> ' + pm.response.code + ' ' + cuerpo.slice(0, 160));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_t2}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/pdf"
+              },
+              {
+                "key": "x-upsert",
+                "value": "false"
+              }
+            ],
+            "url": "{{base_url}}/storage/v1/object/kyc-documentos/{{token_t1_tenant}}/{{sub_t1}}/intruso-t2.pdf",
+            "body": {
+              "mode": "raw",
+              "raw": "%PDF-1.4\n%MANI CFG-13 intento de escritura de la suite\n%%EOF\n"
+            }
+          }
+        },
+        {
+          "name": "N5 negativo: aliado.t2 sube con SU uid pero bajo el tenant 1",
+          "description": "Ataca el primer segmento: la ruta la arma el cliente, el tenant lo pone el JWT.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('tenant ajeno en la ruta: denegado (no 2xx)', () => pm.expect(pm.response.code).to.not.be.within(200, 299));",
+                  "const cuerpo = pm.response.text();",
+                  "pm.test('no se filtra el archivo ni una URL firmada', () => {",
+                  "  pm.expect(cuerpo.startsWith('%PDF'), 'devolvio el PDF').to.eql(false);",
+                  "  pm.expect(cuerpo, 'devolvio una URL firmada').to.not.include('signedURL');",
+                  "});",
+                  "console.log('[caso 6] ' + pm.info.requestName + ' -> ' + pm.response.code + ' ' + cuerpo.slice(0, 160));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_t2}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/pdf"
+              },
+              {
+                "key": "x-upsert",
+                "value": "false"
+              }
+            ],
+            "url": "{{base_url}}/storage/v1/object/kyc-documentos/{{token_t1_tenant}}/{{sub_t2}}/intruso-t2.pdf",
+            "body": {
+              "mode": "raw",
+              "raw": "%PDF-1.4\n%MANI CFG-13 intento de escritura de la suite\n%%EOF\n"
+            }
+          }
+        },
+        {
+          "name": "N6 negativo: hook.t1 (otro aliado, mismo tenant) descarga la cedula de aliado.t1",
+          "description": "Bug previsible B-02.1.1.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('otro aliado del tenant descarga: denegado (no 2xx)', () => pm.expect(pm.response.code).to.not.be.within(200, 299));",
+                  "const cuerpo = pm.response.text();",
+                  "pm.test('no se filtra el archivo ni una URL firmada', () => {",
+                  "  pm.expect(cuerpo.startsWith('%PDF'), 'devolvio el PDF').to.eql(false);",
+                  "  pm.expect(cuerpo, 'devolvio una URL firmada').to.not.include('signedURL');",
+                  "});",
+                  "console.log('[caso 6] ' + pm.info.requestName + ' -> ' + pm.response.code + ' ' + cuerpo.slice(0, 160));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_hook_t1}}"
+              }
+            ],
+            "url": "{{base_url}}/storage/v1/object/authenticated/kyc-documentos/{{obj_t1}}"
+          }
+        },
+        {
+          "name": "N6b negativo: hook.t1 intenta firmar la cedula de aliado.t1",
+          "description": null,
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('otro aliado del tenant firma: denegado (no 2xx)', () => pm.expect(pm.response.code).to.not.be.within(200, 299));",
+                  "const cuerpo = pm.response.text();",
+                  "pm.test('no se filtra el archivo ni una URL firmada', () => {",
+                  "  pm.expect(cuerpo.startsWith('%PDF'), 'devolvio el PDF').to.eql(false);",
+                  "  pm.expect(cuerpo, 'devolvio una URL firmada').to.not.include('signedURL');",
+                  "});",
+                  "console.log('[caso 6] ' + pm.info.requestName + ' -> ' + pm.response.code + ' ' + cuerpo.slice(0, 160));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_hook_t1}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/storage/v1/object/sign/kyc-documentos/{{obj_t1}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"expiresIn\":60}"
+            }
+          }
+        },
+        {
+          "name": "N6c negativo: hook.t1 sube a la carpeta de aliado.t1",
+          "description": null,
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('otro aliado del tenant sube: denegado (no 2xx)', () => pm.expect(pm.response.code).to.not.be.within(200, 299));",
+                  "const cuerpo = pm.response.text();",
+                  "pm.test('no se filtra el archivo ni una URL firmada', () => {",
+                  "  pm.expect(cuerpo.startsWith('%PDF'), 'devolvio el PDF').to.eql(false);",
+                  "  pm.expect(cuerpo, 'devolvio una URL firmada').to.not.include('signedURL');",
+                  "});",
+                  "console.log('[caso 6] ' + pm.info.requestName + ' -> ' + pm.response.code + ' ' + cuerpo.slice(0, 160));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_hook_t1}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/pdf"
+              },
+              {
+                "key": "x-upsert",
+                "value": "false"
+              }
+            ],
+            "url": "{{base_url}}/storage/v1/object/kyc-documentos/{{token_t1_tenant}}/{{sub_t1}}/intruso-hook.pdf",
+            "body": {
+              "mode": "raw",
+              "raw": "%PDF-1.4\n%MANI CFG-13 intento de escritura de la suite\n%%EOF\n"
+            }
+          }
+        },
+        {
+          "name": "N6d POSITIVO: hook.t1 sube a SU carpeta",
+          "description": "Espejo de N6-N6c: hook.t1 no esta simplemente roto.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('2xx (o 400 duplicado si quedo de una corrida anterior)', () => {",
+                  "  const ok = pm.response.code >= 200 && pm.response.code < 300;",
+                  "  const dup = /already exists|Duplicate/i.test(pm.response.text());",
+                  "  pm.expect(ok || dup, pm.response.text()).to.eql(true);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_hook_t1}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/pdf"
+              },
+              {
+                "key": "x-upsert",
+                "value": "false"
+              }
+            ],
+            "url": "{{base_url}}/storage/v1/object/kyc-documentos/{{token_t1_tenant}}/{{sub_hook_t1}}/cedula.pdf",
+            "body": {
+              "mode": "raw",
+              "raw": "%PDF-1.4\n%MANI CFG-13 intento de escritura de la suite\n%%EOF\n"
+            }
+          }
+        },
+        {
+          "name": "N7 negativo: cliente.t1 descarga la cedula de un aliado de su tenant",
+          "description": null,
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('cliente del tenant descarga: denegado (no 2xx)', () => pm.expect(pm.response.code).to.not.be.within(200, 299));",
+                  "const cuerpo = pm.response.text();",
+                  "pm.test('no se filtra el archivo ni una URL firmada', () => {",
+                  "  pm.expect(cuerpo.startsWith('%PDF'), 'devolvio el PDF').to.eql(false);",
+                  "  pm.expect(cuerpo, 'devolvio una URL firmada').to.not.include('signedURL');",
+                  "});",
+                  "console.log('[caso 6] ' + pm.info.requestName + ' -> ' + pm.response.code + ' ' + cuerpo.slice(0, 160));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_cliente_t1}}"
+              }
+            ],
+            "url": "{{base_url}}/storage/v1/object/authenticated/kyc-documentos/{{obj_t1}}"
+          }
+        },
+        {
+          "name": "N8 negativo: anonimo (solo anon key) descarga autenticada",
+          "description": null,
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('anonimo: denegado (no 2xx)', () => pm.expect(pm.response.code).to.not.be.within(200, 299));",
+                  "const cuerpo = pm.response.text();",
+                  "pm.test('no se filtra el archivo ni una URL firmada', () => {",
+                  "  pm.expect(cuerpo.startsWith('%PDF'), 'devolvio el PDF').to.eql(false);",
+                  "  pm.expect(cuerpo, 'devolvio una URL firmada').to.not.include('signedURL');",
+                  "});",
+                  "console.log('[caso 6] ' + pm.info.requestName + ' -> ' + pm.response.code + ' ' + cuerpo.slice(0, 160));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{anon_key}}"
+              }
+            ],
+            "url": "{{base_url}}/storage/v1/object/authenticated/kyc-documentos/{{obj_t1}}"
+          }
+        },
+        {
+          "name": "N8b negativo: ruta publica del bucket privado",
+          "description": "Sin cabeceras. El bucket es privado: /object/public no debe servirlo.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('ruta publica: denegado (no 2xx)', () => pm.expect(pm.response.code).to.not.be.within(200, 299));",
+                  "const cuerpo = pm.response.text();",
+                  "pm.test('no se filtra el archivo ni una URL firmada', () => {",
+                  "  pm.expect(cuerpo.startsWith('%PDF'), 'devolvio el PDF').to.eql(false);",
+                  "  pm.expect(cuerpo, 'devolvio una URL firmada').to.not.include('signedURL');",
+                  "});",
+                  "console.log('[caso 6] ' + pm.info.requestName + ' -> ' + pm.response.code + ' ' + cuerpo.slice(0, 160));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/storage/v1/object/public/kyc-documentos/{{obj_t1}}"
+          }
+        },
+        {
+          "name": "N9 negativo: token firmado de la cedula t1 reusado sobre la cedula t2",
+          "description": "El token de la URL firmada fija la ruta: cambiarla invalida la firma.",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const u = pm.collectionVariables.get('firmada_t1');",
+                  "const token = u.split('token=')[1];",
+                  "pm.variables.set('url_n9', pm.collectionVariables.get('base_url') + '/storage/v1/object/sign/kyc-documentos/' + pm.collectionVariables.get('obj_t2') + '?token=' + token);"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('token reusado en otra ruta: denegado (no 2xx)', () => pm.expect(pm.response.code).to.not.be.within(200, 299));",
+                  "const cuerpo = pm.response.text();",
+                  "pm.test('no se filtra el archivo ni una URL firmada', () => {",
+                  "  pm.expect(cuerpo.startsWith('%PDF'), 'devolvio el PDF').to.eql(false);",
+                  "  pm.expect(cuerpo, 'devolvio una URL firmada').to.not.include('signedURL');",
+                  "});",
+                  "console.log('[caso 6] ' + pm.info.requestName + ' -> ' + pm.response.code + ' ' + cuerpo.slice(0, 160));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{url_n9}}"
+          }
+        },
+        {
+          "name": "N9b negativo: firma de la URL alterada",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const u = pm.collectionVariables.get('firmada_t1');",
+                  "pm.variables.set('url_n9b', u.slice(0, -6) + (u.slice(-6) === 'AAAAAA' ? 'BBBBBB' : 'AAAAAA'));"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('firma alterada: denegado (no 2xx)', () => pm.expect(pm.response.code).to.not.be.within(200, 299));",
+                  "const cuerpo = pm.response.text();",
+                  "pm.test('no se filtra el archivo ni una URL firmada', () => {",
+                  "  pm.expect(cuerpo.startsWith('%PDF'), 'devolvio el PDF').to.eql(false);",
+                  "  pm.expect(cuerpo, 'devolvio una URL firmada').to.not.include('signedURL');",
+                  "});",
+                  "console.log('[caso 6] ' + pm.info.requestName + ' -> ' + pm.response.code + ' ' + cuerpo.slice(0, 160));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{url_n9b}}"
+          }
+        },
+        {
+          "name": "N10 prep: aliado.t1 firma con TTL de 2 s",
+          "description": null,
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('firmada_corta_t1', pm.collectionVariables.get('base_url') + '/storage/v1' + pm.response.json().signedURL);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_t1}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/storage/v1/object/sign/kyc-documentos/{{obj_t1}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"expiresIn\":2}"
+            }
+          }
+        },
+        {
+          "name": "N10 negativo: URL firmada despues de su TTL",
+          "description": "Espera 5 s (TTL 2 s + margen de reloj) antes de pedirla.",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "setTimeout(() => {}, 5000);"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('URL expirada: denegado (no 2xx)', () => pm.expect(pm.response.code).to.not.be.within(200, 299));",
+                  "const cuerpo = pm.response.text();",
+                  "pm.test('no se filtra el archivo ni una URL firmada', () => {",
+                  "  pm.expect(cuerpo.startsWith('%PDF'), 'devolvio el PDF').to.eql(false);",
+                  "  pm.expect(cuerpo, 'devolvio una URL firmada').to.not.include('signedURL');",
+                  "});",
+                  "console.log('[caso 6] ' + pm.info.requestName + ' -> ' + pm.response.code + ' ' + cuerpo.slice(0, 160));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{firmada_corta_t1}}"
+          }
+        },
+        {
+          "name": "N11 negativo: aliado.t1 sube a <tenant>/<aliado.id>/ como dice el texto de ADR-0013",
+          "description": "aliado.id (50000000-...) no es auth.uid() (30000000-...). Si el backend construyera la ruta con aliado.id, el DUEÑO no podria subir ni leer sus documentos. Esto es un hallazgo sobre el ADR, no un caso de aislamiento.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('ruta con aliado.id: denegado (no 2xx)', () => pm.expect(pm.response.code).to.not.be.within(200, 299));",
+                  "const cuerpo = pm.response.text();",
+                  "pm.test('no se filtra el archivo ni una URL firmada', () => {",
+                  "  pm.expect(cuerpo.startsWith('%PDF'), 'devolvio el PDF').to.eql(false);",
+                  "  pm.expect(cuerpo, 'devolvio una URL firmada').to.not.include('signedURL');",
+                  "});",
+                  "console.log('[caso 6] ' + pm.info.requestName + ' -> ' + pm.response.code + ' ' + cuerpo.slice(0, 160));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_t1}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/pdf"
+              },
+              {
+                "key": "x-upsert",
+                "value": "false"
+              }
+            ],
+            "url": "{{base_url}}/storage/v1/object/kyc-documentos/{{token_t1_tenant}}/50000000-0000-4000-8000-000000000011/cedula.pdf",
+            "body": {
+              "mode": "raw",
+              "raw": "%PDF-1.4\n%MANI CFG-13 intento de escritura de la suite\n%%EOF\n"
+            }
+          }
+        },
+        {
+          "name": "C1 CONTROL POSITIVO ESPERADO: URL firmada de t1 usada sin sesion (como la usaria el tenant 2 si la obtuviera)",
+          "description": "NO es un fallo de aislamiento: es el diseño de las URLs firmadas de Supabase. La URL es una credencial al portador hasta su TTL. Si esto deja de dar 200, cambio el comportamiento de la plataforma y hay que revisar el informe de CFG-13.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('la URL filtrada funciona hasta su TTL (bearer por diseño)', () => pm.response.to.have.status(200));",
+                  "pm.test('es el PDF', () => pm.expect(pm.response.text().startsWith('%PDF')).to.eql(true));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{firmada_t1}}"
+          }
+        },
+        {
+          "name": "complemento: lectura cruzada de la FILA de documento_kyc",
+          "description": "Aislamiento de la fila en public.documento_kyc. Complementa al objeto en Storage; ya no hace de sustituto del caso 6.",
           "event": [
             {
               "listen": "test",
@@ -886,6 +1995,43 @@
               }
             ],
             "url": "{{base_url}}/rest/v1/documento_kyc?select=id,tenant_id,ruta_storage"
+          }
+        },
+        {
+          "name": "limpieza: admin.t1 borra los objetos que la suite pudo haber creado",
+          "description": "No es un caso: deja el bucket como lo dejo cargar_kyc.mjs. La cedula de aliado.t1 NO se borra.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('limpieza respondio', () => pm.expect(pm.response.code).to.be.below(500));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_admin_t1}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/storage/v1/object/kyc-documentos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"prefixes\":[\"{{token_t1_tenant}}/{{sub_t1}}/intruso-t2.pdf\",\"{{token_t1_tenant}}/{{sub_t2}}/intruso-t2.pdf\",\"{{token_t1_tenant}}/{{sub_t1}}/intruso-hook.pdf\",\"{{token_t1_tenant}}/{{sub_hook_t1}}/cedula.pdf\",\"{{token_t1_tenant}}/50000000-0000-4000-8000-000000000011/cedula.pdf\"]}"
+            }
           }
         }
       ]
