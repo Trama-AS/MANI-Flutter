@@ -1,0 +1,11 @@
+{
+  "name": "mani-qa-storage",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Carga de KYC, URLs firmadas y benchmark de tiempo de carga en Supabase Storage (SCRUM-930, CFG-13)",
+  "scripts": {
+    "cargar": "node cargar_kyc.mjs",
+    "bench": "node bench_carga.mjs"
+  }
+}
