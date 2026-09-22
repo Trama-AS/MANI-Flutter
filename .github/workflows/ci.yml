@@ -41,3 +41,25 @@ jobs:
 
       - name: Verify Web Build
         run: flutter build web --release
+
+      - name: Apply DB Migrations to Supabase QA
+        if: github.event_name == 'push' && env.SUPABASE_QA_DB_URL != ''
+        env:
+          SUPABASE_QA_DB_URL: ${{ secrets.SUPABASE_QA_DB_URL }}
+        run: |
+          echo "[CI] Verificando migraciones de esquema para Supabase QA..."
+          sudo apt-get update -y && sudo apt-get install -y postgresql-client
+          psql "$SUPABASE_QA_DB_URL" -c "CREATE TABLE IF NOT EXISTS schema_migrations (version VARCHAR(50) PRIMARY KEY, description TEXT NOT NULL, applied_at TIMESTAMPTZ NOT NULL DEFAULT now());"
+          APPLIED_VERSIONS=$(psql "$SUPABASE_QA_DB_URL" -t -A -c "SELECT version FROM schema_migrations;")
+          for file in $(ls -1 database/migrations/*.sql | sort); do
+            filename=$(basename "$file")
+            version=$(echo "$filename" | grep -oE "^[0-9]+" || echo "$filename")
+            if echo "$APPLIED_VERSIONS" | grep -qx "$version"; then
+              echo "  [OK] $filename ya aplicada en Supabase QA."
+            else
+              echo "  [APLICANDO] $filename en Supabase QA..."
+              psql "$SUPABASE_QA_DB_URL" -v ON_ERROR_STOP=1 < "$file"
+              echo "  [ÉXITO] $filename aplicada correctamente en Supabase QA."
+            fi
+          done
+
