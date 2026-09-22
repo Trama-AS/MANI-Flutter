@@ -226,6 +226,65 @@ $fn$;
 REVOKE ALL ON FUNCTION public.aceptar_solicitud_sin_exclusion(uuid, uuid, text, numeric) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.aceptar_solicitud_sin_exclusion(uuid, uuid, text, numeric) TO authenticated;
 
+-- ---------------------------------------------------------------------
+-- 4. Control negativo MAL DISENADO — se conserva a proposito
+-- ---------------------------------------------------------------------
+-- Esta funcion NO es un error que quedo suelto: es la demostracion de por
+-- que el primer diseno del control negativo no servia.
+--
+-- La primera version del informe de SCRUM-959 proponia "quitar el predicado
+-- estado = 'pending'". Eso es esto. Y no funciona, porque el UPDATE lleva
+-- DOS guardas: al quitar una, la otra sigue excluyendo sola.
+--
+-- El motivo es EvalPlanQual. En READ COMMITTED, cuando dos transacciones
+-- van contra la misma fila, la segunda espera a que la primera termine y
+-- entonces NO reusa la version que leyo al planificar: re-evalua el WHERE
+-- contra la version ya comprometida. La primera dejo `aliado_id` no nulo,
+-- asi que la segunda ya no cumple y afecta 0 filas.
+--
+-- Resultado: 1 sola asignacion, con o sin concurrencia real. Un control
+-- negativo que no puede fallar no controla nada.
+--
+-- Se despliega para medirlo y dejar el dato en el informe: es la evidencia
+-- de que el instrumento de validacion tambien hay que validarlo.
+DROP FUNCTION IF EXISTS public.aceptar_solicitud_control_malo(uuid, uuid, text);
+
+CREATE FUNCTION public.aceptar_solicitud_control_malo(
+    p_solicitud uuid,
+    p_aliado    uuid,
+    p_corrida   text DEFAULT NULL)
+RETURNS TABLE (id uuid, estado text, aliado_id uuid)
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = public
+AS $fn$
+DECLARE
+  v_tenant uuid;
+BEGIN
+  -- UNA sola guarda. El predicado de estado se quito; el de aliado_id no.
+  UPDATE solicitud s
+     SET aliado_id  = p_aliado,
+         estado     = 'assigned',
+         updated_at = now()
+   WHERE s.id = p_solicitud
+     AND s.aliado_id IS NULL
+  RETURNING s.tenant_id INTO v_tenant;
+
+  IF FOUND THEN
+    INSERT INTO poc_asignacion_log (tenant_id, solicitud_id, aliado_id, corrida)
+    VALUES (v_tenant, p_solicitud, p_aliado, p_corrida);
+    RETURN QUERY
+      SELECT s.id, s.estado, s.aliado_id FROM solicitud s WHERE s.id = p_solicitud;
+    RETURN;
+  END IF;
+
+  RAISE EXCEPTION 'ya_no_disponible' USING ERRCODE = 'PT409';
+END;
+$fn$;
+
+REVOKE ALL ON FUNCTION public.aceptar_solicitud_control_malo(uuid, uuid, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.aceptar_solicitud_control_malo(uuid, uuid, text) TO authenticated;
+
 COMMIT;
 
 -- PostgREST cachea el esquema: sin esto las funciones existen en la base

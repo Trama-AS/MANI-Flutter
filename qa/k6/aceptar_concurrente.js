@@ -52,9 +52,16 @@ const aliadoId  = (i) => `50000000-0000-4000-8000-9${String(i).padStart(11, '0')
 const email     = (i) => `aliado.poc.${i}@poc.mani.test`;
 const PASSWORD  = 'QaSeed2026!';
 
-const RPC = MODO === 'sin_exclusion'
-  ? 'aceptar_solicitud_sin_exclusion'
-  : 'aceptar_solicitud';
+// MODO decide que funcion se mide:
+//   exclusion     -> el mecanismo de ADR-0021. Debe dar 1 asignacion.
+//   sin_exclusion -> control negativo correcto (check-then-act). Debe dar >1.
+//   control_malo  -> control negativo MAL disenado, el que proponia la
+//                    primera version del informe. Da 1 asignacion aunque
+//                    haya concurrencia real: por eso no servia.
+const RPC = {
+  sin_exclusion: 'aceptar_solicitud_sin_exclusion',
+  control_malo:  'aceptar_solicitud_control_malo',
+}[MODO] || 'aceptar_solicitud';
 
 // Milisegundos de margen entre el fin de setup() y el disparo sincronizado.
 const MARGEN_MS = 3000;
