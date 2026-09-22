@@ -1,0 +1,894 @@
+{
+  "info": {
+    "name": "MANI — ADR-0015 aislamiento multi-tenant",
+    "description": "Los seis casos de prueba de acceso cruzado entre tenants que define ADR-0015, enumerados en Project/Documento_Herramientas_Politicas_Lineamientos_V2.md seccion 4.3.3.\n\nPOR QUE ESTA COLECCION VIVE APARTE DE mani-claims\n  Su vida util excede a CFG-12. Es el artefacto que el DoR punto 4 y el DoD punto 2 exigen en CADA ticket que toque autenticacion, RLS o esquema, y que hasta ahora no existia en ningun repositorio: ambos spikes lo dan por hecho (\"la suite ya definida en ADR-0015\"), pero nadie lo habia escrito.\n\nCADA CASO NEGATIVO TIENE SU ESPEJO POSITIVO\n  SCRUM-1039 encontro QA con RLS habilitado y CERO politicas. En ese estado Postgres niega todo, asi que los seis casos cruzados pasan —nadie accede a nada— y la suite da verde con el aislamiento sin implementar. Los que fallan son los positivos. Sin ellos, un verde no distingue aislamiento correcto de acceso roto. Es ademas el par positivo/negativo que exige el punto 7 del DoR.\n\nSOBRE QUE FILAS SE ESCRIBE Y POR QUE\n  Los casos de escritura y borrado cruzado actuan sobre las filas de documento_kyc que siembra supabase/poc-cfg12/20_seed_identidad.sql, no sobre los datos de CFG-04. Si el aislamiento estuviera roto, el caso destruiria datos reales del seed compartido; acotandolo a filas propias, el peor escenario cuesta volver a correr ese seed.\n\nVARIABLES REQUERIDAS\n  newman run mani-aislamiento.postman_collection.json \\\n    --env-var base_url=$SUPABASE_URL --env-var anon_key=$SUPABASE_ANON_KEY",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "password",
+      "value": "QaSeed2026!"
+    },
+    {
+      "key": "slug_t1",
+      "value": "acme-servicios"
+    },
+    {
+      "key": "slug_t2",
+      "value": "nova-mantenimiento"
+    },
+    {
+      "key": "kyc_t1",
+      "value": "a0000000-0000-4000-8000-c00000000011",
+      "description": "documento_kyc del tenant 1, sembrado por CFG-12"
+    },
+    {
+      "key": "kyc_t2",
+      "value": "a0000000-0000-4000-8000-c00000000021",
+      "description": "documento_kyc del tenant 2, sembrado por CFG-12"
+    },
+    {
+      "key": "notif_propia",
+      "value": "b0000000-0000-4000-8000-c00000000011",
+      "description": "UUID fijo de la notificacion que crea y borra el caso 3b"
+    }
+  ],
+  "item": [
+    {
+      "name": "00 preparacion",
+      "description": "Autentica un usuario por tenant y captura los identificadores de los recursos que se van a atacar. Nada de esto es un caso de prueba.",
+      "item": [
+        {
+          "name": "login tenant 1",
+          "description": "Login de aliado.t1@qa.mani.test. Cuenta del seed de CFG-04: es la poblacion canonica que ADR-0015 asume.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const b64u = s => Buffer.from(String(s).replace(/-/g, \"+\").replace(/_/g, \"/\"), \"base64\").toString(\"utf8\");",
+                  "",
+                  "pm.test('login 200', () => pm.response.to.have.status(200));",
+                  "const tok = pm.response.json().access_token;",
+                  "pm.collectionVariables.set('token_t1', tok);",
+                  "const p = JSON.parse(b64u(tok.split('.')[1]));",
+                  "pm.collectionVariables.set('sub_t1', p.sub);",
+                  "pm.collectionVariables.set('token_t1_tenant', p.app_metadata && p.app_metadata.tenant_id);",
+                  "pm.test('el token trae tenant_id', () => pm.expect(p.app_metadata.tenant_id).to.be.a('string'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/auth/v1/token?grant_type=password",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":\"aliado.t1@qa.mani.test\",\"password\":\"{{password}}\"}"
+            }
+          }
+        },
+        {
+          "name": "login tenant 2",
+          "description": "Login de aliado.t2@qa.mani.test. Cuenta del seed de CFG-04: es la poblacion canonica que ADR-0015 asume.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const b64u = s => Buffer.from(String(s).replace(/-/g, \"+\").replace(/_/g, \"/\"), \"base64\").toString(\"utf8\");",
+                  "",
+                  "pm.test('login 200', () => pm.response.to.have.status(200));",
+                  "const tok = pm.response.json().access_token;",
+                  "pm.collectionVariables.set('token_t2', tok);",
+                  "const p = JSON.parse(b64u(tok.split('.')[1]));",
+                  "pm.collectionVariables.set('sub_t2', p.sub);",
+                  "pm.collectionVariables.set('token_t2_tenant', p.app_metadata && p.app_metadata.tenant_id);",
+                  "pm.test('el token trae tenant_id', () => pm.expect(p.app_metadata.tenant_id).to.be.a('string'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/auth/v1/token?grant_type=password",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":\"aliado.t2@qa.mani.test\",\"password\":\"{{password}}\"}"
+            }
+          }
+        },
+        {
+          "name": "resolver tenants",
+          "description": "La tabla tenant tiene lectura_global_tenant USING (true): se lee con la anon key, sin depender de ningun claim. Sirve de oraculo.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const f = pm.response.json();",
+                  "const t1 = f.find(t => t.slug === pm.collectionVariables.get('slug_t1'));",
+                  "const t2 = f.find(t => t.slug === pm.collectionVariables.get('slug_t2'));",
+                  "pm.collectionVariables.set('tenant_id_t1', t1 && t1.id);",
+                  "pm.collectionVariables.set('tenant_id_t2', t2 && t2.id);",
+                  "pm.test('los dos tenants existen y son distintos', () => {",
+                  "  pm.expect(t1, 'tenant 1').to.be.an('object');",
+                  "  pm.expect(t2, 'tenant 2').to.be.an('object');",
+                  "  pm.expect(t1.id).to.not.eql(t2.id);",
+                  "});",
+                  "pm.test('cada token corresponde a su tenant', () => {",
+                  "  pm.expect(pm.collectionVariables.get('token_t1_tenant')).to.eql(t1.id);",
+                  "  pm.expect(pm.collectionVariables.get('token_t2_tenant')).to.eql(t2.id);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              }
+            ],
+            "url": "{{base_url}}/rest/v1/tenant?select=id,slug"
+          }
+        },
+        {
+          "name": "capturar un sitio del tenant 2",
+          "description": "Se lee CON EL TOKEN DEL TENANT 2, que si tiene derecho. El id capturado es el recurso ajeno que el tenant 1 intentara alcanzar.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const f = pm.response.json();",
+                  "pm.test('el tenant 2 tiene al menos un sitio', () => pm.expect(f.length).to.be.above(0));",
+                  "pm.collectionVariables.set('sitio_id_t2', f[0] && f[0].id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_t2}}"
+              }
+            ],
+            "url": "{{base_url}}/rest/v1/sitio?select=id,tenant_id&limit=1"
+          }
+        },
+        {
+          "name": "capturar un sitio del tenant 1",
+          "description": "El recurso propio, para el espejo positivo del caso 1.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const f = pm.response.json();",
+                  "pm.test('el tenant 1 tiene al menos un sitio', () => pm.expect(f.length).to.be.above(0));",
+                  "pm.collectionVariables.set('sitio_id_t1', f[0] && f[0].id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_t1}}"
+              }
+            ],
+            "url": "{{base_url}}/rest/v1/sitio?select=id,tenant_id&limit=1"
+          }
+        }
+      ]
+    },
+    {
+      "name": "01 caso 1 — lectura de registros de otro tenant",
+      "description": "Esperado por ADR-0015: 0 resultados o 403 Forbidden.",
+      "item": [
+        {
+          "name": "negativo: leer el sitio del tenant 2 con token del tenant 1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('0 filas o 403', () => {",
+                  "  if (pm.response.code === 200) pm.expect(pm.response.json()).to.have.lengthOf(0);",
+                  "  else pm.expect(pm.response.code).to.be.oneOf([403, 404]);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_t1}}"
+              }
+            ],
+            "url": "{{base_url}}/rest/v1/sitio?select=id,tenant_id&id=eq.{{sitio_id_t2}}"
+          }
+        },
+        {
+          "name": "POSITIVO: leer su propio sitio",
+          "description": "Sin este caso, el negativo pasaria igual con el acceso completamente roto.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('ve exactamente su fila', () => {",
+                  "  const f = pm.response.json();",
+                  "  pm.expect(f).to.have.lengthOf(1);",
+                  "  pm.expect(f[0].tenant_id).to.eql(pm.collectionVariables.get('tenant_id_t1'));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_t1}}"
+              }
+            ],
+            "url": "{{base_url}}/rest/v1/sitio?select=id,tenant_id&id=eq.{{sitio_id_t1}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 caso 2 — listado de recursos ajenos",
+      "description": "Esperado: el listado muestra unicamente los recursos del tenant autenticado.",
+      "item": [
+        {
+          "name": "listar sitios con token del tenant 1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const f = pm.response.json();",
+                  "pm.test('ninguna fila es de otro tenant', () => {",
+                  "  const ajenas = f.filter(x => x.tenant_id !== pm.collectionVariables.get('tenant_id_t1'));",
+                  "  pm.expect(ajenas).to.have.lengthOf(0);",
+                  "});",
+                  "pm.test('POSITIVO: ve al menos una fila propia', () => pm.expect(f.length).to.be.above(0));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_t1}}"
+              }
+            ],
+            "url": "{{base_url}}/rest/v1/sitio?select=id,tenant_id"
+          }
+        },
+        {
+          "name": "listar usuarios con token del tenant 1",
+          "description": "La tabla mas sensible despues de KYC: si el aislamiento fallara aqui, un tenant veria el padron de otro.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const f = pm.response.json();",
+                  "pm.test('ningun usuario de otro tenant', () => {",
+                  "  const ajenos = f.filter(x => x.tenant_id !== pm.collectionVariables.get('tenant_id_t1'));",
+                  "  pm.expect(ajenos).to.have.lengthOf(0);",
+                  "});",
+                  "pm.test('POSITIVO: ve usuarios de su tenant', () => pm.expect(f.length).to.be.above(0));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_t1}}"
+              }
+            ],
+            "url": "{{base_url}}/rest/v1/usuario?select=id,tenant_id,email"
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 caso 3 — escritura en tenant ajeno",
+      "description": "Esperado: rechazada por RLS. Se actua sobre documento_kyc, cuyas filas siembra CFG-12: si el aislamiento estuviera roto, el daño se limita a datos propios.\n\nCon Prefer: return=representation, PostgREST devuelve las filas afectadas. Un array vacio significa 0 filas modificadas, que es lo que RLS debe producir.",
+      "item": [
+        {
+          "name": "negativo: modificar el KYC del tenant 2 con token del tenant 1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('0 filas afectadas o 403', () => {",
+                  "  if (pm.response.code < 300) pm.expect(pm.response.json()).to.have.lengthOf(0);",
+                  "  else pm.expect(pm.response.code).to.be.oneOf([403, 404]);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_t1}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Prefer",
+                "value": "return=representation"
+              }
+            ],
+            "url": "{{base_url}}/rest/v1/documento_kyc?id=eq.{{kyc_t2}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"estado\":\"comprometido-por-tenant-1\"}"
+            }
+          }
+        },
+        {
+          "name": "verificar que el KYC del tenant 2 sigue intacto",
+          "description": "Se comprueba CON EL TOKEN DEL TENANT 2. Que el atacante no vea el cambio no prueba que no haya ocurrido: hay que mirarlo desde el lado del dueño.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const f = pm.response.json();",
+                  "pm.test('la fila existe', () => pm.expect(f).to.have.lengthOf(1));",
+                  "pm.test('su estado NO fue modificado', () => pm.expect(f[0].estado).to.eql('aprobado'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_t2}}"
+              }
+            ],
+            "url": "{{base_url}}/rest/v1/documento_kyc?select=id,estado&id=eq.{{kyc_t2}}"
+          }
+        },
+        {
+          "name": "POSITIVO: modificar su propio KYC",
+          "description": "Restaura el valor al final, para que la suite sea idempotente.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('modifica 1 fila propia', () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200, 204]);",
+                  "  if (pm.response.code === 200) pm.expect(pm.response.json()).to.have.lengthOf(1);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_t1}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Prefer",
+                "value": "return=representation"
+              }
+            ],
+            "url": "{{base_url}}/rest/v1/documento_kyc?id=eq.{{kyc_t1}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"estado\":\"aprobado\"}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "03b insercion con tenant_id ajeno",
+      "description": "No esta en la enumeracion oficial de ADR-0015. Se agrega porque resuelve el pendiente que SCRUM-1039 dejo abierto: las politicas tienen solo USING y Postgres la reutiliza como WITH CHECK. Esto lo comprueba en vez de suponerlo.\n\nSe usa notificacion porque solo exige tenant_id, usuario_id, tipo y canal, y el usuario_id propio satisface la FK: asi el unico motivo posible de rechazo es el tenant_id.",
+      "item": [
+        {
+          "name": "negativo: insertar una notificacion con tenant_id del tenant 2",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('rechazada: WITH CHECK aplica', () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([401, 403, 404, 400]);",
+                  "});",
+                  "pm.test('el cuerpo no devuelve una fila creada', () => {",
+                  "  const b = pm.response.json();",
+                  "  pm.expect(Array.isArray(b) ? b.length : 0).to.eql(0);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_t1}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Prefer",
+                "value": "return=representation"
+              }
+            ],
+            "url": "{{base_url}}/rest/v1/notificacion",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"tenant_id\":\"{{tenant_id_t2}}\",\"usuario_id\":\"{{sub_t1}}\",\"tipo\":\"prueba-adr0015\",\"canal\":\"push\"}"
+            }
+          }
+        },
+        {
+          "name": "POSITIVO: insertar una notificacion en su propio tenant",
+          "description": "Demuestra que el rechazo anterior es del predicado de tenant y no de un INSERT bloqueado para todos.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('creada (201)', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('la fila queda en su tenant', () => {",
+                  "  const f = pm.response.json();",
+                  "  pm.expect(f).to.have.lengthOf(1);",
+                  "  pm.expect(f[0].tenant_id).to.eql(pm.collectionVariables.get('tenant_id_t1'));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_t1}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Prefer",
+                "value": "return=representation"
+              }
+            ],
+            "url": "{{base_url}}/rest/v1/notificacion",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"id\":\"{{notif_propia}}\",\"tenant_id\":\"{{tenant_id_t1}}\",\"usuario_id\":\"{{sub_t1}}\",\"tipo\":\"prueba-adr0015\",\"canal\":\"push\"}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 caso 4 — borrado de recursos de otro tenant",
+      "description": "Esperado: rechazado por RLS. Igual que el caso 3, se actua sobre filas propias de CFG-12.",
+      "item": [
+        {
+          "name": "negativo: borrar el KYC del tenant 2 con token del tenant 1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('0 filas borradas o 403', () => {",
+                  "  if (pm.response.code < 300) pm.expect(pm.response.json()).to.have.lengthOf(0);",
+                  "  else pm.expect(pm.response.code).to.be.oneOf([403, 404]);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_t1}}"
+              },
+              {
+                "key": "Prefer",
+                "value": "return=representation"
+              }
+            ],
+            "url": "{{base_url}}/rest/v1/documento_kyc?id=eq.{{kyc_t2}}"
+          }
+        },
+        {
+          "name": "verificar que el KYC del tenant 2 sigue existiendo",
+          "description": "Comprobado desde el lado del dueño, por la misma razon que en el caso 3.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('la fila sobrevivio', () => pm.expect(pm.response.json()).to.have.lengthOf(1));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_t2}}"
+              }
+            ],
+            "url": "{{base_url}}/rest/v1/documento_kyc?select=id&id=eq.{{kyc_t2}}"
+          }
+        },
+        {
+          "name": "POSITIVO: borrar su propia notificacion",
+          "description": "Cierra el caso 3b dejando la base como estaba, y demuestra que DELETE si funciona dentro del tenant.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('borra 1 fila propia', () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200, 204]);",
+                  "  if (pm.response.code === 200) pm.expect(pm.response.json()).to.have.lengthOf(1);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_t1}}"
+              },
+              {
+                "key": "Prefer",
+                "value": "return=representation"
+              }
+            ],
+            "url": "{{base_url}}/rest/v1/notificacion?id=eq.{{notif_propia}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 caso 5 — tokens expirados o alterados",
+      "description": "Esperado: rechazo. Cubierto en profundidad por la carpeta anti-spoofing de mani-claims; aqui queda el vector minimo para que esta suite sea autosuficiente en CI.\n\nEl token EXPIRADO no es ejecutable: los JWT de QA duran una hora, y probarlo exige esperar o bajar el TTL del proyecto, que es un cambio de configuracion de autenticacion. El vector de abajo demuestra que cualquier modificacion del payload —exp incluido— invalida la firma.",
+      "item": [
+        {
+          "name": "token con tenant_id reescrito",
+          "description": "Se toma el token valido del tenant 1, se reescribe app_metadata.tenant_id apuntando al tenant 2 y se conserva la firma original.",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const b64u = s => Buffer.from(String(s).replace(/-/g, \"+\").replace(/_/g, \"/\"), \"base64\").toString(\"utf8\");",
+                  "const ab64u = o => Buffer.from(JSON.stringify(o), \"utf8\").toString(\"base64\").replace(/\\+/g, \"-\").replace(/\\//g, \"_\").replace(/=+$/, \"\");",
+                  "",
+                  "const [h, p, s] = pm.collectionVariables.get('token_t1').split('.');",
+                  "const payload = JSON.parse(b64u(p));",
+                  "payload.app_metadata.tenant_id = pm.collectionVariables.get('tenant_id_t2');",
+                  "pm.collectionVariables.set('token_alterado', [h, ab64u(payload), s].join('.'));"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('rechazado con 401', () => pm.response.to.have.status(401));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_alterado}}"
+              }
+            ],
+            "url": "{{base_url}}/rest/v1/sitio?select=id,tenant_id"
+          }
+        },
+        {
+          "name": "firma sustituida por basura",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const [h, p] = pm.collectionVariables.get('token_t1').split('.');",
+                  "pm.collectionVariables.set('token_sin_firma', [h, p, 'firma-invalida'].join('.'));"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('rechazado con 401', () => pm.response.to.have.status(401));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_sin_firma}}"
+              }
+            ],
+            "url": "{{base_url}}/rest/v1/sitio?select=id"
+          }
+        },
+        {
+          "name": "control de autenticacion: solo anon key",
+          "description": "La anon key es publica y viaja embebida en el cliente Flutter. Por si sola no debe dar acceso a ninguna tabla con RLS.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('0 filas o 401', () => {",
+                  "  if (pm.response.code === 200) pm.expect(pm.response.json()).to.have.lengthOf(0);",
+                  "  else pm.expect(pm.response.code).to.be.oneOf([401, 403]);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              }
+            ],
+            "url": "{{base_url}}/rest/v1/sitio?select=id"
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 caso 6 — aislamiento de KYC en Supabase Storage",
+      "description": "NO EJECUTABLE EN QA, y se declara en vez de omitirse.\n\nLa verificacion de terreno de SCRUM-971 encontro cero buckets en storage.buckets y cero politicas sobre storage.objects: ADR-0013 no esta implementado en este ambiente. La primera peticion de esta carpeta lo COMPRUEBA en cada corrida, para que el dia que el bucket exista la suite lo detecte y avise, en vez de seguir declarandolo no ejecutable por inercia.\n\nLa segunda peticion cubre lo que si es ejecutable: el aislamiento de la FILA de documento_kyc. Es el caso 1 aplicado a la tabla mas sensible del modelo, NO un sustituto del caso 6, que es el del objeto en Storage.",
+      "item": [
+        {
+          "name": "verificar si ya existe un bucket de KYC",
+          "description": "Si esto empieza a devolver buckets, hay que escribir el caso 6 de verdad.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('el caso 6 sigue siendo no ejecutable (0 buckets alcanzables)', () => {",
+                  "  let n = 0;",
+                  "  try { const b = pm.response.json(); n = Array.isArray(b) ? b.length : 0; } catch (e) { n = 0; }",
+                  "  if (n > 0) {",
+                  "    console.log('AVISO: hay ' + n + ' bucket(s). ADR-0013 ya no esta sin implementar: escribir el caso 6 real.');",
+                  "  }",
+                  "  pm.expect(n, \"si esto falla, es una buena noticia: ya hay Storage que aislar\").to.eql(0);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_t1}}"
+              }
+            ],
+            "url": "{{base_url}}/storage/v1/bucket"
+          }
+        },
+        {
+          "name": "sustituto parcial: lectura cruzada de la FILA de KYC",
+          "description": "Cubre el aislamiento de la fila, no el del objeto.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const f = pm.response.json();",
+                  "pm.test('ningun documento de otro tenant', () => {",
+                  "  const ajenos = f.filter(x => x.tenant_id !== pm.collectionVariables.get('tenant_id_t1'));",
+                  "  pm.expect(ajenos).to.have.lengthOf(0);",
+                  "});",
+                  "pm.test('POSITIVO: ve el suyo', () => pm.expect(f.length).to.be.above(0));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_t1}}"
+              }
+            ],
+            "url": "{{base_url}}/rest/v1/documento_kyc?select=id,tenant_id,ruta_storage"
+          }
+        }
+      ]
+    }
+  ]
+}
