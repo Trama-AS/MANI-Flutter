@@ -1,7 +1,8 @@
 import '../../domain/entities/category_entity.dart';
 
-/// Modelo de datos: envuelve la entidad, listo para fromJson/toJson
-/// cuando se conecte a Supabase.
+/// Modelo de datos de `listar_categorias_tenant` (`{id, nombre}`).
+/// La tabla `categoria_servicio` no guarda ícono: el emoji se deriva del
+/// nombre y, si no coincide ninguno, se usa uno genérico.
 class CategoryModel extends CategoryEntity {
   const CategoryModel({
     required super.id,
@@ -10,12 +11,30 @@ class CategoryModel extends CategoryEntity {
   });
 
   factory CategoryModel.fromJson(Map<String, dynamic> json) {
+    final nombre = json['nombre'] as String;
     return CategoryModel(
       id: json['id'] as String,
-      label: json['label'] as String,
-      emoji: json['emoji'] as String,
+      label: nombre,
+      emoji: emojiPara(nombre),
     );
   }
 
-  Map<String, dynamic> toJson() => {'id': id, 'label': label, 'emoji': emoji};
+  static const _emojis = <String, String>{
+    'plomer': '🔧',
+    'electric': '💡',
+    'carpinter': '🪚',
+    'pintur': '🎨',
+    'jardin': '🌿',
+    'limpieza': '🧹',
+    'cerrajer': '🔑',
+    'aire': '❄️',
+  };
+
+  static String emojiPara(String nombre) {
+    final n = nombre.toLowerCase();
+    for (final e in _emojis.entries) {
+      if (n.contains(e.key)) return e.value;
+    }
+    return '🛠️';
+  }
 }

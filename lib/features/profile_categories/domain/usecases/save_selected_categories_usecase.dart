@@ -5,7 +5,7 @@ class SaveSelectedCategoriesUseCase {
 
   SaveSelectedCategoriesUseCase(this.repository);
 
-  Future<void> call(List<String> categoryIds) {
+  Future<Set<String>> call(Set<String> categoryIds) {
     return repository.saveSelectedCategories(categoryIds);
   }
 }

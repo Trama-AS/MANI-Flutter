@@ -38,7 +38,7 @@ class CategoriesCubit extends Cubit<CategoriesState> {
   Future<void> save() async {
     emit(state.copyWith(attemptedSave: true));
     if (state.selectedIds.isEmpty) return;
-    await saveSelectedCategoriesUseCase(state.selectedIds.toList());
+    await saveSelectedCategoriesUseCase(state.selectedIds);
     emit(state.copyWith(saveSuccess: true));
   }
 }
