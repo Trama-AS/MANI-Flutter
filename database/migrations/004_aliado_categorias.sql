@@ -1,5 +1,5 @@
 -- =====================================================================
--- 003 · US-03.1.3 — Aliado declara las categorías que atiende
+-- 004 · US-03.1.3 — Aliado declara las categorías que atiende
 -- (SCRUM-1016 modelo, SCRUM-1017 listar, SCRUM-1018 guardar)
 --
 -- Seguridad (anti tenant-spoofing):
@@ -16,6 +16,10 @@
 --     DEFINER (registro de aliados, bandeja de verificación 002) o
 --     _ver_aliado_json, que es INVOKER pero solo se ejecuta dentro de las
 --     funciones DEFINER de 002 (EXECUTE revocado a anon/authenticated).
+--     Lo mismo aplica a _cat_json de 003_categorias_servicio.sql (US-03.1.1),
+--     que cuenta aliados por categoría solo dentro de sus funciones DEFINER.
+--   * Se numera 004 porque 003 está reservada para 003_categorias_servicio.sql
+--     (US-03.1.1); así ambas pueden convivir en schema_migrations.
 --   * Por eso el SELECT queda limitado al propio aliado y no a todo el tenant.
 --   * SCRUM-861 (US-04.1.2, aliados por cobertura y categoría) y el despacho
 --     DEBEN buscar aliados por categoría mediante una RPC SECURITY DEFINER
@@ -226,5 +230,5 @@ END $$;
 
 -- 9. Registro de la migración ------------------------------------------------
 INSERT INTO schema_migrations (version, description)
-VALUES ('003', 'US-03.1.3 categorias del aliado: indice unico, trigger de tenant, RPCs y RLS')
+VALUES ('004', 'US-03.1.3 categorias del aliado: indice unico, trigger de tenant, RPCs y RLS')
 ON CONFLICT (version) DO NOTHING;

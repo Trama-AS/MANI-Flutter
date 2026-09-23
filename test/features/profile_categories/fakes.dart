@@ -19,7 +19,7 @@ const cerrajeria = CategoryEntity(
   emoji: '🔑',
 );
 
-/// Repositorio en memoria que imita las reglas de las RPC de la migración 003.
+/// Repositorio en memoria que imita las reglas de las RPC de la migración 004.
 class FakeCategoriesRepository implements ICategoriesRepository {
   FakeCategoriesRepository({
     this.catalogo = const [plomeria, electricidad, cerrajeria],

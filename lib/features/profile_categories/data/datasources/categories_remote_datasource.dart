@@ -1,7 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Acceso crudo a Supabase. `tenant_id` y `aliado_id` NUNCA se envían: las
-/// RPC los toman de `auth.uid()` (migración 003_aliado_categorias.sql).
+/// RPC los toman de `auth.uid()` (migración 004_aliado_categorias.sql).
 abstract interface class CategoriesRemoteDataSource {
   Future<List<Map<String, dynamic>>> listarCategoriasTenant();
   Future<List<String>> obtenerMisCategorias();

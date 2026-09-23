@@ -1,9 +1,9 @@
 -- =====================================================================
--- US-03.1.3 (SCRUM-1021): pruebas de backend de la migración 003
+-- US-03.1.3 (SCRUM-1021): pruebas de backend de la migración 004
 -- Guardado/consulta de categorías del aliado y aislamiento por tenant.
 --
 -- Uso: pegar completo en el SQL Editor de Supabase DESPUÉS de aplicar
--- 003_aliado_categorias.sql. Corre dentro de una transacción que termina en
+-- 004_aliado_categorias.sql. Corre dentro de una transacción que termina en
 -- ROLLBACK: crea sus propios datos de prueba y no deja nada guardado.
 -- Si alguna aserción falla, se detiene con "FALLO: ...". Si todo pasa,
 -- el último mensaje es "OK: 12 pruebas de categorías del aliado".

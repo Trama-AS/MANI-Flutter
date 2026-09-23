@@ -1,5 +1,5 @@
 /// Errores de negocio de US-03.1.3. Los códigos `MANI-CAT-*` los emiten las
-/// RPC de `database/migrations/003_aliado_categorias.sql`.
+/// RPC de `database/migrations/004_aliado_categorias.sql`.
 enum CategoriesErrorTipo {
   sinSesion, // MANI-CAT-401
   noEsAliado, // MANI-CAT-403
