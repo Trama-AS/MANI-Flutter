@@ -98,6 +98,9 @@ class _LoginViewState extends State<_LoginView> {
           // permisos por sí sola.
           if (_selectedRole == 'admin') {
             context.go('/admin/verificacion-aliados');
+          } else if (_selectedRole == 'aliado') {
+            // US-04.1.4: el aliado entra a su bandeja de solicitudes.
+            context.go('/aliado/solicitudes');
           }
         } else if (state is AuthError) {
           _showNotification(state.message);
