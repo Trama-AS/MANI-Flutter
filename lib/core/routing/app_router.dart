@@ -9,6 +9,7 @@ import 'package:mani/features/auth/presentation/pages/login_page.dart';
 import 'package:mani/features/auth/presentation/pages/registro_cliente_page.dart';
 import 'package:mani/features/auth/presentation/pages/registro_aliado_page.dart';
 import 'package:mani/features/auth/presentation/pages/registro_aliado_empresa_page.dart';
+import 'package:mani/features/profile_categories/presentation/pages/categories_page.dart';
 import 'package:mani/features/profiles/coverage/presentation/pages/declarar_cobertura_page.dart';
 import 'package:mani/features/profiles/verification/presentation/bloc/bandeja_verificacion_cubit.dart';
 import 'package:mani/features/profiles/verification/presentation/pages/bandeja_verificacion_page.dart';
@@ -54,13 +55,14 @@ bool _isPublicPath(String path) {
 /// - `/register-cliente`: Pantalla independiente de registro para clientes (US-02.2.1)
 /// - `/register-aliado`: Pantalla independiente de registro para aliados técnicos (US-02.1.1)
 /// - `/register-empresa`: Pantalla independiente de registro para aliados empresas (US-02.1.2)
+/// - `/categories`: Pantalla de selección de categorías del aliado (US-03.1.3)
 /// - `/aliado/cobertura`: Zona de cobertura del aliado (US-02.1.4)
 /// - `/admin/verificacion-aliados`: Bandeja de verificación del admin del tenant (US-02.1.3)
 /// - `/admin/categorias`: Catálogo de categorías de servicio del tenant (US-03.1.1)
 ///
 /// El `redirect` protege cualquier ruta que no esté en `_publicPaths`: si no
 /// hay sesión activa en Supabase, el usuario es enviado a `/login`. Las rutas
-/// de cobertura y verificación son privadas a propósito: solo un aliado o un
+/// de categorías, cobertura y verificación son privadas a propósito: solo un aliado o un
 /// administrador autenticados deben llegar a ellas; la autorización por rol
 /// la aplican, de todos modos, las RPC del servidor.
 final appRouter = GoRouter(
@@ -109,6 +111,12 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/registro-empresa',
       redirect: (context, state) => '/register-empresa',
+    ),
+    // Ruta independiente: Selección de categorías del aliado (US-03.1.3)
+    GoRoute(
+      path: '/categories',
+      name: 'categories',
+      builder: (context, state) => const CategoriesPage(),
     ),
     // Redirecciones por compatibilidad
     GoRoute(

@@ -9,6 +9,13 @@ import 'package:mani/features/auth/domain/usecases/register_cliente_usecase.dart
 import 'package:mani/features/auth/domain/usecases/register_aliado_usecase.dart';
 import 'package:mani/features/auth/domain/usecases/register_empresa_usecase.dart';
 import 'package:mani/features/auth/presentation/bloc/auth_cubit.dart';
+import 'package:mani/features/profile_categories/data/datasources/categories_remote_datasource.dart';
+import 'package:mani/features/profile_categories/data/repositories/categories_repository_impl.dart';
+import 'package:mani/features/profile_categories/domain/repositories/i_categories_repository.dart';
+import 'package:mani/features/profile_categories/domain/usecases/get_available_categories_usecase.dart';
+import 'package:mani/features/profile_categories/domain/usecases/get_selected_categories_usecase.dart';
+import 'package:mani/features/profile_categories/domain/usecases/save_selected_categories_usecase.dart';
+import 'package:mani/features/profile_categories/presentation/bloc/categories_cubit.dart';
 import 'package:mani/features/profiles/coverage/domain/repositories/cobertura_repository.dart';
 import 'package:mani/features/profiles/coverage/data/repositories/cobertura_repository_impl.dart';
 import 'package:mani/features/profiles/coverage/data/datasources/cobertura_remote_datasource.dart';
@@ -59,6 +66,31 @@ Future<void> init() async {
   // Data sources
   sl.registerLazySingleton<IAuthRemoteDataSource>(
     () => AuthRemoteDataSource(client: sl()),
+  );
+
+  // Features - Profile Categories
+  // Bloc
+  sl.registerFactory(
+    () => CategoriesCubit(
+      getAvailableCategoriesUseCase: sl(),
+      getSelectedCategoriesUseCase: sl(),
+      saveSelectedCategoriesUseCase: sl(),
+    ),
+  );
+
+  // Use cases
+  sl.registerLazySingleton(() => GetAvailableCategoriesUseCase(sl()));
+  sl.registerLazySingleton(() => GetSelectedCategoriesUseCase(sl()));
+  sl.registerLazySingleton(() => SaveSelectedCategoriesUseCase(sl()));
+
+  // Repository
+  sl.registerLazySingleton<ICategoriesRepository>(
+    () => CategoriesRepositoryImpl(remoteDataSource: sl()),
+  );
+
+  // Data sources
+  sl.registerLazySingleton<CategoriesRemoteDataSource>(
+    () => SupabaseCategoriesDataSource(sl()),
   );
 
   // Features - Profiles / Coverage (US-02.1.4)
