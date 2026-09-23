@@ -34,6 +34,11 @@ class CategoriesState extends Equatable {
   }
 
   @override
-  List<Object?> get props =>
-      [categories, selectedIds, isLoading, attemptedSave, saveSuccess];
+  List<Object?> get props => [
+    categories,
+    selectedIds,
+    isLoading,
+    attemptedSave,
+    saveSuccess,
+  ];
 }
