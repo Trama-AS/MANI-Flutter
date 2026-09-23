@@ -120,6 +120,13 @@ END $$;
 --     que no es donde debe vivir; corresponde a un CHECK en la tabla.
 --     Se declara como riesgo, no se parcha desde aca.
 --
+--   * El rol se emite con lower() (SCRUM-1057). La base guarda el rol en
+--     MAYUSCULA (`ALIADO`, `ADMIN_TENANT`), que es lo que comparan las
+--     migraciones 002-006, pero el contrato del token de ADR-0018 es en
+--     minuscula ("user_role": "aliado") y la suite Newman lo verifica asi.
+--     lower() separa las dos capas: normalizar la tabla no cambia el token.
+--     La migracion 007 aplica este mismo cambio en los ambientes existentes.
+--
 --   * Multi-tenant: no se contempla porque el modelo no lo admite.
 --     `usuario` tiene un solo `tenant_id` y no hay tabla de membresia.
 --     El `LIMIT 1` de abajo no desempata nada real; esta para que la
@@ -138,7 +145,7 @@ DECLARE
   v_tenant   uuid;
   v_rol      text;
 BEGIN
-  SELECT u.tenant_id, u.rol
+  SELECT u.tenant_id, lower(u.rol)
     INTO v_tenant, v_rol
     FROM public.usuario u
    WHERE u.id = (event ->> 'user_id')::uuid
