@@ -45,8 +45,23 @@ jobs:
       - name: Verify Web Build
         run: flutter build web --release
 
+      # El env de un step no existe todavia cuando se evalua su propio if,
+      # asi que la presencia del secret se resuelve en un step previo.
+      - name: Check Supabase QA connection secret
+        id: qa_db
+        if: github.event_name == 'push'
+        env:
+          SUPABASE_QA_DB_URL: ${{ secrets.SUPABASE_QA_DB_URL }}
+        run: |
+          if [ -n "$SUPABASE_QA_DB_URL" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::SUPABASE_QA_DB_URL no esta configurado; no se aplican migraciones a Supabase QA."
+          fi
+
       - name: Apply DB Migrations to Supabase QA
-        if: github.event_name == 'push' && env.SUPABASE_QA_DB_URL != ''
+        if: github.event_name == 'push' && steps.qa_db.outputs.configured == 'true'
         env:
           SUPABASE_QA_DB_URL: ${{ secrets.SUPABASE_QA_DB_URL }}
         run: |
