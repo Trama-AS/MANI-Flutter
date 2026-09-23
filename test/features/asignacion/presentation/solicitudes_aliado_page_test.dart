@@ -100,6 +100,34 @@ void main() {
     },
   );
 
+  testWidgets(
+    'muestra el problema descrito por el cliente y sus fotos (US-04.1.1)',
+    (t) async {
+      await _montar(
+        t,
+        FakeAsignacionRepository([
+          solicitud(
+            's1',
+            descripcion: 'Gotea la llave del lavamanos desde ayer.',
+            cantidadFotos: 2,
+          ),
+          solicitud('s2'),
+        ]),
+      );
+
+      expect(
+        find.text('Gotea la llave del lavamanos desde ayer.'),
+        findsOneWidget,
+      );
+      expect(find.text('2 fotos adjuntas'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('problema-solicitud')),
+        findsOneWidget,
+        reason: 'sin descripción no se muestra el recuadro',
+      );
+    },
+  );
+
   testWidgets('marca como urgente a quien espera 30+ minutos', (t) async {
     await _montar(t, _repoBase());
 

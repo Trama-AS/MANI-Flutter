@@ -14,6 +14,8 @@ class SolicitudModel extends SolicitudEntity {
     super.modalidad,
     super.zonaPadre,
     super.reglasSitio,
+    super.descripcion,
+    super.cantidadFotos,
     super.direccion,
     super.fechaAsignacion,
   });
@@ -31,6 +33,8 @@ class SolicitudModel extends SolicitudEntity {
           ? Map<String, dynamic>.from(json['reglas_sitio'] as Map)
           : null,
     ),
+    descripcion: json['descripcion'] as String?,
+    cantidadFotos: (json['fotos'] as num?)?.toInt() ?? 0,
     direccion: json['direccion'] as String?,
     fechaCreacion:
         _fecha(json['created_at']) ?? DateTime.fromMillisecondsSinceEpoch(0),

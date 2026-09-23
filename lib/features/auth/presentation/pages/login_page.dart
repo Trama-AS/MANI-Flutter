@@ -101,6 +101,9 @@ class _LoginViewState extends State<_LoginView> {
           } else if (_selectedRole == 'aliado') {
             // US-04.1.4: el aliado entra a su bandeja de solicitudes.
             context.go('/aliado/solicitudes');
+          } else if (_selectedRole == 'cliente') {
+            // US-04.1.1: el cliente entra a publicar su solicitud.
+            context.go('/cliente/solicitudes/nueva');
           }
         } else if (state is AuthError) {
           _showNotification(state.message);

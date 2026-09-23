@@ -111,6 +111,10 @@ class SolicitudCard extends StatelessWidget {
               if (recienAsignada) const _Etiqueta('NUEVA'),
             ],
           ),
+          if ((s.descripcion ?? '').trim().isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _Problema(texto: s.descripcion!.trim(), fotos: s.cantidadFotos),
+          ],
           const SizedBox(height: 12),
           _ModalidadBadge(modalidad: s.modalidad),
           const SizedBox(height: 12),
@@ -168,6 +172,45 @@ class _Dato extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Problema descrito por el cliente (US-04.1.1): base para decidir y cotizar.
+class _Problema extends StatelessWidget {
+  const _Problema({required this.texto, required this.fotos});
+
+  final String texto;
+  final int fotos;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const ValueKey('problema-solicitud'),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppTheme.background,
+        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        border: Border.all(color: AppTheme.borderLight, width: 1.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            texto,
+            maxLines: 4,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 13, height: 1.35),
+          ),
+          if (fotos > 0) ...[
+            const SizedBox(height: 8),
+            _Dato(
+              icono: Icons.photo_library_outlined,
+              texto: fotos == 1 ? '1 foto adjunta' : '$fotos fotos adjuntas',
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

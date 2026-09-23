@@ -35,6 +35,12 @@ import 'package:mani/features/asignacion/data/repositories/asignacion_repository
 import 'package:mani/features/asignacion/domain/repositories/i_asignacion_repository.dart';
 import 'package:mani/features/asignacion/domain/usecases/asignacion_usecases.dart';
 import 'package:mani/features/asignacion/presentation/bloc/solicitudes_aliado_cubit.dart';
+import 'package:mani/core/platform/selector_fotos.dart';
+import 'package:mani/features/services/requests/data/datasources/solicitudes_cliente_remote_datasource.dart';
+import 'package:mani/features/services/requests/data/repositories/solicitudes_cliente_repository_impl.dart';
+import 'package:mani/features/services/requests/domain/repositories/solicitudes_cliente_repository.dart';
+import 'package:mani/features/services/requests/domain/usecases/solicitud_usecases.dart';
+import 'package:mani/features/services/requests/presentation/bloc/crear_solicitud_cubit.dart';
 
 final sl = GetIt.instance; // sl = service locator
 
@@ -45,6 +51,9 @@ Future<void> init() async {
   // Core
   // TODO: Network info, etc.
   sl.registerLazySingleton<UrlOpener>(() => const UrlLauncherOpener());
+  sl.registerLazySingleton<SelectorFotos>(
+    () => const FilePickerSelectorFotos(),
+  );
 
   // Features - Auth
   // Bloc
@@ -151,5 +160,23 @@ Future<void> init() async {
   );
   sl.registerLazySingleton<AsignacionRemoteDataSource>(
     () => SupabaseAsignacionDataSource(sl()),
+  );
+
+  // Features - Services / Requests: crear solicitud (US-04.1.1)
+  sl.registerFactory(
+    () => CrearSolicitudCubit(
+      cargarCatalogo: sl(),
+      buscarZonas: sl(),
+      publicar: sl(),
+    ),
+  );
+  sl.registerLazySingleton(() => CargarCatalogoSolicitud(sl()));
+  sl.registerLazySingleton(() => BuscarZonas(sl()));
+  sl.registerLazySingleton(() => PublicarSolicitud(sl()));
+  sl.registerLazySingleton<SolicitudesClienteRepository>(
+    () => SolicitudesClienteRepositoryImpl(sl()),
+  );
+  sl.registerLazySingleton<SolicitudesClienteRemoteDataSource>(
+    () => SupabaseSolicitudesClienteDataSource(sl()),
   );
 }
