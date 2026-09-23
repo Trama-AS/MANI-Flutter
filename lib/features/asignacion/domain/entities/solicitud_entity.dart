@@ -35,6 +35,8 @@ class SolicitudEntity extends Equatable {
     this.modalidad = ModalidadServicio.desconocida,
     this.zonaPadre,
     this.reglasSitio = const [],
+    this.descripcion,
+    this.cantidadFotos = 0,
     this.direccion,
     this.fechaAsignacion,
   });
@@ -55,6 +57,12 @@ class SolicitudEntity extends Equatable {
 
   /// Reglas del sitio: visibles ANTES de aceptar (QS-06).
   final List<ReglaSitio> reglasSitio;
+
+  /// Problema descrito por el cliente al publicar (US-04.1.1).
+  final String? descripcion;
+
+  /// Fotos que adjuntó el cliente.
+  final int cantidadFotos;
 
   /// Dirección exacta: el servidor solo la envía cuando la solicitud es mía.
   final String? direccion;
@@ -84,6 +92,8 @@ class SolicitudEntity extends Equatable {
     zona,
     zonaPadre,
     reglasSitio,
+    descripcion,
+    cantidadFotos,
     direccion,
     fechaCreacion,
     fechaAsignacion,

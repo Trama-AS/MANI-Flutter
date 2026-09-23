@@ -190,6 +190,8 @@ void main() {
         'zona': 'Roma Norte',
         'zona_padre': 'Cuauhtémoc',
         'reglas_sitio': {'mascotas': false},
+        'descripcion': 'Gotea la llave del lavamanos desde ayer.',
+        'fotos': 3,
         'direccion': 'Calle Colima 120',
         'created_at': '2026-09-23T10:00:00Z',
         'asignada_at': '2026-09-23T10:05:00Z',
@@ -199,6 +201,8 @@ void main() {
       expect(m.modalidad, ModalidadServicio.tarifaEstandar);
       expect(m.reglasSitio.single, const ReglaSitio('mascotas', false));
       expect(m.direccion, 'Calle Colima 120');
+      expect(m.descripcion, 'Gotea la llave del lavamanos desde ayer.');
+      expect(m.cantidadFotos, 3);
       expect(m.fechaAsignacion?.toUtc(), DateTime.utc(2026, 9, 23, 10, 5));
     });
 

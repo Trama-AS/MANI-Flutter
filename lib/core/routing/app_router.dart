@@ -17,6 +17,8 @@ import 'package:mani/features/profiles/verification/presentation/bloc/bandeja_ve
 import 'package:mani/features/profiles/verification/presentation/pages/bandeja_verificacion_page.dart';
 import 'package:mani/features/services/categories/presentation/bloc/categorias_cubit.dart';
 import 'package:mani/features/services/categories/presentation/pages/gestion_categorias_page.dart';
+import 'package:mani/features/services/requests/presentation/bloc/crear_solicitud_cubit.dart';
+import 'package:mani/features/services/requests/presentation/pages/crear_solicitud_page.dart';
 
 /// Notifica a go_router cada vez que cambia el estado de autenticación de
 /// Supabase, para que el `redirect` de abajo se reevalúe automáticamente
@@ -59,6 +61,7 @@ bool _isPublicPath(String path) {
 /// - `/register-empresa`: Pantalla independiente de registro para aliados empresas (US-02.1.2)
 /// - `/categories`: Pantalla de selección de categorías del aliado (US-03.1.3)
 /// - `/aliado/cobertura`: Zona de cobertura del aliado (US-02.1.4)
+/// - `/cliente/solicitudes/nueva`: El cliente publica su solicitud con fotos (US-04.1.1)
 /// - `/aliado/solicitudes`: Bandeja del aliado para aceptar/rechazar solicitudes (US-04.1.4)
 /// - `/admin/verificacion-aliados`: Bandeja de verificación del admin del tenant (US-02.1.3)
 /// - `/admin/categorias`: Catálogo de categorías de servicio del tenant (US-03.1.1)
@@ -140,6 +143,16 @@ final appRouter = GoRouter(
       path: '/aliado/cobertura',
       name: 'declarar-cobertura',
       builder: (context, state) => DeclararCoberturaPage(controller: sl()),
+    ),
+    // Crear solicitud (US-04.1.1): el cliente describe su problema y adjunta
+    // fotos; el tenant y el cliente salen de la sesión, nunca de la app.
+    GoRoute(
+      path: '/cliente/solicitudes/nueva',
+      name: 'crear-solicitud',
+      builder: (context, state) => BlocProvider(
+        create: (_) => sl<CrearSolicitudCubit>()..cargar(),
+        child: CrearSolicitudPage(selectorFotos: sl()),
+      ),
     ),
     // Bandeja del aliado (US-04.1.4). La asignación sin doble aliado la
     // garantiza el servidor (UPDATE condicional atómico, DD-MANI §7.1).

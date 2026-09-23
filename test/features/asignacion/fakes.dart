@@ -22,6 +22,8 @@ SolicitudEntity solicitud(
   String? zonaPadre = 'Cuauhtémoc',
   List<ReglaSitio> reglas = const [],
   String? direccion,
+  String? descripcion,
+  int cantidadFotos = 0,
   int minutosAtras = 10,
   DateTime? fechaAsignacion,
 }) => SolicitudEntity(
@@ -33,6 +35,8 @@ SolicitudEntity solicitud(
   zona: zona,
   zonaPadre: zonaPadre,
   reglasSitio: reglas,
+  descripcion: descripcion,
+  cantidadFotos: cantidadFotos,
   direccion: direccion,
   fechaCreacion: DateTime.now().subtract(Duration(minutes: minutosAtras)),
   fechaAsignacion: fechaAsignacion,
