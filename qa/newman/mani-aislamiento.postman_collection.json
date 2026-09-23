@@ -426,7 +426,7 @@
                 "exec": [
                   "const f = pm.response.json();",
                   "pm.test('la fila existe', () => pm.expect(f).to.have.lengthOf(1));",
-                  "pm.test('su estado NO fue modificado', () => pm.expect(f[0].estado).to.eql('aprobado'));"
+                  "pm.test('su estado NO fue modificado', () => pm.expect(f[0].estado).to.eql('VERIFICADO'));"
                 ],
                 "type": "text/javascript"
               }

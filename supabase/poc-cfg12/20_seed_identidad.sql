@@ -219,14 +219,14 @@ BEGIN
   INSERT INTO public.usuario (id, tenant_id, email, rol, estado, created_at)
   VALUES
     ('30000000-0000-4000-8000-c00000000011', v_t1,
-     'hook.t1@cfg12.mani.test', 'aliado',  'activo', now()),
+     'hook.t1@cfg12.mani.test', 'ALIADO',  'ACTIVO', now()),
     ('30000000-0000-4000-8000-c00000000021', v_t2,
-     'hook.t2@cfg12.mani.test', 'cliente', 'activo', now()),
+     'hook.t2@cfg12.mani.test', 'CLIENTE', 'ACTIVO', now()),
     -- tenant_id NULL: el esquema lo admite (la columna es NULLABLE), asi
     -- que este caso borde es un estado que el modelo ya permite, no una
     -- anomalia fabricada para la prueba.
     ('30000000-0000-4000-8000-c00000000091', NULL,
-     'huerfano@cfg12.mani.test', 'cliente', 'activo', now());
+     'huerfano@cfg12.mani.test', 'CLIENTE', 'ACTIVO', now());
 
   -- Roles distintos en t1 y t2 a proposito: `aliado` y `cliente`. Si el
   -- hook copiara un rol fijo o se equivocara de fila, dos usuarios con
@@ -260,9 +260,9 @@ BEGIN
     (id, tenant_id, aliado_id, tipo_documento, ruta_storage, estado, fecha_carga)
   VALUES
     ('a0000000-0000-4000-8000-c00000000011', v_t1, v_aliado1,
-     'cedula', 'kyc/' || v_t1::text || '/cedula-t1.pdf', 'aprobado', now()),
+     'CEDULA_CIUDADANIA', 'kyc/' || v_t1::text || '/cedula-t1.pdf', 'VERIFICADO', now()),
     ('a0000000-0000-4000-8000-c00000000021', v_t2, v_aliado2,
-     'cedula', 'kyc/' || v_t2::text || '/cedula-t2.pdf', 'aprobado', now());
+     'CEDULA_CIUDADANIA', 'kyc/' || v_t2::text || '/cedula-t2.pdf', 'VERIFICADO', now());
 
   RAISE NOTICE 'Seed de CFG-12 aplicado: 4 cuentas de Auth, 3 filas de usuario, 2 documentos KYC.';
 END $seed$;
