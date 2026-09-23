@@ -68,6 +68,7 @@ Future<void> init() async {
   sl.registerFactory(
     () => CategoriesCubit(
       getAvailableCategoriesUseCase: sl(),
+      getSelectedCategoriesUseCase: sl(),
       saveSelectedCategoriesUseCase: sl(),
     ),
   );
