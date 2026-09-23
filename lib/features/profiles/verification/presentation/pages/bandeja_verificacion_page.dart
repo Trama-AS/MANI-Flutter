@@ -17,7 +17,11 @@ import 'detalle_aliado_page.dart';
 /// en móvil el perfil se abre en su propia pantalla. Requiere un
 /// [BandejaVerificacionCubit] provisto por el contexto.
 class BandejaVerificacionPage extends StatelessWidget {
-  const BandejaVerificacionPage({super.key});
+  const BandejaVerificacionPage({super.key, this.onAbrirCategorias});
+
+  /// Abre el catálogo de categorías del tenant. Lo inyecta quien compone la
+  /// navegación (el router), para que esta feature no conozca otras rutas.
+  final VoidCallback? onAbrirCategorias;
 
   static const double anchoEscritorio = 960;
 
@@ -41,7 +45,7 @@ class BandejaVerificacionPage extends StatelessWidget {
         body: SafeArea(
           child: Column(
             children: [
-              const _BarraSuperior(),
+              _BarraSuperior(onAbrirCategorias: onAbrirCategorias),
               Expanded(
                 child:
                     BlocBuilder<
@@ -292,7 +296,9 @@ class _CampoBusquedaState extends State<_CampoBusqueda> {
 }
 
 class _BarraSuperior extends StatelessWidget {
-  const _BarraSuperior();
+  const _BarraSuperior({this.onAbrirCategorias});
+
+  final VoidCallback? onAbrirCategorias;
 
   @override
   Widget build(BuildContext context) {
@@ -356,6 +362,13 @@ class _BarraSuperior extends StatelessWidget {
               ],
             ),
           ),
+          if (onAbrirCategorias != null)
+            IconButton(
+              key: const ValueKey('btn-ir-categorias'),
+              tooltip: 'Categorías de servicio',
+              onPressed: onAbrirCategorias,
+              icon: const Icon(Icons.category_outlined, color: AppTheme.dark),
+            ),
           IconButton(
             key: const ValueKey('btn-actualizar'),
             tooltip: 'Actualizar bandeja',

@@ -18,6 +18,11 @@ import 'package:mani/features/profiles/verification/data/repositories/verificaci
 import 'package:mani/features/profiles/verification/domain/repositories/verificacion_aliados_repository.dart';
 import 'package:mani/features/profiles/verification/domain/usecases/verificacion_usecases.dart';
 import 'package:mani/features/profiles/verification/presentation/bloc/bandeja_verificacion_cubit.dart';
+import 'package:mani/features/services/categories/data/datasources/categorias_remote_datasource.dart';
+import 'package:mani/features/services/categories/data/repositories/categorias_repository_impl.dart';
+import 'package:mani/features/services/categories/domain/repositories/categorias_repository.dart';
+import 'package:mani/features/services/categories/domain/usecases/categoria_usecases.dart';
+import 'package:mani/features/services/categories/presentation/bloc/categorias_cubit.dart';
 
 final sl = GetIt.instance; // sl = service locator
 
@@ -84,5 +89,16 @@ Future<void> init() async {
   );
   sl.registerLazySingleton<VerificacionRemoteDataSource>(
     () => SupabaseVerificacionDataSource(sl()),
+  );
+
+  // Features - Services / Categories (US-03.1.1)
+  sl.registerFactory(() => CategoriasCubit(listar: sl(), crear: sl()));
+  sl.registerLazySingleton(() => ListarCategorias(sl()));
+  sl.registerLazySingleton(() => CrearCategoria(sl()));
+  sl.registerLazySingleton<CategoriasRepository>(
+    () => CategoriasRepositoryImpl(sl()),
+  );
+  sl.registerLazySingleton<CategoriasRemoteDataSource>(
+    () => SupabaseCategoriasDataSource(sl()),
   );
 }
