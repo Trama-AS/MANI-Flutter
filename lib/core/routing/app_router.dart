@@ -39,7 +39,6 @@ const _publicPaths = {
   '/register-cliente',
   '/register-aliado',
   '/register-empresa',
-  '/categories', // TODO: quitar de público una vez esté integrada post-login
 };
 
 bool _isPublicPath(String path) {
@@ -60,7 +59,7 @@ bool _isPublicPath(String path) {
 ///
 /// El `redirect` protege cualquier ruta que no esté en `_publicPaths`: si no
 /// hay sesión activa en Supabase, el usuario es enviado a `/login`. Las rutas
-/// de cobertura y verificación son privadas a propósito: solo un aliado o un
+/// de categorías, cobertura y verificación son privadas a propósito: solo un aliado o un
 /// administrador autenticados deben llegar a ellas; la autorización por rol
 /// la aplican, de todos modos, las RPC del servidor.
 final appRouter = GoRouter(
