@@ -36,7 +36,7 @@ SELECT table_name, column_name, data_type, is_nullable
 -- asi que no bloquea. Esta consulta es la evidencia del ticket.
 SELECT count(*) AS zonas_activas
   FROM zona
- WHERE estado = 'activa';
+ WHERE estado = 'ACTIVO';
 
 -- 0.c — GRANTs a los roles de PostgREST.
 -- Si sale VACIO, PostgREST corta por permisos ANTES de que RLS actue: el
@@ -64,9 +64,9 @@ SELECT t.slug,
        (SELECT count(*) FROM cliente            c WHERE c.tenant_id = t.id) AS clientes,
        (SELECT count(*) FROM aliado             a WHERE a.tenant_id = t.id) AS aliados,
        (SELECT count(*) FROM aliado             a WHERE a.tenant_id = t.id
-                                                   AND a.estado_verificacion = 'aprobado') AS aliados_aprobados,
+                                                   AND a.estado_verificacion = 'VERIFICADO') AS aliados_aprobados,
        (SELECT count(*) FROM categoria_servicio s WHERE s.tenant_id = t.id
-                                                   AND s.estado = 'activa')                AS categorias_activas,
+                                                   AND s.estado = 'ACTIVO')                AS categorias_activas,
        (SELECT count(*) FROM sitio              s WHERE s.tenant_id = t.id) AS sitios,
        (SELECT count(*) FROM aliado_categoria  ac WHERE ac.tenant_id = t.id) AS vinculos_categoria,
        (SELECT count(*) FROM cobertura_aliado  ca WHERE ca.tenant_id = t.id) AS coberturas

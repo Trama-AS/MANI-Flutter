@@ -11,6 +11,15 @@
 --   * zona estaba VACIA (0 activas): las 3 zonas de este seed son las
 --     primeras del ambiente. SCRUM-1002 queda respondido con eso.
 --
+-- VALORES DE DOMINIO (SCRUM-1057)
+--   Las tablas de dominio usan el formato del codigo: MAYUSCULA en espanol
+--   (ACTIVO, ADMIN_TENANT, ALIADO, CLIENTE, VERIFICADO, PERSONA_NATURAL,
+--   PERSONA_JURIDICA, CIUDAD, LOCALIDAD), que es lo que comparan las
+--   migraciones 002-007. La version original usaba minuscula y dejo QA con
+--   la bandeja y el catalogo en 403; la migracion 007 normalizo esos datos.
+--   Los claims de `raw_app_meta_data` siguen en minuscula a proposito: son
+--   el contrato del token de ADR-0018 (el hook de CFG-12 emite lower(rol)).
+--
 -- QUE HACE
 --   Deja QA con 2 tenants completos y aislados entre si, cada uno con:
 --   admin_tenant + cliente + aliado aprobado + categoria activa + sitio +
@@ -302,43 +311,43 @@ END $$;
 
 -- 1. tenant
 INSERT INTO tenant (id, nombre, slug, estado) VALUES
-  ('10000000-0000-4000-8000-000000000011', 'ACME Servicios',      'acme-servicios',     'activo'),
-  ('10000000-0000-4000-8000-000000000021', 'Nova Mantenimiento',  'nova-mantenimiento', 'activo')
+  ('10000000-0000-4000-8000-000000000011', 'ACME Servicios',      'acme-servicios',     'ACTIVO'),
+  ('10000000-0000-4000-8000-000000000021', 'Nova Mantenimiento',  'nova-mantenimiento', 'ACTIVO')
 ON CONFLICT (id) DO NOTHING;
 
 -- 2. zona (global — compartida por ambos tenants, jamas se borra)
 INSERT INTO zona (id, nivel, nombre, zona_padre_id, estado) VALUES
-  ('20000000-0000-4000-8000-000000000001', 'ciudad',    'Bogota',    NULL,                                   'activa'),
-  ('20000000-0000-4000-8000-000000000002', 'localidad', 'Chapinero', '20000000-0000-4000-8000-000000000001', 'activa'),
-  ('20000000-0000-4000-8000-000000000003', 'localidad', 'Suba',      '20000000-0000-4000-8000-000000000001', 'activa')
+  ('20000000-0000-4000-8000-000000000001', 'CIUDAD',    'Bogota',    NULL,                                   'ACTIVO'),
+  ('20000000-0000-4000-8000-000000000002', 'LOCALIDAD', 'Chapinero', '20000000-0000-4000-8000-000000000001', 'ACTIVO'),
+  ('20000000-0000-4000-8000-000000000003', 'LOCALIDAD', 'Suba',      '20000000-0000-4000-8000-000000000001', 'ACTIVO')
 ON CONFLICT (id) DO NOTHING;
 
 -- 3. usuario (id == auth.users.id)
 INSERT INTO usuario (id, tenant_id, email, rol, estado) VALUES
-  ('30000000-0000-4000-8000-000000000011', '10000000-0000-4000-8000-000000000011', 'admin.t1@qa.mani.test',   'admin_tenant', 'activo'),
-  ('30000000-0000-4000-8000-000000000012', '10000000-0000-4000-8000-000000000011', 'cliente.t1@qa.mani.test', 'cliente',      'activo'),
-  ('30000000-0000-4000-8000-000000000013', '10000000-0000-4000-8000-000000000011', 'aliado.t1@qa.mani.test',  'aliado',       'activo'),
-  ('30000000-0000-4000-8000-000000000021', '10000000-0000-4000-8000-000000000021', 'admin.t2@qa.mani.test',   'admin_tenant', 'activo'),
-  ('30000000-0000-4000-8000-000000000022', '10000000-0000-4000-8000-000000000021', 'cliente.t2@qa.mani.test', 'cliente',      'activo'),
-  ('30000000-0000-4000-8000-000000000023', '10000000-0000-4000-8000-000000000021', 'aliado.t2@qa.mani.test',  'aliado',       'activo')
+  ('30000000-0000-4000-8000-000000000011', '10000000-0000-4000-8000-000000000011', 'admin.t1@qa.mani.test',   'ADMIN_TENANT', 'ACTIVO'),
+  ('30000000-0000-4000-8000-000000000012', '10000000-0000-4000-8000-000000000011', 'cliente.t1@qa.mani.test', 'CLIENTE',      'ACTIVO'),
+  ('30000000-0000-4000-8000-000000000013', '10000000-0000-4000-8000-000000000011', 'aliado.t1@qa.mani.test',  'ALIADO',       'ACTIVO'),
+  ('30000000-0000-4000-8000-000000000021', '10000000-0000-4000-8000-000000000021', 'admin.t2@qa.mani.test',   'ADMIN_TENANT', 'ACTIVO'),
+  ('30000000-0000-4000-8000-000000000022', '10000000-0000-4000-8000-000000000021', 'cliente.t2@qa.mani.test', 'CLIENTE',      'ACTIVO'),
+  ('30000000-0000-4000-8000-000000000023', '10000000-0000-4000-8000-000000000021', 'aliado.t2@qa.mani.test',  'ALIADO',       'ACTIVO')
 ON CONFLICT (id) DO NOTHING;
 
 -- 4. cliente
 INSERT INTO cliente (id, tenant_id, usuario_id, tipo) VALUES
-  ('40000000-0000-4000-8000-000000000011', '10000000-0000-4000-8000-000000000011', '30000000-0000-4000-8000-000000000012', 'persona_natural'),
-  ('40000000-0000-4000-8000-000000000021', '10000000-0000-4000-8000-000000000021', '30000000-0000-4000-8000-000000000022', 'empresa')
+  ('40000000-0000-4000-8000-000000000011', '10000000-0000-4000-8000-000000000011', '30000000-0000-4000-8000-000000000012', 'PERSONA_NATURAL'),
+  ('40000000-0000-4000-8000-000000000021', '10000000-0000-4000-8000-000000000021', '30000000-0000-4000-8000-000000000022', 'PERSONA_JURIDICA')
 ON CONFLICT (id) DO NOTHING;
 
--- 5. aliado — 'aprobado' obligatorio: en 'pendiente' no puede operar
+-- 5. aliado — 'VERIFICADO' obligatorio: en 'PENDIENTE' no puede operar
 INSERT INTO aliado (id, tenant_id, usuario_id, tipo, nombre_razon_social, estado_verificacion) VALUES
-  ('50000000-0000-4000-8000-000000000011', '10000000-0000-4000-8000-000000000011', '30000000-0000-4000-8000-000000000013', 'persona_natural', 'Aliado QA Tenant 1',      'aprobado'),
-  ('50000000-0000-4000-8000-000000000021', '10000000-0000-4000-8000-000000000021', '30000000-0000-4000-8000-000000000023', 'empresa',         'Aliado QA Tenant 2 SAS',  'aprobado')
+  ('50000000-0000-4000-8000-000000000011', '10000000-0000-4000-8000-000000000011', '30000000-0000-4000-8000-000000000013', 'PERSONA_NATURAL', 'Aliado QA Tenant 1',      'VERIFICADO'),
+  ('50000000-0000-4000-8000-000000000021', '10000000-0000-4000-8000-000000000021', '30000000-0000-4000-8000-000000000023', 'PERSONA_JURIDICA',         'Aliado QA Tenant 2 SAS',  'VERIFICADO')
 ON CONFLICT (id) DO NOTHING;
 
 -- 6. categoria_servicio — al menos 1 activa por tenant
 INSERT INTO categoria_servicio (id, tenant_id, nombre, estado, flujo_operativo) VALUES
-  ('60000000-0000-4000-8000-000000000011', '10000000-0000-4000-8000-000000000011', 'Plomeria',     'activa', NULL),
-  ('60000000-0000-4000-8000-000000000021', '10000000-0000-4000-8000-000000000021', 'Electricidad', 'activa', NULL)
+  ('60000000-0000-4000-8000-000000000011', '10000000-0000-4000-8000-000000000011', 'Plomeria',     'ACTIVO', NULL),
+  ('60000000-0000-4000-8000-000000000021', '10000000-0000-4000-8000-000000000021', 'Electricidad', 'ACTIVO', NULL)
 ON CONFLICT (id) DO NOTHING;
 
 -- 7. sitio — zona_id obligatoria; ambos en Chapinero (ver decisiones de diseno)

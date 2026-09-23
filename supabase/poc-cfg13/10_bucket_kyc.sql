@@ -82,7 +82,8 @@ CREATE POLICY kyc_isolation ON storage.objects
     AND (storage.foldername(name))[1] = (auth.jwt() -> 'app_metadata' ->> 'tenant_id')
     AND (
       (storage.foldername(name))[2] = auth.uid()::text
-      OR (auth.jwt() -> 'app_metadata' ->> 'user_role') = 'admin_tenant'
+      -- lower(): no depende de como venga escrito el rol (SCRUM-1057).
+      OR lower(auth.jwt() -> 'app_metadata' ->> 'user_role') = 'admin_tenant'
     )
   );
 
