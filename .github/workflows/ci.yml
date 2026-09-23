@@ -39,6 +39,9 @@ jobs:
       - name: Run widget & unit tests with coverage
         run: flutter test --coverage
 
+      - name: Run integration tests (RF-14)
+        run: flutter test test/integration
+
       - name: Verify Web Build
         run: flutter build web --release
 
