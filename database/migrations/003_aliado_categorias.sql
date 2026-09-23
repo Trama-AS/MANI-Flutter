@@ -185,6 +185,23 @@ BEGIN
 END;
 $$;
 
+-- 7. RLS: se cierran las políticas permisivas de aliado_categoria ------------
+ALTER TABLE IF EXISTS aliado_categoria ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Permitir vincular categoria a propio aliado" ON aliado_categoria;
+DROP POLICY IF EXISTS "Lectura de categorias de aliado" ON aliado_categoria;
+
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'uid' AND pronamespace = 'auth'::regnamespace) THEN
+        DROP POLICY IF EXISTS "Aliado lee sus propias categorias" ON aliado_categoria;
+        CREATE POLICY "Aliado lee sus propias categorias" ON aliado_categoria
+        FOR SELECT USING (
+            aliado_id IN (SELECT id FROM aliado WHERE usuario_id = auth.uid())
+        );
+    END IF;
+END $$;
+
 -- 8. Permisos ----------------------------------------------------------------
 REVOKE ALL ON FUNCTION _cat_validar_tenant_aliado_categoria() FROM PUBLIC;
 REVOKE ALL ON FUNCTION _cat_aliado_actual() FROM PUBLIC;
