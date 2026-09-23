@@ -1,40 +1,23 @@
+import 'package:mani/features/asignacion/domain/entities/motivo_rechazo.dart';
 import 'package:mani/features/asignacion/domain/entities/solicitud_entity.dart';
 
-/// Contrato del despacho de solicitudes (RF-14).
+/// Contrato del despacho de solicitudes (RF-14, US-04.1.4).
 ///
-/// La implementación definitiva llamará a `POST /solicitudes/:id/aceptar`
-/// (DD-MANI.md §5.4). Esta interfaz existe para que los casos de prueba y
-/// la capa de presentación no cambien cuando se conecte el backend real.
+/// Ningún método recibe `aliadoId` ni `tenantId`: el servidor los deriva de la
+/// sesión, así un aliado no puede aceptar en nombre de otro.
+/// Todas las operaciones lanzan `AsignacionFailure` ante errores.
 abstract class IAsignacionRepository {
-  /// Recupera una solicitud por su ID.
+  /// Solicitudes disponibles para el aliado autenticado (de sus categorías y
+  /// zonas, sin las que rechazó) más las que ya tiene asignadas.
+  Future<List<SolicitudEntity>> listar();
+
+  /// Acepta la solicitud para el aliado autenticado.
   ///
-  /// Lanza [SolicitudNoEncontrada] si no existe en el tenant de la sesión.
-  Future<SolicitudEntity> obtener(String solicitudId);
+  /// Devuelve la solicitud asignada si este aliado ganó la carrera. Si otro la
+  /// tomó primero lanza `yaNoDisponible` (409, DD-MANI §7.1). Es idempotente:
+  /// si el mismo aliado reintenta tras un éxito, devuelve el mismo resultado.
+  Future<SolicitudEntity> aceptar(String solicitudId);
 
-  /// Acepta una solicitud en nombre de un aliado.
-  ///
-  /// Devuelve la solicitud asignada si este aliado ganó la carrera.
-  /// Lanza [SolicitudNoDisponible] si otro aliado la tomó primero y
-  /// [SolicitudNoEncontrada] si no existe para el tenant de la sesión.
-  /// Es idempotente: si el mismo aliado reintenta tras un éxito previo,
-  /// devuelve el mismo resultado en vez de fallar (DD-MANI.md §7.1).
-  Future<SolicitudEntity> aceptar(String solicitudId, String aliadoId);
-}
-
-/// Equivalente a `409 { "error": "ya_no_disponible" }` (DD-MANI.md §7.1).
-class SolicitudNoDisponible implements Exception {
-  const SolicitudNoDisponible(this.solicitudId);
-  final String solicitudId;
-
-  @override
-  String toString() => 'ya_no_disponible: $solicitudId';
-}
-
-/// Equivalente a `404 Not Found` (DD-MANI.md §7.1).
-class SolicitudNoEncontrada implements Exception {
-  const SolicitudNoEncontrada(this.solicitudId);
-  final String solicitudId;
-
-  @override
-  String toString() => 'no_encontrada: $solicitudId';
+  /// Oculta la solicitud para el aliado autenticado. No la quita a los demás.
+  Future<void> rechazar(String solicitudId, {MotivoRechazo? motivo});
 }

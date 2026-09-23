@@ -30,6 +30,11 @@ import 'package:mani/features/services/categories/data/repositories/categorias_r
 import 'package:mani/features/services/categories/domain/repositories/categorias_repository.dart';
 import 'package:mani/features/services/categories/domain/usecases/categoria_usecases.dart';
 import 'package:mani/features/services/categories/presentation/bloc/categorias_cubit.dart';
+import 'package:mani/features/asignacion/data/datasources/asignacion_remote_datasource.dart';
+import 'package:mani/features/asignacion/data/repositories/asignacion_repository_impl.dart';
+import 'package:mani/features/asignacion/domain/repositories/i_asignacion_repository.dart';
+import 'package:mani/features/asignacion/domain/usecases/asignacion_usecases.dart';
+import 'package:mani/features/asignacion/presentation/bloc/solicitudes_aliado_cubit.dart';
 
 final sl = GetIt.instance; // sl = service locator
 
@@ -132,5 +137,19 @@ Future<void> init() async {
   );
   sl.registerLazySingleton<CategoriasRemoteDataSource>(
     () => SupabaseCategoriasDataSource(sl()),
+  );
+
+  // Features - Asignación / Aceptar-rechazar solicitud (US-04.1.4)
+  sl.registerFactory(
+    () => SolicitudesAliadoCubit(listar: sl(), aceptar: sl(), rechazar: sl()),
+  );
+  sl.registerLazySingleton(() => ListarSolicitudesAliado(sl()));
+  sl.registerLazySingleton(() => AceptarSolicitud(sl()));
+  sl.registerLazySingleton(() => RechazarSolicitud(sl()));
+  sl.registerLazySingleton<IAsignacionRepository>(
+    () => AsignacionRepositoryImpl(sl()),
+  );
+  sl.registerLazySingleton<AsignacionRemoteDataSource>(
+    () => SupabaseAsignacionDataSource(sl()),
   );
 }

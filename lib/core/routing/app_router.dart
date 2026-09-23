@@ -5,6 +5,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:mani/core/di/injection_container.dart';
+import 'package:mani/features/asignacion/presentation/bloc/solicitudes_aliado_cubit.dart';
+import 'package:mani/features/asignacion/presentation/pages/solicitudes_aliado_page.dart';
 import 'package:mani/features/auth/presentation/pages/login_page.dart';
 import 'package:mani/features/auth/presentation/pages/registro_cliente_page.dart';
 import 'package:mani/features/auth/presentation/pages/registro_aliado_page.dart';
@@ -57,6 +59,7 @@ bool _isPublicPath(String path) {
 /// - `/register-empresa`: Pantalla independiente de registro para aliados empresas (US-02.1.2)
 /// - `/categories`: Pantalla de selección de categorías del aliado (US-03.1.3)
 /// - `/aliado/cobertura`: Zona de cobertura del aliado (US-02.1.4)
+/// - `/aliado/solicitudes`: Bandeja del aliado para aceptar/rechazar solicitudes (US-04.1.4)
 /// - `/admin/verificacion-aliados`: Bandeja de verificación del admin del tenant (US-02.1.3)
 /// - `/admin/categorias`: Catálogo de categorías de servicio del tenant (US-03.1.1)
 ///
@@ -137,6 +140,19 @@ final appRouter = GoRouter(
       path: '/aliado/cobertura',
       name: 'declarar-cobertura',
       builder: (context, state) => DeclararCoberturaPage(controller: sl()),
+    ),
+    // Bandeja del aliado (US-04.1.4). La asignación sin doble aliado la
+    // garantiza el servidor (UPDATE condicional atómico, DD-MANI §7.1).
+    GoRoute(
+      path: '/aliado/solicitudes',
+      name: 'solicitudes-aliado',
+      builder: (context, state) => BlocProvider(
+        create: (_) => sl<SolicitudesAliadoCubit>()..cargar(),
+        child: SolicitudesAliadoPage(
+          onAbrirCobertura: () => context.push('/aliado/cobertura'),
+          onAbrirCategorias: () => context.push('/categories'),
+        ),
+      ),
     ),
     // Bandeja de verificación de aliados (US-02.1.3). La autorización real
     // la aplica el servidor: las RPC exigen rol ADMIN_TENANT.
