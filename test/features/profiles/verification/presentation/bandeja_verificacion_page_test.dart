@@ -293,4 +293,35 @@ void main() {
       expect(find.text('Ana Ruiz'), findsNothing);
     });
   });
+
+  group('Navegación del admin', () {
+    testWidgets('sin callback no muestra el acceso a categorías', (t) async {
+      await _montar(t, _repoBase());
+      expect(find.byKey(const ValueKey('btn-ir-categorias')), findsNothing);
+    });
+
+    testWidgets('el botón de categorías invoca la navegación inyectada', (
+      t,
+    ) async {
+      t.view.physicalSize = _escritorio;
+      t.view.devicePixelRatio = 1;
+      addTearDown(t.view.reset);
+      var abierto = 0;
+      final cubit = crearCubit(_repoBase());
+      addTearDown(cubit.close);
+      await t.pumpWidget(
+        MaterialApp(
+          home: BlocProvider.value(
+            value: cubit,
+            child: BandejaVerificacionPage(onAbrirCategorias: () => abierto++),
+          ),
+        ),
+      );
+      await cubit.cargar();
+      await t.pumpAndSettle();
+
+      await t.tap(find.byKey(const ValueKey('btn-ir-categorias')));
+      expect(abierto, 1);
+    });
+  });
 }

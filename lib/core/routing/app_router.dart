@@ -12,6 +12,8 @@ import 'package:mani/features/auth/presentation/pages/registro_aliado_empresa_pa
 import 'package:mani/features/profiles/coverage/presentation/pages/declarar_cobertura_page.dart';
 import 'package:mani/features/profiles/verification/presentation/bloc/bandeja_verificacion_cubit.dart';
 import 'package:mani/features/profiles/verification/presentation/pages/bandeja_verificacion_page.dart';
+import 'package:mani/features/services/categories/presentation/bloc/categorias_cubit.dart';
+import 'package:mani/features/services/categories/presentation/pages/gestion_categorias_page.dart';
 
 /// Notifica a go_router cada vez que cambia el estado de autenticación de
 /// Supabase, para que el `redirect` de abajo se reevalúe automáticamente
@@ -54,6 +56,7 @@ bool _isPublicPath(String path) {
 /// - `/register-empresa`: Pantalla independiente de registro para aliados empresas (US-02.1.2)
 /// - `/aliado/cobertura`: Zona de cobertura del aliado (US-02.1.4)
 /// - `/admin/verificacion-aliados`: Bandeja de verificación del admin del tenant (US-02.1.3)
+/// - `/admin/categorias`: Catálogo de categorías de servicio del tenant (US-03.1.1)
 ///
 /// El `redirect` protege cualquier ruta que no esté en `_publicPaths`: si no
 /// hay sesión activa en Supabase, el usuario es enviado a `/login`. Las rutas
@@ -134,7 +137,19 @@ final appRouter = GoRouter(
       name: 'verificacion-aliados',
       builder: (context, state) => BlocProvider(
         create: (_) => sl<BandejaVerificacionCubit>()..cargar(),
-        child: const BandejaVerificacionPage(),
+        child: BandejaVerificacionPage(
+          onAbrirCategorias: () => context.push('/admin/categorias'),
+        ),
+      ),
+    ),
+    // Catálogo de categorías de servicio (US-03.1.1). Las RPC exigen rol
+    // ADMIN_TENANT; el tenant sale de la sesión, nunca de la app.
+    GoRoute(
+      path: '/admin/categorias',
+      name: 'categorias',
+      builder: (context, state) => BlocProvider(
+        create: (_) => sl<CategoriasCubit>()..cargar(),
+        child: const GestionCategoriasPage(),
       ),
     ),
   ],
