@@ -11,13 +11,14 @@ class CategoriesPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (_) => sl<CategoriesCubit>(),
-      child: const _CategoriesView(),
+      child: const CategoriesView(),
     );
   }
 }
 
-class _CategoriesView extends StatelessWidget {
-  const _CategoriesView();
+/// Vista de la pantalla; recibe el cubit del árbol (así la prueban los tests).
+class CategoriesView extends StatelessWidget {
+  const CategoriesView({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -25,10 +26,18 @@ class _CategoriesView extends StatelessWidget {
       backgroundColor: const Color(0xFFF6EFDA),
       body: SafeArea(
         child: BlocConsumer<CategoriesCubit, CategoriesState>(
+          listenWhen: (prev, curr) =>
+              (curr.saveSuccess && !prev.saveSuccess) ||
+              (curr.saveFailure != null && prev.saveFailure == null),
           listener: (context, state) {
+            final messenger = ScaffoldMessenger.of(context);
             if (state.saveSuccess) {
-              ScaffoldMessenger.of(context).showSnackBar(
+              messenger.showSnackBar(
                 const SnackBar(content: Text('Categorías guardadas')),
+              );
+            } else if (state.saveFailure != null) {
+              messenger.showSnackBar(
+                SnackBar(content: Text(state.saveFailure!.mensajeUsuario)),
               );
             }
           },
@@ -89,17 +98,39 @@ class _CategoriesView extends StatelessWidget {
                   const Expanded(
                     child: Center(child: CircularProgressIndicator()),
                   )
+                else if (state.loadFailure != null)
+                  Expanded(
+                    child: _Mensaje(
+                      texto: state.loadFailure!.mensajeUsuario,
+                      accion: TextButton(
+                        key: const ValueKey('btn-reintentar-categorias'),
+                        onPressed: cubit.loadCategories,
+                        child: const Text('Reintentar'),
+                      ),
+                    ),
+                  )
+                else if (state.categories.isEmpty)
+                  const Expanded(
+                    child: _Mensaje(
+                      texto:
+                          'Tu organización aún no tiene categorías activas. '
+                          'Contacta al administrador.',
+                    ),
+                  )
                 else
                   Expanded(
                     child: ListView.separated(
                       padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
                       itemCount: state.categories.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 10),
+                      separatorBuilder: (_, _) => const SizedBox(height: 10),
                       itemBuilder: (context, index) {
                         final cat = state.categories[index];
                         final isSelected = state.selectedIds.contains(cat.id);
                         return GestureDetector(
-                          onTap: () => cubit.toggleCategory(cat.id),
+                          key: ValueKey('categoria-${cat.id}'),
+                          onTap: state.isSaving
+                              ? null
+                              : () => cubit.toggleCategory(cat.id),
                           child: Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 14,
@@ -253,7 +284,13 @@ class _CategoriesView extends StatelessWidget {
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
-                          onPressed: cubit.save,
+                          key: const ValueKey('btn-guardar-categorias'),
+                          onPressed:
+                              state.isLoading ||
+                                  state.isSaving ||
+                                  state.loadFailure != null
+                              ? null
+                              : cubit.save,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFFE4342D),
                             foregroundColor: Colors.white,
@@ -267,14 +304,23 @@ class _CategoriesView extends StatelessWidget {
                             ),
                             elevation: 0,
                           ),
-                          child: const Text(
-                            'GUARDAR',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.3,
-                            ),
-                          ),
+                          child: state.isSaving
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text(
+                                  'GUARDAR',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.3,
+                                  ),
+                                ),
                         ),
                       ),
                     ],
@@ -283,6 +329,37 @@ class _CategoriesView extends StatelessWidget {
               ],
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+class _Mensaje extends StatelessWidget {
+  const _Mensaje({required this.texto, this.accion});
+
+  final String texto;
+  final Widget? accion;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              texto,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF5B5648),
+              ),
+            ),
+            if (accion != null) ...[const SizedBox(height: 12), accion!],
+          ],
         ),
       ),
     );
