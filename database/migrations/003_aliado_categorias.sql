@@ -75,8 +75,87 @@ CREATE TRIGGER trg_aliado_categoria_tenant
     BEFORE INSERT OR UPDATE ON aliado_categoria
     FOR EACH ROW EXECUTE FUNCTION _cat_validar_tenant_aliado_categoria();
 
+-- 3. Contexto del aliado autenticado ----------------------------------------
+CREATE OR REPLACE FUNCTION _cat_aliado_actual(OUT o_tenant UUID, OUT o_aliado UUID)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_uid UUID := auth.uid();
+BEGIN
+    IF v_uid IS NULL THEN
+        RAISE EXCEPTION 'MANI-CAT-401: sesión requerida';
+    END IF;
+
+    SELECT a.tenant_id, a.id INTO o_tenant, o_aliado
+    FROM usuario u
+    JOIN aliado a ON a.usuario_id = u.id AND a.tenant_id = u.tenant_id
+    WHERE u.id = v_uid AND u.estado = 'ACTIVO' AND u.rol = 'ALIADO';
+
+    IF o_aliado IS NULL THEN
+        RAISE EXCEPTION 'MANI-CAT-403: solo un aliado activo puede declarar categorías';
+    END IF;
+END;
+$$;
+
+-- 4. Listar categorías activas del tenant del aliado (SCRUM-1017) -----------
+CREATE OR REPLACE FUNCTION listar_categorias_tenant()
+RETURNS JSONB
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_tenant UUID := (_cat_aliado_actual()).o_tenant;
+BEGIN
+    RETURN COALESCE((
+        SELECT jsonb_agg(jsonb_build_object('id', c.id, 'nombre', c.nombre) ORDER BY c.nombre)
+        FROM categoria_servicio c
+        WHERE c.tenant_id = v_tenant AND c.estado = 'ACTIVO'
+    ), '[]'::jsonb);
+END;
+$$;
+
+-- 5. Categorías que el aliado ya declaró ------------------------------------
+CREATE OR REPLACE FUNCTION obtener_mis_categorias()
+RETURNS JSONB
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_aliado UUID := (_cat_aliado_actual()).o_aliado;
+BEGIN
+    RETURN COALESCE((
+        SELECT jsonb_agg(ac.categoria_id ORDER BY ac.categoria_id)
+        FROM aliado_categoria ac
+        WHERE ac.aliado_id = v_aliado
+    ), '[]'::jsonb);
+END;
+$$;
+
 -- 8. Permisos ----------------------------------------------------------------
 REVOKE ALL ON FUNCTION _cat_validar_tenant_aliado_categoria() FROM PUBLIC;
+REVOKE ALL ON FUNCTION _cat_aliado_actual() FROM PUBLIC;
+REVOKE ALL ON FUNCTION listar_categorias_tenant() FROM PUBLIC;
+REVOKE ALL ON FUNCTION obtener_mis_categorias() FROM PUBLIC;
+
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+        REVOKE ALL ON FUNCTION _cat_aliado_actual() FROM anon, authenticated;
+        REVOKE ALL ON FUNCTION listar_categorias_tenant() FROM anon;
+        REVOKE ALL ON FUNCTION obtener_mis_categorias() FROM anon;
+    END IF;
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+        GRANT EXECUTE ON FUNCTION listar_categorias_tenant() TO authenticated;
+        GRANT EXECUTE ON FUNCTION obtener_mis_categorias() TO authenticated;
+    END IF;
+END $$;
 
 -- 9. Registro de la migración ------------------------------------------------
 INSERT INTO schema_migrations (version, description)
