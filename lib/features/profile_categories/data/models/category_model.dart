@@ -17,9 +17,5 @@ class CategoryModel extends CategoryEntity {
     );
   }
 
-  Map<String, dynamic> toJson() => {
-        'id': id,
-        'label': label,
-        'emoji': emoji,
-      };
+  Map<String, dynamic> toJson() => {'id': id, 'label': label, 'emoji': emoji};
 }
