@@ -30,7 +30,7 @@ k6 run -e MODO=sin_exclusion qa/k6/aceptar_concurrente.js
 k6 run -e N=10 qa/k6/aceptar_concurrente.js
 ```
 
-Entre corridas hay que devolver la solicitud a `pending` con
+Entre corridas hay que devolver la solicitud a `PENDIENTE` con
 `supabase/poc-cfg09/11_reset_solicitud.sql`. El bloque 1 de ese archivo
 captura el ganador saliente antes de borrarlo.
 

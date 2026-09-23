@@ -14,7 +14,7 @@
 --     * N aliados aprobados (N configurable abajo), todos en la misma zona
 --       y la misma categoria, cada uno con su usuario de Supabase Auth
 --     * 1 cliente con su sitio
---     * 1 solicitud en estado 'pending' con UUID fijo
+--     * 1 solicitud en estado 'PENDIENTE' con UUID fijo
 --   Los N aliados compiten por ESA solicitud. Es la poblacion minima para
 --   que la pregunta de la PoC tenga sentido: con 1 aliado no hay carrera.
 --
@@ -36,7 +36,7 @@
 --
 -- DERIVA QUE ESTE SCRIPT ABSORBE (ver informe de SCRUM-959)
 --   D1: `solicitud.estado` NO tiene DEFAULT en QA aunque el DDL lo declare,
---       asi que el INSERT escribe 'pending' de forma explicita.
+--       asi que el INSERT escribe 'PENDIENTE' de forma explicita.
 --   D2: tampoco hay CHECK sobre `estado`, asi que nada en la base valida
 --       el vocabulario — el valor correcto es responsabilidad del script.
 --
@@ -232,30 +232,30 @@ BEGIN
   -- PARTE C — Datos de dominio (orden de FK)
   -- -----------------------------------------------------------------
   INSERT INTO tenant (id, nombre, slug, estado)
-  VALUES (v_tenant, 'PoC Concurrencia CFG-09', 'poc-concurrencia', 'activo');
+  VALUES (v_tenant, 'PoC Concurrencia CFG-09', 'poc-concurrencia', 'ACTIVO');
 
   INSERT INTO usuario (id, tenant_id, email, rol, estado)
-  VALUES (v_usr_cli, v_tenant, 'cliente.poc@poc.mani.test', 'cliente', 'activo');
+  VALUES (v_usr_cli, v_tenant, 'cliente.poc@poc.mani.test', 'CLIENTE', 'ACTIVO');
 
   INSERT INTO usuario (id, tenant_id, email, rol, estado)
   SELECT ('30000000-0000-4000-8000-9' || lpad(i::text, 11, '0'))::uuid,
-         v_tenant, 'aliado.poc.' || i || '@poc.mani.test', 'aliado', 'activo'
+         v_tenant, 'aliado.poc.' || i || '@poc.mani.test', 'ALIADO', 'ACTIVO'
     FROM generate_series(1, v_n) AS i;
 
   INSERT INTO cliente (id, tenant_id, usuario_id, tipo)
-  VALUES (v_cliente, v_tenant, v_usr_cli, 'persona_natural');
+  VALUES (v_cliente, v_tenant, v_usr_cli, 'PERSONA_NATURAL');
 
-  -- 'aprobado' es obligatorio: un aliado 'pendiente' no puede operar y no
+  -- 'VERIFICADO' es obligatorio: un aliado 'PENDIENTE' no puede operar y no
   -- deberia entrar a la carrera.
   INSERT INTO aliado (id, tenant_id, usuario_id, tipo, nombre_razon_social, estado_verificacion)
   SELECT ('50000000-0000-4000-8000-9' || lpad(i::text, 11, '0'))::uuid,
          v_tenant,
          ('30000000-0000-4000-8000-9' || lpad(i::text, 11, '0'))::uuid,
-         'persona_natural', 'Aliado PoC ' || i, 'aprobado'
+         'PERSONA_NATURAL', 'Aliado PoC ' || i, 'VERIFICADO'
     FROM generate_series(1, v_n) AS i;
 
   INSERT INTO categoria_servicio (id, tenant_id, nombre, estado, flujo_operativo)
-  VALUES (v_categoria, v_tenant, 'Plomeria PoC', 'activa', NULL);
+  VALUES (v_categoria, v_tenant, 'Plomeria PoC', 'ACTIVO', NULL);
 
   INSERT INTO sitio (id, tenant_id, cliente_id, zona_id, direccion, reglas)
   VALUES (v_sitio, v_tenant, v_cliente, v_zona,
@@ -284,7 +284,7 @@ BEGIN
   INSERT INTO solicitud (id, tenant_id, cliente_id, sitio_id, categoria_id,
                          zona_id, aliado_id, estado)
   VALUES (v_solicitud, v_tenant, v_cliente, v_sitio, v_categoria,
-          v_zona, NULL, 'pending');
+          v_zona, NULL, 'PENDIENTE');
 
   RAISE NOTICE 'Seed PoC listo: % aliados aprobados compiten por la solicitud %',
     v_n, v_solicitud;
@@ -300,11 +300,11 @@ COMMIT;
 -- aliado no cubre la zona o la categoria del sitio y no deberia competir.
 SELECT t.slug,
        (SELECT count(*) FROM aliado a
-         WHERE a.tenant_id = t.id AND a.estado_verificacion = 'aprobado') AS aliados_aprobados,
+         WHERE a.tenant_id = t.id AND a.estado_verificacion = 'VERIFICADO') AS aliados_aprobados,
        (SELECT count(*) FROM aliado a
           JOIN cobertura_aliado ca ON ca.aliado_id = a.id AND ca.zona_id = s.zona_id
           JOIN aliado_categoria ac ON ac.aliado_id = a.id AND ac.categoria_id = s.categoria_id
-         WHERE a.tenant_id = t.id AND a.estado_verificacion = 'aprobado')  AS aliados_listos,
+         WHERE a.tenant_id = t.id AND a.estado_verificacion = 'VERIFICADO')  AS aliados_listos,
        s.id AS solicitud, s.estado, s.aliado_id
   FROM tenant t
   JOIN solicitud s ON s.tenant_id = t.id

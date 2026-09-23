@@ -33,7 +33,7 @@
 -- BLOQUE 1 — Forma REAL de `solicitud` en QA
 -- ---------------------------------------------------------------------
 -- El UPDATE condicional de ADR-0021 asume tres cosas:
---   estado text con 'pending' permitido, aliado_id uuid NULLABLE,
+--   estado text con 'PENDIENTE' permitido, aliado_id uuid NULLABLE,
 --   updated_at presente.
 -- Si alguna no se cumple, la RPC de SCRUM-960 se escribe distinto.
 
@@ -132,10 +132,10 @@ SELECT p.proname,
 -- N de la PoC nunca puede superar aliados_aprobados del tenant elegido.
 SELECT t.slug,
        (SELECT count(*) FROM aliado a
-         WHERE a.tenant_id = t.id AND a.estado_verificacion = 'aprobado') AS aliados_aprobados,
+         WHERE a.tenant_id = t.id AND a.estado_verificacion = 'VERIFICADO') AS aliados_aprobados,
        (SELECT count(*) FROM solicitud s WHERE s.tenant_id = t.id)         AS solicitudes,
        (SELECT count(*) FROM solicitud s
-         WHERE s.tenant_id = t.id AND s.estado = 'pending')                AS solicitudes_pending
+         WHERE s.tenant_id = t.id AND s.estado = 'PENDIENTE')              AS solicitudes_pending
   FROM tenant t ORDER BY t.slug;
 
 -- 5.b — pgcrypto: el seed de la Fase 0 crea N usuarios de Auth con
