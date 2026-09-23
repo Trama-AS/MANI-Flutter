@@ -30,7 +30,7 @@
 --
 -- POR QUE EL CONTROL NEGATIVO ES OTRO DISENO
 --   La primera version proponia quitar solo el predicado `estado =
---   'pending'`. No sirve: el `UPDATE` lleva DOS guardas y la otra
+--   'PENDIENTE'`. No sirve: el `UPDATE` lleva DOS guardas y la otra
 --   —`aliado_id IS NULL`— sigue excluyendo sola. El primer UPDATE deja
 --   ese campo no nulo y bajo READ COMMITTED las transacciones siguientes
 --   reevaluan el WHERE y afectan 0 filas. Daria 1 exito con o sin
@@ -38,7 +38,7 @@
 --   (Hallazgo de la revision del PR #4 de MANI-docs.)
 --
 --   La version correcta separa la comprobacion de la escritura —lee que
---   este 'pending', espera, y despues actualiza SIN condicion— creando la
+--   este 'PENDIENTE', espera, y despues actualiza SIN condicion— creando la
 --   ventana check-then-act. Bajo concurrencia real produce N filas en la
 --   bitacora; si el pooler serializa, produce 1. Eso es lo que distingue
 --   "hay exclusion" de "no hubo carrera".
@@ -96,12 +96,22 @@ CREATE POLICY tenant_isolation_poc_log ON public.poc_asignacion_log
 -- ---------------------------------------------------------------------
 -- 2. El mecanismo de ADR-0021 — lo que la PoC mide
 -- ---------------------------------------------------------------------
+-- Se borran las dos firmas: (uuid, uuid, text) es la version original del
+-- repo y (uuid, uuid, text, numeric) la que corria en QA. NO se toca la
+-- aceptar_solicitud(uuid) de la migracion 005, que es la del producto.
 DROP FUNCTION IF EXISTS public.aceptar_solicitud(uuid, uuid, text);
+DROP FUNCTION IF EXISTS public.aceptar_solicitud(uuid, uuid, text, numeric);
 
+-- p_espera: el harness de k6 la envia para alinear la llegada de las N
+-- peticiones dentro de la misma ventana (ver qa/k6/aceptar_concurrente.js).
+-- Estaba desplegada en QA pero no versionada aqui (SCRUM-1059). La espera va
+-- ANTES del UPDATE y no toca el mecanismo: el UPDATE sigue siendo atomico y
+-- condicional.
 CREATE FUNCTION public.aceptar_solicitud(
     p_solicitud uuid,
     p_aliado    uuid,
-    p_corrida   text DEFAULT NULL)
+    p_corrida   text    DEFAULT NULL,
+    p_espera    numeric DEFAULT 0)
 RETURNS TABLE (id uuid, estado text, aliado_id uuid)
 LANGUAGE plpgsql
 SECURITY INVOKER
@@ -111,6 +121,8 @@ DECLARE
   v_tenant uuid;
   v_actual uuid;
 BEGIN
+  IF p_espera > 0 THEN PERFORM pg_sleep(p_espera); END IF;
+
   -- EL UPDATE CONDICIONAL. Las dos guardas son el mecanismo completo de
   -- exclusion: la fila solo se deja tomar si sigue libre. Postgres bloquea
   -- la fila mientras una transaccion la actualiza; las demas esperan, y al
@@ -118,10 +130,10 @@ BEGIN
   -- ya no cumple. De ahi que afecten 0 filas sin bloqueo pesimista.
   UPDATE solicitud s
      SET aliado_id  = p_aliado,
-         estado     = 'assigned',
+         estado     = 'ASIGNADA',
          updated_at = now()
    WHERE s.id = p_solicitud
-     AND s.estado = 'pending'
+     AND s.estado = 'PENDIENTE'
      AND s.aliado_id IS NULL
   RETURNING s.tenant_id INTO v_tenant;
 
@@ -159,8 +171,8 @@ BEGIN
 END;
 $fn$;
 
-REVOKE ALL ON FUNCTION public.aceptar_solicitud(uuid, uuid, text) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.aceptar_solicitud(uuid, uuid, text) TO authenticated;
+REVOKE ALL ON FUNCTION public.aceptar_solicitud(uuid, uuid, text, numeric) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.aceptar_solicitud(uuid, uuid, text, numeric) TO authenticated;
 
 -- ---------------------------------------------------------------------
 -- 3. Control negativo — DEBE fallar
@@ -187,7 +199,7 @@ DECLARE
   v_previo  uuid;
 BEGIN
   -- PASO 1 — COMPROBAR (check). Lectura sin bloqueo: varias transacciones
-  -- pueden pasar por aqui a la vez y todas ver 'pending'.
+  -- pueden pasar por aqui a la vez y todas ver 'PENDIENTE'.
   SELECT s.tenant_id, s.estado, s.aliado_id
     INTO v_tenant, v_estado, v_previo
     FROM solicitud s WHERE s.id = p_solicitud;
@@ -196,7 +208,7 @@ BEGIN
     RAISE EXCEPTION 'no_encontrada' USING ERRCODE = 'PT404';
   END IF;
 
-  IF v_estado <> 'pending' THEN
+  IF v_estado <> 'PENDIENTE' THEN
     RAISE EXCEPTION 'ya_no_disponible' USING ERRCODE = 'PT409';
   END IF;
 
@@ -211,7 +223,7 @@ BEGIN
   -- lost update que ADR-0021 evita.
   UPDATE solicitud s
      SET aliado_id  = p_aliado,
-         estado     = 'assigned',
+         estado     = 'ASIGNADA',
          updated_at = now()
    WHERE s.id = p_solicitud;
 
@@ -233,7 +245,7 @@ GRANT EXECUTE ON FUNCTION public.aceptar_solicitud_sin_exclusion(uuid, uuid, tex
 -- que el primer diseno del control negativo no servia.
 --
 -- La primera version del informe de SCRUM-959 proponia "quitar el predicado
--- estado = 'pending'". Eso es esto. Y no funciona, porque el UPDATE lleva
+-- estado = 'PENDIENTE'". Eso es esto. Y no funciona, porque el UPDATE lleva
 -- DOS guardas: al quitar una, la otra sigue excluyendo sola.
 --
 -- El motivo es EvalPlanQual. En READ COMMITTED, cuando dos transacciones
@@ -248,11 +260,13 @@ GRANT EXECUTE ON FUNCTION public.aceptar_solicitud_sin_exclusion(uuid, uuid, tex
 -- Se despliega para medirlo y dejar el dato en el informe: es la evidencia
 -- de que el instrumento de validacion tambien hay que validarlo.
 DROP FUNCTION IF EXISTS public.aceptar_solicitud_control_malo(uuid, uuid, text);
+DROP FUNCTION IF EXISTS public.aceptar_solicitud_control_malo(uuid, uuid, text, numeric);
 
 CREATE FUNCTION public.aceptar_solicitud_control_malo(
     p_solicitud uuid,
     p_aliado    uuid,
-    p_corrida   text DEFAULT NULL)
+    p_corrida   text    DEFAULT NULL,
+    p_espera    numeric DEFAULT 0)
 RETURNS TABLE (id uuid, estado text, aliado_id uuid)
 LANGUAGE plpgsql
 SECURITY INVOKER
@@ -261,10 +275,12 @@ AS $fn$
 DECLARE
   v_tenant uuid;
 BEGIN
+  IF p_espera > 0 THEN PERFORM pg_sleep(p_espera); END IF;
+
   -- UNA sola guarda. El predicado de estado se quito; el de aliado_id no.
   UPDATE solicitud s
      SET aliado_id  = p_aliado,
-         estado     = 'assigned',
+         estado     = 'ASIGNADA',
          updated_at = now()
    WHERE s.id = p_solicitud
      AND s.aliado_id IS NULL
@@ -282,8 +298,8 @@ BEGIN
 END;
 $fn$;
 
-REVOKE ALL ON FUNCTION public.aceptar_solicitud_control_malo(uuid, uuid, text) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.aceptar_solicitud_control_malo(uuid, uuid, text) TO authenticated;
+REVOKE ALL ON FUNCTION public.aceptar_solicitud_control_malo(uuid, uuid, text, numeric) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.aceptar_solicitud_control_malo(uuid, uuid, text, numeric) TO authenticated;
 
 COMMIT;
 
@@ -294,8 +310,10 @@ NOTIFY pgrst, 'reload schema';
 -- =====================================================================
 -- VERIFICACION (solo lectura)
 -- =====================================================================
--- Esperado: 2 funciones, ambas SECURITY INVOKER, ambas con EXECUTE para
--- `authenticated` y sin EXECUTE para `anon`.
+-- Esperado: las 3 funciones de la PoC con 4 argumentos, SECURITY INVOKER,
+-- con EXECUTE para `authenticated` y sin EXECUTE para `anon`. Aparece ademas
+-- aceptar_solicitud(p_solicitud_id uuid) de la migracion 005 (DEFINER): es
+-- la del producto y convive como sobrecarga.
 SELECT p.proname,
        pg_get_function_identity_arguments(p.oid) AS argumentos,
        CASE WHEN p.prosecdef THEN 'DEFINER' ELSE 'INVOKER' END AS seguridad,

@@ -8,14 +8,14 @@
 -- ⚠️ ESCRIBE, pero solo sobre 1 fila del tenant `poc-concurrencia`.
 --
 -- POR QUE EXISTE
---   Cada corrida de k6 deja la solicitud en 'assigned'. Volver a correr el
+--   Cada corrida de k6 deja la solicitud en 'ASIGNADA'. Volver a correr el
 --   seed completo re-crearia los N usuarios de Auth (bcrypt x N) sin
---   necesidad: entre corridas solo hay que devolver ESTA fila a 'pending'.
+--   necesidad: entre corridas solo hay que devolver ESTA fila a 'PENDIENTE'.
 --
 -- ORDEN DE USO POR CORRIDA
 --   1. Bloque 1 de este archivo  -> captura el resultado de la corrida
 --      anterior ANTES de borrarlo (evidencia de SCRUM-962).
---   2. Bloque 2                  -> devuelve la fila a 'pending'.
+--   2. Bloque 2                  -> devuelve la fila a 'PENDIENTE'.
 --   3. k6                        -> siguiente corrida.
 -- =====================================================================
 
@@ -24,7 +24,7 @@
 -- ---------------------------------------------------------------------
 -- Guardar esta salida junto al summary.json de la corrida. `ganador` es
 -- el aliado que se quedo con la solicitud; `estado` deberia ser
--- 'assigned' si la corrida tuvo al menos un exito.
+-- 'ASIGNADA' si la corrida tuvo al menos un exito.
 SELECT s.id            AS solicitud,
        s.estado,
        s.aliado_id     AS ganador,
@@ -42,7 +42,7 @@ SELECT s.id            AS solicitud,
 -- siguiente carrera; si devuelve 0 filas, el seed no esta aplicado.
 UPDATE solicitud
    SET aliado_id  = NULL,
-       estado     = 'pending',
+       estado     = 'PENDIENTE',
        updated_at = now()
  WHERE id = 'a0000000-0000-4000-8000-900000000001'
 RETURNING id, estado, aliado_id, updated_at;
