@@ -9,6 +9,7 @@ import 'package:mani/features/auth/presentation/pages/login_page.dart';
 import 'package:mani/features/auth/presentation/pages/registro_cliente_page.dart';
 import 'package:mani/features/auth/presentation/pages/registro_aliado_page.dart';
 import 'package:mani/features/auth/presentation/pages/registro_aliado_empresa_page.dart';
+import 'package:mani/features/profile_categories/presentation/pages/categories_page.dart';
 import 'package:mani/features/profiles/coverage/presentation/pages/declarar_cobertura_page.dart';
 import 'package:mani/features/profiles/verification/presentation/bloc/bandeja_verificacion_cubit.dart';
 import 'package:mani/features/profiles/verification/presentation/pages/bandeja_verificacion_page.dart';
@@ -38,6 +39,7 @@ const _publicPaths = {
   '/register-cliente',
   '/register-aliado',
   '/register-empresa',
+  '/categories', // TODO: quitar de público una vez esté integrada post-login
 };
 
 bool _isPublicPath(String path) {
@@ -52,6 +54,7 @@ bool _isPublicPath(String path) {
 /// - `/register-cliente`: Pantalla independiente de registro para clientes (US-02.2.1)
 /// - `/register-aliado`: Pantalla independiente de registro para aliados técnicos (US-02.1.1)
 /// - `/register-empresa`: Pantalla independiente de registro para aliados empresas (US-02.1.2)
+/// - `/categories`: Pantalla de selección de categorías del aliado (US-03.1.3)
 /// - `/aliado/cobertura`: Zona de cobertura del aliado (US-02.1.4)
 /// - `/admin/verificacion-aliados`: Bandeja de verificación del admin del tenant (US-02.1.3)
 ///
@@ -106,6 +109,12 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/registro-empresa',
       redirect: (context, state) => '/register-empresa',
+    ),
+    // Ruta independiente: Selección de categorías del aliado (US-03.1.3)
+    GoRoute(
+      path: '/categories',
+      name: 'categories',
+      builder: (context, state) => const CategoriesPage(),
     ),
     // Redirecciones por compatibilidad
     GoRoute(
