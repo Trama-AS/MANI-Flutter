@@ -261,12 +261,17 @@ BEGIN
         IF NOT EXISTS (SELECT 1 FROM zona WHERE id = p_zona_id AND _zona_activa(estado)) THEN
             RAISE EXCEPTION 'MANI-SOL-422Z: zona no disponible';
         END IF;
-        INSERT INTO sitio (tenant_id, cliente_id, zona_id, direccion, reglas)
-        VALUES (v_ctx.o_tenant, v_ctx.o_cliente, p_zona_id, v_direccion, '{}'::jsonb)
-        RETURNING id, zona_id INTO v_sitio, v_zona;
     END IF;
 
+    -- El sitio nuevo se crea dentro del bloque: si otro envío con la misma
+    -- clave gana la carrera, se deshace junto con la solicitud (sin huérfanos).
     BEGIN
+        IF v_sitio IS NULL THEN
+            INSERT INTO sitio (tenant_id, cliente_id, zona_id, direccion, reglas)
+            VALUES (v_ctx.o_tenant, v_ctx.o_cliente, p_zona_id, v_direccion, '{}'::jsonb)
+            RETURNING id, zona_id INTO v_sitio, v_zona;
+        END IF;
+
         INSERT INTO solicitud (
             tenant_id, cliente_id, sitio_id, categoria_id, zona_id,
             estado, descripcion, clave_idempotencia
@@ -386,6 +391,7 @@ BEGIN
 END $$;
 
 -- 10. Permisos -----------------------------------------------------------------
+REVOKE ALL ON FUNCTION _zona_activa(TEXT) FROM PUBLIC;
 REVOKE ALL ON FUNCTION _solc_cliente_actual() FROM PUBLIC;
 REVOKE ALL ON FUNCTION _solc_json(UUID) FROM PUBLIC;
 REVOKE ALL ON FUNCTION listar_categorias_cliente() FROM PUBLIC;
@@ -396,6 +402,7 @@ REVOKE ALL ON FUNCTION crear_solicitud(UUID, TEXT, UUID, TEXT, UUID, TEXT[], UUI
 DO $$
 BEGIN
     IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+        REVOKE ALL ON FUNCTION _zona_activa(TEXT) FROM anon, authenticated;
         REVOKE ALL ON FUNCTION _solc_cliente_actual() FROM anon, authenticated;
         REVOKE ALL ON FUNCTION _solc_json(UUID) FROM anon, authenticated;
         REVOKE ALL ON FUNCTION listar_categorias_cliente() FROM anon;
