@@ -138,11 +138,59 @@ BEGIN
 END;
 $$;
 
+-- 6. Guardar la selección completa (SCRUM-1018) -----------------------------
+-- Reemplaza el conjunto: borra las que ya no están e inserta las nuevas, en
+-- una sola transacción. Bloquea la fila del aliado para serializar guardados
+-- concurrentes del mismo aliado.
+CREATE OR REPLACE FUNCTION guardar_mis_categorias(p_categoria_ids UUID[])
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_ctx RECORD := _cat_aliado_actual();
+    v_ids UUID[];
+BEGIN
+    PERFORM 1 FROM aliado WHERE id = v_ctx.o_aliado FOR UPDATE;
+
+    v_ids := ARRAY(
+        SELECT DISTINCT x FROM unnest(COALESCE(p_categoria_ids, '{}')) AS x WHERE x IS NOT NULL
+    );
+
+    IF cardinality(v_ids) = 0 THEN
+        RAISE EXCEPTION 'MANI-CAT-422V: selecciona al menos una categoría';
+    END IF;
+
+    IF (
+        SELECT count(*) FROM categoria_servicio
+        WHERE id = ANY(v_ids) AND tenant_id = v_ctx.o_tenant AND estado = 'ACTIVO'
+    ) <> cardinality(v_ids) THEN
+        RAISE EXCEPTION 'MANI-CAT-422C: categoría no disponible';
+    END IF;
+
+    DELETE FROM aliado_categoria
+    WHERE aliado_id = v_ctx.o_aliado AND categoria_id <> ALL(v_ids);
+
+    INSERT INTO aliado_categoria (id, tenant_id, aliado_id, categoria_id)
+    SELECT gen_random_uuid(), v_ctx.o_tenant, v_ctx.o_aliado, x
+    FROM unnest(v_ids) AS x
+    ON CONFLICT (aliado_id, categoria_id) DO NOTHING;
+
+    RETURN (
+        SELECT jsonb_agg(ac.categoria_id ORDER BY ac.categoria_id)
+        FROM aliado_categoria ac
+        WHERE ac.aliado_id = v_ctx.o_aliado
+    );
+END;
+$$;
+
 -- 8. Permisos ----------------------------------------------------------------
 REVOKE ALL ON FUNCTION _cat_validar_tenant_aliado_categoria() FROM PUBLIC;
 REVOKE ALL ON FUNCTION _cat_aliado_actual() FROM PUBLIC;
 REVOKE ALL ON FUNCTION listar_categorias_tenant() FROM PUBLIC;
 REVOKE ALL ON FUNCTION obtener_mis_categorias() FROM PUBLIC;
+REVOKE ALL ON FUNCTION guardar_mis_categorias(UUID[]) FROM PUBLIC;
 
 DO $$
 BEGIN
@@ -150,10 +198,12 @@ BEGIN
         REVOKE ALL ON FUNCTION _cat_aliado_actual() FROM anon, authenticated;
         REVOKE ALL ON FUNCTION listar_categorias_tenant() FROM anon;
         REVOKE ALL ON FUNCTION obtener_mis_categorias() FROM anon;
+        REVOKE ALL ON FUNCTION guardar_mis_categorias(UUID[]) FROM anon;
     END IF;
     IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
         GRANT EXECUTE ON FUNCTION listar_categorias_tenant() TO authenticated;
         GRANT EXECUTE ON FUNCTION obtener_mis_categorias() TO authenticated;
+        GRANT EXECUTE ON FUNCTION guardar_mis_categorias(UUID[]) TO authenticated;
     END IF;
 END $$;
 
