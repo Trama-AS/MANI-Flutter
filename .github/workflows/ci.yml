@@ -1,10 +1,10 @@
-name: CI - Release & Staging Validation
+name: CI - Production Validation (main)
 
 on:
   pull_request:
-    branches: [ release, 'release/**', 'release/*' ]
+    branches: [ main ]
   push:
-    branches: [ release, 'release/**', 'release/*' ]
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -16,10 +16,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-
-      - name: Ensure environment file exists
-        run: cp .env.example .env 2>/dev/null || touch .env
+          fetch-depth: 0 # Deshabilita shallow clone para análisis preciso de SonarQube
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -31,7 +28,7 @@ jobs:
         run: flutter pub get
 
       - name: Check code formatting
-        run: dart format --output=show --set-exit-if-changed .
+        run: dart format --output=none --set-exit-if-changed .
 
       - name: Analyze code (Linter)
         run: flutter analyze
@@ -39,45 +36,18 @@ jobs:
       - name: Run widget & unit tests with coverage
         run: flutter test --coverage
 
-      - name: Run integration tests (RF-14)
-        run: flutter test test/integration
+      - name: SonarQube Scan
+        uses: sonarsource/sonarqube-scan-action@v4
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: https://sonarcloud.io
+
+      - name: SonarQube Quality Gate Check
+        uses: sonarsource/sonarqube-quality-gate-action@v1
+        timeout-minutes: 5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: https://sonarcloud.io
 
       - name: Verify Web Build
         run: flutter build web --release
-
-      # El env de un step no existe todavia cuando se evalua su propio if,
-      # asi que la presencia del secret se resuelve en un step previo.
-      - name: Check Supabase QA connection secret
-        id: qa_db
-        if: github.event_name == 'push'
-        env:
-          SUPABASE_QA_DB_URL: ${{ secrets.SUPABASE_QA_DB_URL }}
-        run: |
-          if [ -n "$SUPABASE_QA_DB_URL" ]; then
-            echo "configured=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "configured=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::SUPABASE_QA_DB_URL no esta configurado; no se aplican migraciones a Supabase QA."
-          fi
-
-      - name: Apply DB Migrations to Supabase QA
-        if: github.event_name == 'push' && steps.qa_db.outputs.configured == 'true'
-        env:
-          SUPABASE_QA_DB_URL: ${{ secrets.SUPABASE_QA_DB_URL }}
-        run: |
-          echo "[CI] Verificando migraciones de esquema para Supabase QA..."
-          sudo apt-get update -y && sudo apt-get install -y postgresql-client
-          psql "$SUPABASE_QA_DB_URL" -c "CREATE TABLE IF NOT EXISTS schema_migrations (version VARCHAR(50) PRIMARY KEY, description TEXT NOT NULL, applied_at TIMESTAMPTZ NOT NULL DEFAULT now());"
-          APPLIED_VERSIONS=$(psql "$SUPABASE_QA_DB_URL" -t -A -c "SELECT version FROM schema_migrations;")
-          for file in $(ls -1 database/migrations/*.sql | sort); do
-            filename=$(basename "$file")
-            version=$(echo "$filename" | grep -oE "^[0-9]+" || echo "$filename")
-            if echo "$APPLIED_VERSIONS" | grep -qx "$version"; then
-              echo "  [OK] $filename ya aplicada en Supabase QA."
-            else
-              echo "  [APLICANDO] $filename en Supabase QA..."
-              psql "$SUPABASE_QA_DB_URL" -v ON_ERROR_STOP=1 < "$file"
-              echo "  [ÉXITO] $filename aplicada correctamente en Supabase QA."
-            fi
-          done
-
