@@ -1,8 +1,7 @@
-name: Build & Publish Docker Image to GHCR
+name: Build & Publish Docker Image to GHCR (Production)
 
 on:
   push:
-    branches: [ main ]
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+*'
   workflow_dispatch:
@@ -13,7 +12,7 @@ env:
 
 jobs:
   build-and-push:
-    name: Build & Push Image
+    name: Build & Push Production Image
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -39,10 +38,9 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
-            type=ref,event=branch
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
