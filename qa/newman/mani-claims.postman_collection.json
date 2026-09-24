@@ -1,0 +1,559 @@
+{
+  "info": {
+    "name": "MANI — CFG-12 propagacion de claims de tenant",
+    "description": "PoC de identidad y propagacion de claims (SCRUM-929). Cubre SCRUM-972 (el JWT propaga tenant_id y rol), SCRUM-973 (casos borde) y la suite anti-spoofing que el punto 7 del DoR exige para reglas de negocio criticas.\n\nDEPENDE DE:\n  - supabase/poc-cfg12/10_hook_claims_tenant.sql aplicado Y el hook registrado en Authentication > Hooks.\n  - supabase/poc-cfg12/20_seed_identidad.sql aplicado.\n\nPOR QUE LOS USUARIOS SON @cfg12.mani.test Y NO LOS DE CFG-04:\n  Las cuentas de CFG-04 llevan tenant_id escrito a mano en raw_app_meta_data, asi que su JWT sale con tenant con hook o sin hook. Probar contra ellas mediria el seed, no el mecanismo. Las de este seed llevan raw_app_meta_data sin claims de tenant: si el token trae tenant_id, lo puso el hook.\n\nORACULO NO CIRCULAR:\n  El tenant_id del claim no se compara contra `usuario`, porque RLS filtra esa tabla usando ese mismo claim y la comprobacion se confirmaria a si misma. Se compara contra `tenant`, que tiene `lectura_global_tenant USING (true)` y se lee sin depender del claim: la asercion es que el tenant_id del token corresponde al tenant cuyo slug es el esperado.\n\nVARIABLES REQUERIDAS (sin secretos en el repo):\n  newman run mani-claims.postman_collection.json \\\n    --env-var base_url=$SUPABASE_URL --env-var anon_key=$SUPABASE_ANON_KEY",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "password",
+      "value": "QaSeed2026!",
+      "description": "Password de las cuentas desechables de QA"
+    },
+    {
+      "key": "slug_t1",
+      "value": "acme-servicios"
+    },
+    {
+      "key": "slug_t2",
+      "value": "nova-mantenimiento"
+    }
+  ],
+  "item": [
+    {
+      "name": "00 preparacion",
+      "description": "Resuelve los ids de tenant desde la tabla `tenant` y descarga el JWKS. Ninguna de las dos cosas depende de un token, asi que sirven de oraculo para las carpetas siguientes.",
+      "item": [
+        {
+          "name": "resolver tenants (oraculo global)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// `tenant` tiene lectura_global_tenant USING (true): se lee con",
+                  "// la anon key, sin claim de tenant. Por eso sirve de oraculo.",
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const filas = pm.response.json();",
+                  "const t1 = filas.find(t => t.slug === pm.collectionVariables.get('slug_t1'));",
+                  "const t2 = filas.find(t => t.slug === pm.collectionVariables.get('slug_t2'));",
+                  "pm.test('existe el tenant ' + pm.collectionVariables.get('slug_t1'), () => pm.expect(t1).to.be.an('object'));",
+                  "pm.test('existe el tenant ' + pm.collectionVariables.get('slug_t2'), () => pm.expect(t2).to.be.an('object'));",
+                  "pm.collectionVariables.set('tenant_id_t1', t1 && t1.id);",
+                  "pm.collectionVariables.set('tenant_id_t2', t2 && t2.id);",
+                  "pm.test('los dos tenants son distintos', () => pm.expect(t1.id).to.not.eql(t2.id));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              }
+            ],
+            "url": "{{base_url}}/rest/v1/tenant?select=id,slug"
+          }
+        },
+        {
+          "name": "descargar JWKS",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const jwks = pm.response.json();",
+                  "pm.test('el JWKS trae al menos una clave', () => pm.expect(jwks.keys.length).to.be.above(0));",
+                  "// ADR-0018 supone verificacion contra clave PUBLICA. Una clave",
+                  "// simetrica (HS256) invalidaria ese supuesto y el benchmark de",
+                  "// SCRUM-974, que mide verificacion asimetrica.",
+                  "pm.test('la firma es asimetrica (ES256 o RS256)', () => {",
+                  "  pm.expect(jwks.keys[0].alg).to.be.oneOf(['ES256', 'RS256']);",
+                  "});",
+                  "pm.collectionVariables.set('jwks_alg', jwks.keys[0].alg);",
+                  "pm.collectionVariables.set('jwks_kid', jwks.keys[0].kid);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/auth/v1/.well-known/jwks.json"
+          }
+        }
+      ]
+    },
+    {
+      "name": "01 propagacion (SCRUM-972)",
+      "description": "El camino feliz, en dos tenants y con dos roles distintos. Roles distintos a proposito: si el hook copiara un rol fijo o resolviera la fila equivocada, dos usuarios con el mismo rol no lo delatarian.",
+      "item": [
+        {
+          "name": "login hook.t1 -> claims del tenant 1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const b64u = s => Buffer.from(String(s).replace(/-/g, \"+\").replace(/_/g, \"/\"), \"base64\").toString(\"utf8\");",
+                  "",
+                  "pm.test('login 200', () => pm.response.to.have.status(200));",
+                  "const tok = pm.response.json().access_token;",
+                  "pm.expect(tok, 'no vino access_token').to.be.a('string');",
+                  "pm.collectionVariables.set('token_t1', tok);",
+                  "",
+                  "const [h, p] = tok.split('.').slice(0, 2).map(s =>",
+                  "  JSON.parse(b64u(s)));",
+                  "const am = p.app_metadata || {};",
+                  "",
+                  "pm.test('la cabecera usa el alg del JWKS', () => {",
+                  "  pm.expect(h.alg).to.eql(pm.collectionVariables.get('jwks_alg'));",
+                  "});",
+                  "pm.test('el kid corresponde al del JWKS', () => {",
+                  "  pm.expect(h.kid).to.eql(pm.collectionVariables.get('jwks_kid'));",
+                  "});",
+                  "",
+                  "// La asercion que prueba el MECANISMO: esta cuenta no tiene",
+                  "// tenant_id en raw_app_meta_data. Si el claim esta, lo puso el hook.",
+                  "pm.test('app_metadata.tenant_id corresponde al tenant ' + pm.collectionVariables.get('slug_t1'), () => {",
+                  "  pm.expect(am.tenant_id).to.eql(pm.collectionVariables.get('tenant_id_t1'));",
+                  "});",
+                  "pm.test('app_metadata.user_role es aliado', () => pm.expect(am.user_role).to.eql('aliado'));",
+                  "pm.test('app_metadata.rol es aliado (alias del DDL)', () => pm.expect(am.rol).to.eql('aliado'));",
+                  "pm.test('el hook conserva los claims de GoTrue', () => {",
+                  "  pm.expect(p.sub, 'sub').to.be.a('string');",
+                  "  pm.expect(p.role, 'role').to.eql('authenticated');",
+                  "  pm.expect(p.exp, 'exp').to.be.a('number');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":\"hook.t1@cfg12.mani.test\",\"password\":\"{{password}}\"}"
+            },
+            "url": "{{base_url}}/auth/v1/token?grant_type=password"
+          }
+        },
+        {
+          "name": "login hook.t2 -> claims del tenant 2",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const b64u = s => Buffer.from(String(s).replace(/-/g, \"+\").replace(/_/g, \"/\"), \"base64\").toString(\"utf8\");",
+                  "",
+                  "pm.test('login 200', () => pm.response.to.have.status(200));",
+                  "const tok = pm.response.json().access_token;",
+                  "pm.collectionVariables.set('token_t2', tok);",
+                  "const p = JSON.parse(b64u(tok.split('.')[1]));",
+                  "const am = p.app_metadata || {};",
+                  "pm.test('app_metadata.tenant_id corresponde al tenant ' + pm.collectionVariables.get('slug_t2'), () => {",
+                  "  pm.expect(am.tenant_id).to.eql(pm.collectionVariables.get('tenant_id_t2'));",
+                  "});",
+                  "pm.test('app_metadata.user_role es cliente', () => pm.expect(am.user_role).to.eql('cliente'));",
+                  "pm.test('el tenant difiere del de hook.t1', () => {",
+                  "  pm.expect(am.tenant_id).to.not.eql(pm.collectionVariables.get('tenant_id_t1'));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":\"hook.t2@cfg12.mani.test\",\"password\":\"{{password}}\"}"
+            },
+            "url": "{{base_url}}/auth/v1/token?grant_type=password"
+          }
+        },
+        {
+          "name": "el token del tenant 1 ve datos del tenant 1",
+          "description": "Caso POSITIVO. SCRUM-1039 documento que con RLS habilitado y sin politicas los casos negativos pasan porque nadie accede a nada. Sin este positivo, un verde de la suite no distingue aislamiento correcto de acceso roto.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const filas = pm.response.json();",
+                  "pm.test('ve al menos un sitio', () => pm.expect(filas.length).to.be.above(0));",
+                  "pm.test('todos los sitios son de su tenant', () => {",
+                  "  const ajenos = filas.filter(f => f.tenant_id !== pm.collectionVariables.get('tenant_id_t1'));",
+                  "  pm.expect(ajenos, 'filas de otro tenant').to.have.lengthOf(0);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_t1}}"
+              }
+            ],
+            "url": "{{base_url}}/rest/v1/sitio?select=id,tenant_id"
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 casos borde (SCRUM-973)",
+      "description": "Dos de los tres casos del ticket. El tercero —usuario con multiples roles— NO es medible: `usuario` tiene un solo tenant_id y no existe tabla de membresia, asi que la doble pertenencia no es representable en el modelo. Queda declarado como limitacion en SCRUM-971, no como caso omitido.\n\nEl comportamiento esperado se declara ANTES de correr: si el sistema hace otra cosa, eso es el hallazgo, no un fallo del test.",
+      "item": [
+        {
+          "name": "usuario sin tenant: claim presente y nulo",
+          "description": "huerfano tiene fila en `usuario` con tenant_id NULL, un estado que el esquema admite (la columna es NULLABLE). El claim debe salir PRESENTE y nulo, nunca ausente: es lo que hace explicito el fail closed.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const b64u = s => Buffer.from(String(s).replace(/-/g, \"+\").replace(/_/g, \"/\"), \"base64\").toString(\"utf8\");",
+                  "",
+                  "pm.test('login 200 (el usuario si se autentica)', () => pm.response.to.have.status(200));",
+                  "const tok = pm.response.json().access_token;",
+                  "pm.collectionVariables.set('token_huerfano', tok);",
+                  "const p = JSON.parse(b64u(tok.split('.')[1]));",
+                  "const am = p.app_metadata || {};",
+                  "pm.test('la clave tenant_id esta PRESENTE', () => {",
+                  "  pm.expect(Object.keys(am)).to.include('tenant_id');",
+                  "});",
+                  "pm.test('tenant_id es nulo', () => pm.expect(am.tenant_id).to.eql(null));",
+                  "pm.test('conserva el rol de su fila en usuario', () => pm.expect(am.user_role).to.eql('cliente'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":\"huerfano@cfg12.mani.test\",\"password\":\"{{password}}\"}"
+            },
+            "url": "{{base_url}}/auth/v1/token?grant_type=password"
+          }
+        },
+        {
+          "name": "usuario sin tenant: no ve ninguna fila",
+          "description": "La consecuencia del claim nulo contra el predicado de ADR-0018: NULL = tenant_id da NULL, que no es true. El usuario queda autenticado y sin acceso a nada.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('la peticion no falla (queda autenticado)', () => pm.response.to.have.status(200));",
+                  "pm.test('ve 0 filas: falla cerrado', () => pm.expect(pm.response.json()).to.have.lengthOf(0));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_huerfano}}"
+              }
+            ],
+            "url": "{{base_url}}/rest/v1/sitio?select=id,tenant_id"
+          }
+        },
+        {
+          "name": "usuario sin fila en usuario: claims nulos",
+          "description": "sin.perfil existe en auth.users y no tiene fila en public.usuario. Es el alta por el flujo real de registro que nunca quedo vinculada a un tenant: la brecha que ADR-0018 tiene hoy en produccion. El hook debe resolverlo con claims nulos, no reventando.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const b64u = s => Buffer.from(String(s).replace(/-/g, \"+\").replace(/_/g, \"/\"), \"base64\").toString(\"utf8\");",
+                  "",
+                  "pm.test('login 200', () => pm.response.to.have.status(200));",
+                  "const tok = pm.response.json().access_token;",
+                  "pm.collectionVariables.set('token_sin_perfil', tok);",
+                  "const p = JSON.parse(b64u(tok.split('.')[1]));",
+                  "const am = p.app_metadata || {};",
+                  "pm.test('las claves estan PRESENTES', () => {",
+                  "  pm.expect(Object.keys(am)).to.include.members(['tenant_id', 'user_role']);",
+                  "});",
+                  "pm.test('tenant_id es nulo', () => pm.expect(am.tenant_id).to.eql(null));",
+                  "pm.test('user_role es nulo', () => pm.expect(am.user_role).to.eql(null));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":\"sin.perfil@cfg12.mani.test\",\"password\":\"{{password}}\"}"
+            },
+            "url": "{{base_url}}/auth/v1/token?grant_type=password"
+          }
+        },
+        {
+          "name": "usuario sin fila en usuario: no ve ninguna fila",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('la peticion no falla', () => pm.response.to.have.status(200));",
+                  "pm.test('ve 0 filas: falla cerrado', () => pm.expect(pm.response.json()).to.have.lengthOf(0));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_sin_perfil}}"
+              }
+            ],
+            "url": "{{base_url}}/rest/v1/sitio?select=id,tenant_id"
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 anti-spoofing (DoR punto 7)",
+      "description": "El punto 7 del DoR exige, para reglas de negocio criticas como el aislamiento entre tenants, un caso que intente violarla EXPLICITAMENTE. Esta carpeta es lo que convierte el verde de las anteriores en un resultado con significado: sin ella, el 100% solo dice que el seed y el hook coinciden.\n\nEs ademas el caso 5 de ADR-0015 (endpoints con tokens expirados o alterados).",
+      "item": [
+        {
+          "name": "vector 1: JWT con tenant_id alterado",
+          "description": "Se toma el token valido del tenant 1, se reescribe app_metadata.tenant_id apuntando al tenant 2 y se conserva la firma original. Es la afirmacion central de ADR-0018 —el tenant_id queda protegido por la firma criptografica— y hasta ahora nada la probaba.",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const b64u = s => Buffer.from(String(s).replace(/-/g, \"+\").replace(/_/g, \"/\"), \"base64\").toString(\"utf8\");",
+                  "const ab64u = o => Buffer.from(JSON.stringify(o), \"utf8\").toString(\"base64\").replace(/\\+/g, \"-\").replace(/\\//g, \"_\").replace(/=+$/, \"\");",
+                  "",
+                  "const tok = pm.collectionVariables.get('token_t1');",
+                  "const [h, p, s] = tok.split('.');",
+                  "const payload = JSON.parse(b64u(p));",
+                  "payload.app_metadata.tenant_id = pm.collectionVariables.get('tenant_id_t2');",
+                  "const pFalso = ab64u(payload);",
+                  "// Mismo header, payload alterado, firma ORIGINAL: no corresponde.",
+                  "pm.collectionVariables.set('token_alterado', [h, pFalso, s].join('.'));"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('rechazado con 401', () => pm.response.to.have.status(401));",
+                  "pm.test('no devuelve filas del tenant suplantado', () => {",
+                  "  const b = pm.response.json();",
+                  "  pm.expect(Array.isArray(b) ? b.length : 0).to.eql(0);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_alterado}}"
+              }
+            ],
+            "url": "{{base_url}}/rest/v1/sitio?select=id,tenant_id"
+          }
+        },
+        {
+          "name": "vector 2: cabecera X-Tenant-Slug contra el token",
+          "description": "Token valido del tenant 1 mas X-Tenant-Slug apuntando al tenant 2. Verifica la regla vinculante de ADR-0018: la cabecera de contexto solo vale en pre-autenticacion; una peticion autenticada se resuelve por el JWT y la cabecera se ignora. Si devolviera datos del tenant 2, seria tenant spoofing por cabecera, el escenario que el ADR descarto de raiz.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const filas = pm.response.json();",
+                  "pm.test('la cabecera NO cambia el tenant efectivo', () => {",
+                  "  const ajenos = filas.filter(f => f.tenant_id !== pm.collectionVariables.get('tenant_id_t1'));",
+                  "  pm.expect(ajenos, 'filas del tenant de la cabecera').to.have.lengthOf(0);",
+                  "});",
+                  "pm.test('sigue viendo lo suyo', () => pm.expect(filas.length).to.be.above(0));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_t1}}"
+              },
+              {
+                "key": "X-Tenant-Slug",
+                "value": "{{slug_t2}}"
+              }
+            ],
+            "url": "{{base_url}}/rest/v1/sitio?select=id,tenant_id"
+          }
+        },
+        {
+          "name": "vector 3: sin token, solo anon key",
+          "description": "Caso 6 de ADR-0015 (control de autenticacion). La anon key es publica y viaja embebida en el cliente Flutter: por si sola no debe dar acceso a ninguna tabla con RLS.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('401 o 200 con 0 filas', () => {",
+                  "  if (pm.response.code === 200) {",
+                  "    pm.expect(pm.response.json()).to.have.lengthOf(0);",
+                  "  } else {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([401, 403]);",
+                  "  }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              }
+            ],
+            "url": "{{base_url}}/rest/v1/sitio?select=id,tenant_id"
+          }
+        },
+        {
+          "name": "vector 4: firma sustituida por basura",
+          "description": "Token valido con la firma reemplazada. Separa la comprobacion de firma de la del payload: el vector 1 altera el contenido, este destruye la firma. Ambos deben dar 401, y por razones distintas.",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const [h, p] = pm.collectionVariables.get('token_t1').split('.');",
+                  "pm.collectionVariables.set('token_sin_firma', [h, p, 'firma-invalida'].join('.'));"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('rechazado con 401', () => pm.response.to.have.status(401));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "apikey",
+                "value": "{{anon_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_sin_firma}}"
+              }
+            ],
+            "url": "{{base_url}}/rest/v1/sitio?select=id,tenant_id"
+          }
+        }
+      ]
+    }
+  ]
+}

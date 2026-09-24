@@ -1,0 +1,88 @@
+{
+  "ejecutado": "2026-09-22, SQL Editor de MANI-QA, nivel 100k sembrado, indices propuestos activos",
+  "precision": {
+    "puntos": 3150,
+    "acierto_pct": {
+      "postgis": 100,
+      "geohash_6": 93.78,
+      "bbox_refinado": 100
+    },
+    "bbox_sin_refinar": {
+      "candidatos_max": 4,
+      "candidatos_media": 1.29,
+      "puntos_ambiguos_pct": 25.46
+    },
+    "geohash_6_sin_zona": 0
+  },
+  "planes_100k_con_indices": {
+    "zona": [
+      "-- zona · tenant 10000000-0000-4000-8000-900000000001 · entrada 51",
+      "Nested Loop (actual time=1.393..10.282 rows=310 loops=1)",
+      " Buffers: shared hit=1692",
+      " -> Hash Join (actual time=1.341..5.982 rows=388 loops=1)",
+      " Hash Cond: (ac.aliado_id = ca.aliado_id)",
+      " Buffers: shared hit=140",
+      " -> Index Only Scan using idx_poc_aliado_categoria_tenant_categoria on aliado_categoria ac (actual time=0.034..2.612 rows=13184 loops=1)",
+      " Index Cond: ((tenant_id = ((((COALESCE(NULLIF(current_setting('request.jwt.claim'::text, true), ''::text), NULLIF(current_setting('request.jwt.claims'::text, true), ''::text)))::jsonb -> 'app_metadata'::text) ->> 'tenant_id'::text))::uuid) AND (categoria_id = 'ed6a8e5b-9037-4704-b49d-cbb1b6794674'::uuid))",
+      " Heap Fetches: 0",
+      " Buffers: shared hit=112",
+      " -> Hash (actual time=1.274..1.275 rows=3016 loops=1)",
+      " Buckets: 4096 Batches: 1 Memory Usage: 174kB",
+      " Buffers: shared hit=28",
+      " -> Index Only Scan using idx_poc_cobertura_tenant_zona on cobertura_aliado ca (actual time=0.057..0.664 rows=3016 loops=1)",
+      " Index Cond: ((tenant_id = ((((COALESCE(NULLIF(current_setting('request.jwt.claim'::text, true), ''::text), NULLIF(current_setting('request.jwt.claims'::text, true), ''::text)))::jsonb -> 'app_metadata'::text) ->> 'tenant_id'::text))::uuid) AND (zona_id = 'df7f4416-905c-4718-8eb4-d157901195e3'::uuid))",
+      " Heap Fetches: 0",
+      " Buffers: shared hit=28",
+      " -> Index Scan using aliado_pkey on aliado a (actual time=0.011..0.011 rows=1 loops=388)",
+      " Index Cond: (id = ac.aliado_id)",
+      " Filter: ((estado_verificacion = 'aprobado'::text) AND (tenant_id = ((((COALESCE(NULLIF(current_setting('request.jwt.claim'::text, true), ''::text), NULLIF(current_setting('request.jwt.claims'::text, true), ''::text)))::jsonb -> 'app_metadata'::text) ->> 'tenant_id'::text))::uuid))",
+      " Rows Removed by Filter: 0",
+      " Buffers: shared hit=1552",
+      "Planning:",
+      " Buffers: shared hit=349",
+      "Planning Time: 10.916 ms",
+      "Execution Time: 10.398 ms"
+    ],
+    "postgis": [
+      "-- postgis · tenant 10000000-0000-4000-8000-900000000001 · entrada 51",
+      "Limit (actual time=0.041..0.042 rows=1 loops=1)",
+      " Buffers: shared hit=3",
+      " -> Index Scan using idx_zona_geom on zona z (actual time=0.040..0.040 rows=1 loops=1)",
+      " Index Cond: (geom ~ '0101000020E610000008A39557D17852C019D3D61174971440'::geometry)",
+      " Filter: ((nivel = 'localidad'::text) AND (estado = 'activa'::text) AND st_contains(geom, '0101000020E610000008A39557D17852C019D3D61174971440'::geometry))",
+      " Buffers: shared hit=3",
+      "Planning Time: 0.118 ms",
+      "Execution Time: 0.063 ms"
+    ],
+    "bbox": [
+      "-- bbox · tenant 10000000-0000-4000-8000-900000000001 · entrada 51",
+      "Limit (actual time=0.048..0.049 rows=1 loops=1)",
+      " Buffers: shared hit=2",
+      " -> Index Scan using idx_zona_bbox on zona z (actual time=0.048..0.048 rows=1 loops=1)",
+      " Index Cond: ((min_lat <= '5.14790370820699'::double precision) AND (max_lat >= '5.14790370820699'::double precision) AND (min_lon <= '-73.8877772294328'::double precision) AND (max_lon >= '-73.8877772294328'::double precision))",
+      " Filter: poc_cfg10.punto_en_poligono('5.14790370820699'::double precision, '-73.8877772294328'::double precision, anillo_lon, anillo_lat)",
+      " Rows Removed by Filter: 1",
+      " Buffers: shared hit=2",
+      "Planning:",
+      " Buffers: shared hit=5",
+      "Planning Time: 0.188 ms",
+      "Execution Time: 0.070 ms"
+    ],
+    "geohash": [
+      "-- geohash · tenant 10000000-0000-4000-8000-900000000001 · entrada 51",
+      "Nested Loop (actual time=0.021..0.023 rows=1 loops=1)",
+      " Buffers: shared hit=6",
+      " -> Index Scan using zona_geohash_pkey on zona_geohash g (actual time=0.014..0.015 rows=1 loops=1)",
+      " Index Cond: (geohash = 'd2gmq9'::text)",
+      " Buffers: shared hit=3",
+      " -> Index Scan using zona_pkey on zona z (actual time=0.005..0.005 rows=1 loops=1)",
+      " Index Cond: (id = g.zona_id)",
+      " Filter: (estado = 'activa'::text)",
+      " Buffers: shared hit=3",
+      "Planning:",
+      " Buffers: shared hit=6",
+      "Planning Time: 0.158 ms",
+      "Execution Time: 0.044 ms"
+    ]
+  }
+}

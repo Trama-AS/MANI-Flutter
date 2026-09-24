@@ -1,0 +1,13 @@
+{
+  "name": "mani-qa-jwt",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Benchmark de verificacion de firma JWT contra el JWKS de Supabase (SCRUM-974, CFG-12)",
+  "scripts": {
+    "bench": "node bench_verificacion.mjs"
+  },
+  "dependencies": {
+    "jose": "^5.9.6"
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "ticket": "SCRUM-927 (CFG-10)",
+  "fecha": "2026-09-22T22:58:31.986Z",
+  "vus": 20,
+  "duracion_por_variante": "60s",
+  "cuenta": "aliado.poc.1@poc.mani.test",
+  "umbral": "p95 < 1000 ms por variante (QS-08)",
+  "checks_ok": 1,
+  "variantes": {
+    "zona": {
+      "peticiones": 5428,
+      "p50_ms": 221.0865,
+      "p95_ms": 293.46125,
+      "p99_ms": 403.74395,
+      "media_ms": 220.88567686072196,
+      "max_ms": 718.73,
+      "filas_media": 31.908990420044216,
+      "cumple": true
+    },
+    "postgis": {
+      "peticiones": 5508,
+      "p50_ms": 218.99,
+      "p95_ms": 287.36969999999997,
+      "p99_ms": 349.78317,
+      "media_ms": 217.5182111474219,
+      "max_ms": 765.064,
+      "filas_media": 31.866739288307915,
+      "cumple": true
+    },
+    "bbox": {
+      "peticiones": 5523,
+      "p50_ms": 219.087,
+      "p95_ms": 289.2036,
+      "p99_ms": 329.62035999999995,
+      "media_ms": 217.10481930110564,
+      "max_ms": 636.086,
+      "filas_media": 31.84555495201883,
+      "cumple": true
+    },
+    "geohash": {
+      "peticiones": 5408,
+      "p50_ms": 223.163,
+      "p95_ms": 295.76525,
+      "p99_ms": 356.7618699999999,
+      "media_ms": 221.81461723372811,
+      "max_ms": 641.773,
+      "filas_media": 31.97965976331361,
+      "cumple": true
+    }
+  }
+}
