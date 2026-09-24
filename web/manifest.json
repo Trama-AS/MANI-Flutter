@@ -1,11 +1,11 @@
 {
-    "name": "mani_flutter",
-    "short_name": "mani_flutter",
+    "name": "mani",
+    "short_name": "mani",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "Proyecto en Flutter de MANI",
+    "description": "A new Flutter project.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

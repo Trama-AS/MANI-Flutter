@@ -1,0 +1,17 @@
+# Exclusiones propias de la rama release (pruebas de QA).
+# Viven aqui y no en el .gitignore de la raiz para que el merge
+# develop -> release no choque en ese archivo.
+
+# Tokens de sesion del harness de CFG-09 (credenciales)
+k6/tokens.json
+
+# Dependencias del benchmark de JWT de CFG-12
+jwt/node_modules/
+
+# Dependencias y reportes crudos de las suites de Newman de CFG-12.
+# El reporte sin redactar guarda cabeceras Authorization y los cuerpos de
+# login con access_token y refresh_token. Se versiona el .redactado.json,
+# producido por qa/newman/redactar_evidencia.mjs
+newman/node_modules/
+newman/evidencia/*.json
+!newman/evidencia/*.redactado.json
