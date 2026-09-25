@@ -5,6 +5,11 @@ on:
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+*'
   workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Tag de la versión a publicar (ej. v1.0.1)'
+        required: false
+        default: ''
 
 jobs:
   create-release:
@@ -16,6 +21,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Ensure environment file exists
+        run: cp .env.example .env 2>/dev/null || touch .env
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -37,7 +45,7 @@ jobs:
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.event.inputs.tag_name || github.ref_name }}
           generate_release_notes: true
           files: |
             flutter-web-release.zip
-
