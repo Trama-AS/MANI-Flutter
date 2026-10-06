@@ -79,6 +79,8 @@ class AuthRepositoryImpl implements IAuthRepository {
         categoriaId: categoriaId,
         documentosKYC: documentosKYC,
       );
+    } on GatewayException catch (e) {
+      throw AuthFailure(e.message);
     } on AuthException catch (e) {
       throw AuthFailure(_mapAuthError(e.message));
     } catch (e) {

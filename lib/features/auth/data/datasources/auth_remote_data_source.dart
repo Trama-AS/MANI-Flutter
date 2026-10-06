@@ -54,6 +54,11 @@ class AuthRemoteDataSource implements IAuthRemoteDataSource {
   /// (US-02.1.2-M2). Contrato provisional hasta que CFG-16 lo publique.
   static const rutaRegistroEmpresa = '/api/v1/core/aliados/empresa';
 
+  /// Registro de aliado persona natural en Core Node, a través del Gateway
+  /// (US-02.1.1-M2). Contrato provisional hasta que CFG-16 lo publique.
+  static const rutaRegistroPersonaNatural =
+      '/api/v1/core/aliados/persona-natural';
+
   /// Resuelve el tenant antes de autenticarse (ADR-0018). No autoriza nada:
   /// Core toma el tenant definitivo del JWT que emite tras el registro.
   static const headerTenantSlug = 'X-Tenant-Slug';
@@ -162,29 +167,26 @@ class AuthRemoteDataSource implements IAuthRemoteDataSource {
     required String categoriaId,
     required List<Map<String, String>> documentosKYC,
   }) async {
-    final cleanEmail = email.trim();
-    final authRes = await client.auth.signUp(
-      email: cleanEmail,
-      password: password,
-      data: {
-        'nombre_completo': nombreCompleto.trim(),
-        'rol': 'ALIADO',
-        'tipo': 'PERSONA_NATURAL',
-        'tenant_id': tenantId,
-        'categoria_id': categoriaId,
-        'documentos_kyc': documentosKYC,
-        'estado_verificacion': 'PENDIENTE',
-      },
+    // Mismo contrato que el registro de empresa: tenant solo en
+    // X-Tenant-Slug y rutas de Storage construidas por Core (ADR-0013).
+    final campos = <String, String>{
+      'email': email.trim(),
+      'password': password,
+      'nombre_completo': nombreCompleto.trim(),
+      'categoria_id': categoriaId.trim(),
+    };
+
+    final respuesta = await gateway.postMultipart(
+      rutaRegistroPersonaNatural,
+      campos: campos,
+      archivos: [for (final doc in documentosKYC) _archivo(doc)],
+      headers: {headerTenantSlug: tenantId},
     );
 
-    final user = authRes.user;
-    if (user == null) throw const AuthException('No user created.');
-
-    // Simplificado por brevedad (misma logica RPC que original)
     return {
+      ...respuesta,
       'success': true,
-      'usuario_id': user.id,
-      'estado_verificacion': 'PENDIENTE',
+      'estado_verificacion': respuesta['estado_verificacion'] ?? 'PENDIENTE',
     };
   }
 
