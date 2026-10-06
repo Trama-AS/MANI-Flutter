@@ -94,6 +94,22 @@ Cuando se introducen cambios de base de datos en una rama de desarrollo (nuevas 
 
 ---
 
+## 🔄 Sincronización QA ➔ DEV Local (CFG-07)
+
+Para que cualquier desarrollador pueda poblar o resetear su contenedor local de Docker con el **esquema y datos idénticos a QA** (2 tenants: `acme-servicios` y `nova-mantenimiento`, 3 zonas y 6 usuarios con roles de prueba):
+
+```powershell
+# En Windows PowerShell:
+.\scripts\sync-db-from-qa.ps1
+
+# En Linux / Mac / WSL:
+./scripts/sync-db-from-qa.sh
+```
+
+El script aplica automáticamente las migraciones base y carga el seed oficial multi-tenant de QA (`supabase/seed/seed_qa_multitenant.sql`) en `mani-postgres`.
+
+---
+
 ## 🗄️ Tablas Incluidas en el Esquema Base
 
 0. **Control:** `schema_migrations` (seguimiento de versiones aplicadas).

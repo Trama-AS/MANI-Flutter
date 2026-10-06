@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:mani/core/network/gateway_exception.dart';
 import 'package:mani/features/auth/domain/entities/auth_failure.dart';
 import 'package:mani/features/auth/domain/entities/user_entity.dart';
 import 'package:mani/features/auth/domain/repositories/i_auth_repository.dart';
@@ -10,7 +11,8 @@ import 'package:mani/features/auth/data/models/user_model.dart';
 /// Actúa como anti-corruption layer: captura excepciones específicas del
 /// proveedor (Supabase [AuthException]) y las convierte en [AuthFailure]
 /// de dominio para que las capas superiores (use cases, cubit) no dependan
-/// del SDK de infraestructura.
+/// del SDK de infraestructura. Los errores del API Gateway
+/// ([GatewayException]) ya traen un mensaje legible y se propagan tal cual.
 class AuthRepositoryImpl implements IAuthRepository {
   const AuthRepositoryImpl({required this.remoteDataSource});
 
@@ -110,6 +112,8 @@ class AuthRepositoryImpl implements IAuthRepository {
         categoriaId: categoriaId,
         documentosKYC: documentosKYC,
       );
+    } on GatewayException catch (e) {
+      throw AuthFailure(e.message);
     } on AuthException catch (e) {
       throw AuthFailure(_mapAuthError(e.message));
     } catch (e) {

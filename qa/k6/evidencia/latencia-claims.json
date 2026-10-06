@@ -1,0 +1,26 @@
+{
+  "ticket": "SCRUM-974",
+  "proposito": "contexto del costo de verificacion dentro de una peticion real; no es criterio de aceptacion",
+  "ejecutado": "2026-09-22T12:12:11.052Z",
+  "proyecto": "https://hpsxdotaizzclkeufzct.supabase.co",
+  "iteraciones_por_modo": 100,
+  "cuenta": "hook.t1@cfg12.mani.test",
+  "autenticado_ms": {
+    "avg": 114.41341000000004,
+    "med": 104.594,
+    "p95": 141.87744999999978,
+    "max": 529.007
+  },
+  "anonimo_ms": {
+    "avg": 113.02805000000006,
+    "med": 104.522,
+    "p95": 176.07484999999994,
+    "max": 257.792
+  },
+  "delta_ms": {
+    "avg": 1.3853599999999773,
+    "med": 0.07199999999998852,
+    "p95": -34.19740000000016
+  },
+  "checks_fallidos": 0
+}

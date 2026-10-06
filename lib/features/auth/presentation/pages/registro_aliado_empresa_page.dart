@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -66,6 +69,10 @@ class _RegistroAliadoEmpresaViewState
   PlatformFile? _rutEmpresaFile;
   PlatformFile? _cedulaRepFile;
 
+  // Contenido de cada documento, leído al seleccionarlo, para que viaje por
+  // el Gateway junto con el formulario (US-02.1.2-M3).
+  final Map<String, Uint8List> _contenidos = {};
+
   @override
   void dispose() {
     _razonSocialController.dispose();
@@ -86,7 +93,10 @@ class _RegistroAliadoEmpresaViewState
       );
 
       if (result.isNotEmpty) {
+        final bytes = await result.first.readAsBytes();
+        if (!mounted) return;
         setState(() {
+          _contenidos[docType] = bytes;
           if (docType == 'camara') {
             _camaraComercioFile = result.first;
           } else if (docType == 'rut') {
@@ -117,20 +127,10 @@ class _RegistroAliadoEmpresaViewState
     }
 
     final documentos = <Map<String, String>>[
-      {
-        'tipo_documento': 'CAMARA_COMERCIO',
-        'ruta_storage':
-            'kyc/$_selectedTenantId/camara_${_camaraComercioFile!.name}',
-      },
-      {
-        'tipo_documento': 'RUT_EMPRESA',
-        'ruta_storage': 'kyc/$_selectedTenantId/rut_${_rutEmpresaFile!.name}',
-      },
+      _documento('CAMARA_COMERCIO', 'camara', _camaraComercioFile!),
+      _documento('RUT_EMPRESA', 'rut', _rutEmpresaFile!),
       if (_cedulaRepFile != null)
-        {
-          'tipo_documento': 'CEDULA_REPRESENTANTE',
-          'ruta_storage': 'kyc/$_selectedTenantId/rep_${_cedulaRepFile!.name}',
-        },
+        _documento('CEDULA_REPRESENTANTE', 'rep', _cedulaRepFile!),
     ];
 
     context.read<AuthCubit>().registerEmpresa(
@@ -146,6 +146,17 @@ class _RegistroAliadoEmpresaViewState
       documentosKYC: documentos,
     );
   }
+
+  /// La ruta en Storage la decide Core (ADR-0013); aquí solo va el archivo.
+  Map<String, String> _documento(
+    String tipo,
+    String docType,
+    PlatformFile archivo,
+  ) => {
+    'tipo_documento': tipo,
+    'nombre_archivo': archivo.name,
+    'contenido_base64': base64Encode(_contenidos[docType] ?? const <int>[]),
+  };
 
   void _mostrarExitoEmpresaDialog() {
     showDialog(
