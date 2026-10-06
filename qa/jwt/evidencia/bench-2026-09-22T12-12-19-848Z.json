@@ -1,0 +1,22 @@
+{
+  "ticket": "SCRUM-974",
+  "ejecutado": "2026-09-22T12:12:19.848Z",
+  "proyecto": "https://hpsxdotaizzclkeufzct.supabase.co",
+  "algoritmo": "ES256",
+  "kid": "a069a215-25f2-4958-8b90-ef5b289a025a",
+  "runtime": "node v25.9.0",
+  "plataforma": "darwin/arm64",
+  "iteraciones": 1000,
+  "en_frio_ms": 159.96899999999994,
+  "en_caliente": {
+    "n": 1000,
+    "avg_ms": 0.06717699399999788,
+    "min_ms": 0.047915999999986525,
+    "p50_ms": 0.06074999999998454,
+    "p95_ms": 0.10325000000000273,
+    "p99_ms": 0.15116599999998925,
+    "max_ms": 0.2775420000000395
+  },
+  "umbral_p95_ms": 5,
+  "cumple": true
+}

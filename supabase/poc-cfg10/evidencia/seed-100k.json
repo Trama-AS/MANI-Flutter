@@ -1,0 +1,6 @@
+{
+  "corrida": "100k",
+  "ejecutado": "2026-09-22, SQL Editor de MANI-QA, rol postgres",
+  "seed": {"zonas":1105,"aliados":120000,"volumen":100000,"entradas":3150,"segundos":60.3,"coberturas":360067,"celdas_geohash":4440,"aliado_categoria":240427},
+  "verificacion": {"tamano_db":"174 MB","aprobados_pct":80,"ok_sin_solapes":true,"tamano_esquema":"139 MB","ok_teselan_ciudad":true,"aliados_por_tenant":{"ACME Servicios":10000,"Nova Mantenimiento":10000,"PoC Concurrencia CFG-09":100000},"ok_localidades_100":true,"ok_entradas_con_zona":true,"categorias_por_aliado":2,"coberturas_por_aliado":3,"ok_geometrias_validas":true,"ok_geohash_igual_postgis":true,"ok_ray_casting_igual_postgis":true,"aliados_por_localidad_tenant_grande":{"max":3127,"min":2887,"media":2999}}
+}

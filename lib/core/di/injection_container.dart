@@ -1,5 +1,7 @@
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:get_it/get_it.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:mani/core/network/gateway_client.dart';
 import 'package:mani/core/platform/url_opener.dart';
 import 'package:mani/features/auth/data/datasources/auth_remote_data_source.dart';
 import 'package:mani/features/auth/data/repositories/auth_repository_impl.dart';
@@ -49,7 +51,23 @@ Future<void> init() async {
   sl.registerLazySingleton(() => Supabase.instance.client);
 
   // Core
-  // TODO: Network info, etc.
+  // Cliente del API Gateway (ADR-0019). El JWT lo sigue emitiendo
+  // Supabase Auth; aquí solo se lee de la sesión local.
+  sl.registerLazySingleton(
+    () => GatewayClient(
+      baseUrl: dotenv.maybeGet('API_GATEWAY_URL') ?? 'http://localhost:80',
+      tokenProvider: () async =>
+          sl<SupabaseClient>().auth.currentSession?.accessToken,
+      onTokenExpired: () async {
+        try {
+          final res = await sl<SupabaseClient>().auth.refreshSession();
+          return res.session != null;
+        } catch (_) {
+          return false;
+        }
+      },
+    ),
+  );
   sl.registerLazySingleton<UrlOpener>(() => const UrlLauncherOpener());
   sl.registerLazySingleton<SelectorFotos>(
     () => const FilePickerSelectorFotos(),
@@ -79,7 +97,7 @@ Future<void> init() async {
 
   // Data sources
   sl.registerLazySingleton<IAuthRemoteDataSource>(
-    () => AuthRemoteDataSource(client: sl()),
+    () => AuthRemoteDataSource(client: sl(), gateway: sl()),
   );
 
   // Features - Profile Categories
