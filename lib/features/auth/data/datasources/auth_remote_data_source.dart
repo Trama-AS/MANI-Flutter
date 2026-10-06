@@ -1,3 +1,7 @@
+import 'dart:convert';
+
+import 'package:mani/core/network/gateway_client.dart';
+import 'package:mani/core/network/gateway_exception.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 abstract class IAuthRemoteDataSource {
@@ -42,8 +46,17 @@ abstract class IAuthRemoteDataSource {
 
 class AuthRemoteDataSource implements IAuthRemoteDataSource {
   final SupabaseClient client;
+  final GatewayClient gateway;
 
-  AuthRemoteDataSource({required this.client});
+  AuthRemoteDataSource({required this.client, required this.gateway});
+
+  /// Registro de aliado empresa en Core Node, a través del Gateway
+  /// (US-02.1.2-M2). Contrato provisional hasta que CFG-16 lo publique.
+  static const rutaRegistroEmpresa = '/api/v1/core/aliados/empresa';
+
+  /// Resuelve el tenant antes de autenticarse (ADR-0018). No autoriza nada:
+  /// Core toma el tenant definitivo del JWT que emite tras el registro.
+  static const headerTenantSlug = 'X-Tenant-Slug';
 
   @override
   Future<User> signInWithEmail({
@@ -188,28 +201,57 @@ class AuthRemoteDataSource implements IAuthRemoteDataSource {
     String? categoriaId,
     required List<Map<String, String>> documentosKYC,
   }) async {
-    final cleanEmail = email.trim();
-    final authRes = await client.auth.signUp(
-      email: cleanEmail,
-      password: password,
-      data: {
-        'razon_social': razonSocial.trim(),
-        'nit': nit.trim(),
-        'rol': 'ALIADO',
-        'tipo': 'PERSONA_JURIDICA',
-        'tenant_id': tenantId,
-        'estado_verificacion': 'PENDIENTE',
-      },
+    // El tenant va solo en X-Tenant-Slug, nunca en el cuerpo, y la ruta del
+    // documento en Storage la construye Core (tenant_id/aliado_id/documento,
+    // ADR-0013): el cliente no envía rutas.
+    final campos = <String, String>{
+      'email': email.trim(),
+      'password': password,
+      'razon_social': razonSocial.trim(),
+      'nit': nit.trim(),
+      'nombre_representante': nombreRepresentante.trim(),
+      'doc_representante': ?_texto(docRepresentante),
+      'telefono_contacto': ?_texto(telefonoContacto),
+      'categoria_id': ?_texto(categoriaId),
+    };
+
+    final respuesta = await gateway.postMultipart(
+      rutaRegistroEmpresa,
+      campos: campos,
+      archivos: [for (final doc in documentosKYC) _archivo(doc)],
+      headers: {headerTenantSlug: tenantId},
     );
 
-    final user = authRes.user;
-    if (user == null) throw const AuthException('No user created.');
-
     return {
+      ...respuesta,
       'success': true,
-      'usuario_id': user.id,
-      'estado_verificacion': 'PENDIENTE',
+      'estado_verificacion': respuesta['estado_verificacion'] ?? 'PENDIENTE',
     };
+  }
+
+  /// Convierte un documento KYC (`tipo_documento`, `nombre_archivo`,
+  /// `contenido_base64`) en una parte multipart cuyo campo es el tipo en
+  /// minúsculas, p. ej. `camara_comercio`.
+  ArchivoMultipart _archivo(Map<String, String> doc) {
+    final tipo = doc['tipo_documento'] ?? '';
+    final contenido = doc['contenido_base64'];
+    if (tipo.isEmpty || contenido == null || contenido.isEmpty) {
+      throw GatewayException(
+        message:
+            'No se pudo leer el documento ${tipo.isEmpty ? '' : '$tipo '}'
+            'adjunto. Vuelve a seleccionarlo.',
+      );
+    }
+    return ArchivoMultipart(
+      campo: tipo.toLowerCase(),
+      nombre: doc['nombre_archivo'] ?? tipo.toLowerCase(),
+      bytes: base64Decode(contenido),
+    );
+  }
+
+  String? _texto(String? valor) {
+    final limpio = valor?.trim();
+    return limpio == null || limpio.isEmpty ? null : limpio;
   }
 
   @override
