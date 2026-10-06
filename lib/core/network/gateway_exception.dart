@@ -52,6 +52,18 @@ class GatewayException implements Exception {
   /// Gateway y de los servicios.
   final String? correlationId;
 
+  /// Indica si el error se debe a un conflicto de concurrencia o duplicado (HTTP 409).
+  bool get isConflict => statusCode == 409;
+
+  /// Indica si el error se debe a falta de autenticación o expiración de token (HTTP 401).
+  bool get isUnauthorized => statusCode == 401;
+
+  /// Indica si el error se debe a permisos insuficientes (HTTP 403).
+  bool get isForbidden => statusCode == 403;
+
+  /// Indica si ocurrió un fallo de red o timeout sin respuesta del servidor.
+  bool get isConnectionError => statusCode == null;
+
   @override
   String toString() =>
       'GatewayException($statusCode, $message, correlation: $correlationId)';

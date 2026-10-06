@@ -58,6 +58,14 @@ Future<void> init() async {
       baseUrl: dotenv.maybeGet('API_GATEWAY_URL') ?? 'http://localhost:80',
       tokenProvider: () async =>
           sl<SupabaseClient>().auth.currentSession?.accessToken,
+      onTokenExpired: () async {
+        try {
+          final res = await sl<SupabaseClient>().auth.refreshSession();
+          return res.session != null;
+        } catch (_) {
+          return false;
+        }
+      },
     ),
   );
   sl.registerLazySingleton<UrlOpener>(() => const UrlLauncherOpener());
