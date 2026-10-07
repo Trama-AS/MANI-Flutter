@@ -3,7 +3,7 @@
 // =====================================================================
 // Ticket: SCRUM-930 (CFG-13) · Subtarea: SCRUM-978
 // Ambiente: SOLO QA (proyecto Supabase hpsxdotaizzclkeufzct)
-// Depende de: supabase/poc-cfg13/10_bucket_kyc.sql y 20_seed_storage.sql
+// Depende de: MANI-APIGateway/supabase/poc-cfg13/10_bucket_kyc.sql y 20_seed_storage.sql
 //
 // QUE HACE
 //   Cada aliado de CFG-04 inicia sesion y sube SU cedula (PDF sintetico)
