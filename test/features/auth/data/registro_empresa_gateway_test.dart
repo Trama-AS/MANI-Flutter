@@ -121,13 +121,15 @@ void main() {
     });
 
     test('CC-2/CA-6: el tenant no viaja en el cuerpo, solo como slug '
-        'de preautenticación', () async {
+        'de preautenticación (X-Tenant-Slug ADR-0018)', () async {
       await registrar(datasource());
 
       final r = alGateway.single;
       final cuerpo = utf8.decode(r.bodyBytes);
       expect(cuerpo, isNot(contains('tenant')));
-      expect(r.headers[AuthRemoteDataSource.headerTenantId], 'tenant-a');
+      expect(r.headers[AuthRemoteDataSource.headerTenantSlug], 'tenant-a');
+      expect(r.headers.containsKey('X-Tenant-Id'), isFalse);
+      expect(r.headers.containsKey('X-Tenant-ID'), isFalse);
     });
 
     test('mantiene la forma de respuesta que espera la UI', () async {

@@ -47,12 +47,12 @@ class _RegistroAliadoEmpresaViewState
 
   bool _showPassword = false;
 
-  // Tenant seleccionado
-  String _selectedTenantId = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11';
+  // Tenant seleccionado (slug público para pre-autenticación según ADR-0018)
+  String _selectedTenantId = 'plomeria-express';
   final Map<String, String> _tenants = const {
-    'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11': 'Plomería Express CDMX SA',
-    'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a22': 'Electricistas Pro Monterrey',
-    'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a33': 'Cerrajería Total GDL',
+    'plomeria-express': 'Plomería Express CDMX SA',
+    'electricistas-pro': 'Electricistas Pro Monterrey',
+    'cerrajeria-total': 'Cerrajería Total GDL',
   };
 
   // Categoría de servicio seleccionada

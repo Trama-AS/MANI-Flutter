@@ -61,7 +61,7 @@ class AuthRemoteDataSource implements IAuthRemoteDataSource {
 
   /// Resuelve el tenant antes de autenticarse (ADR-0018). No autoriza nada:
   /// Core toma el tenant definitivo del JWT que emite tras el registro.
-  static const headerTenantId = 'X-Tenant-Id';
+  static const headerTenantSlug = 'X-Tenant-Slug';
 
   @override
   Future<User> signInWithEmail({
@@ -167,8 +167,8 @@ class AuthRemoteDataSource implements IAuthRemoteDataSource {
     required String categoriaId,
     required List<Map<String, String>> documentosKYC,
   }) async {
-    // Tenant solo en X-Tenant-Id y rutas de Storage construidas por Core
-    // (ADR-0013). Nombres de campo en camelCase: así los define el contrato
+    // Tenant solo en X-Tenant-Slug y rutas de Storage construidas por Core
+    // (ADR-0013, ADR-0018). Nombres de campo en camelCase: así los define el contrato
     // OpenAPI de CFG-16 (fullName/categoriaId), no snake_case español.
     final campos = <String, String>{
       'email': email.trim(),
@@ -181,7 +181,7 @@ class AuthRemoteDataSource implements IAuthRemoteDataSource {
       rutaRegistroPersonaNatural,
       campos: campos,
       archivos: [for (final doc in documentosKYC) _archivo(doc)],
-      headers: {headerTenantId: tenantId},
+      headers: {headerTenantSlug: tenantId},
     );
 
     return {
@@ -204,7 +204,7 @@ class AuthRemoteDataSource implements IAuthRemoteDataSource {
     String? categoriaId,
     required List<Map<String, String>> documentosKYC,
   }) async {
-    // El tenant va solo en X-Tenant-Id, nunca en el cuerpo, y la ruta del
+    // El tenant va solo en X-Tenant-Slug (ADR-0018), nunca en el cuerpo, y la ruta del
     // documento en Storage la construye Core (tenant_id/aliado_id/documento,
     // ADR-0013): el cliente no envía rutas.
     final campos = <String, String>{
@@ -222,7 +222,7 @@ class AuthRemoteDataSource implements IAuthRemoteDataSource {
       rutaRegistroEmpresa,
       campos: campos,
       archivos: [for (final doc in documentosKYC) _archivo(doc)],
-      headers: {headerTenantId: tenantId},
+      headers: {headerTenantSlug: tenantId},
     );
 
     return {
