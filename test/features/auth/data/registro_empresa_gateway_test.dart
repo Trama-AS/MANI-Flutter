@@ -127,8 +127,7 @@ void main() {
       final r = alGateway.single;
       final cuerpo = utf8.decode(r.bodyBytes);
       expect(cuerpo, isNot(contains('tenant')));
-      expect(r.headers[AuthRemoteDataSource.headerTenantSlug], 'tenant-a');
-      expect(r.headers.containsKey('X-Tenant-ID'), isFalse);
+      expect(r.headers[AuthRemoteDataSource.headerTenantId], 'tenant-a');
     });
 
     test('mantiene la forma de respuesta que espera la UI', () async {

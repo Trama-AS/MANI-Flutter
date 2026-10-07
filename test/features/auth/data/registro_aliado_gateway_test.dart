@@ -107,19 +107,18 @@ void main() {
         'name="$n"(?:\r\n[^\r]+)*\r\n\r\n([^\r]*)',
       ).firstMatch(cuerpo)!.group(1)!;
       expect(campo('email'), 'pedro@correo.co');
-      expect(campo('nombre_completo'), 'Pedro Pérez');
-      expect(campo('categoria_id'), 'cat-1');
+      expect(campo('fullName'), 'Pedro Pérez');
+      expect(campo('categoriaId'), 'cat-1');
     });
 
-    test('el tenant no viaja en el cuerpo, solo como slug '
+    test('el tenant no viaja en el cuerpo, solo como header '
         'de preautenticación', () async {
       await registrar(datasource());
 
       final r = alGateway.single;
       final cuerpo = utf8.decode(r.bodyBytes);
       expect(cuerpo, isNot(contains('tenant')));
-      expect(r.headers[AuthRemoteDataSource.headerTenantSlug], 'tenant-a');
-      expect(r.headers.containsKey('X-Tenant-ID'), isFalse);
+      expect(r.headers[AuthRemoteDataSource.headerTenantId], 'tenant-a');
     });
 
     test('mantiene la forma de respuesta que espera la UI', () async {

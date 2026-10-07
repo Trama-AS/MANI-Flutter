@@ -55,13 +55,13 @@ class AuthRemoteDataSource implements IAuthRemoteDataSource {
   static const rutaRegistroEmpresa = '/api/v1/core/aliados/empresa';
 
   /// Registro de aliado persona natural en Core Node, a través del Gateway
-  /// (US-02.1.1-M2). Contrato provisional hasta que CFG-16 lo publique.
-  static const rutaRegistroPersonaNatural =
-      '/api/v1/core/aliados/persona-natural';
+  /// (US-02.1.1-M2). Ruta y nombres de campo definidos por el contrato
+  /// OpenAPI de CFG-16 (MANI-APIGateway/docs/openapi/core.yaml).
+  static const rutaRegistroPersonaNatural = '/api/v1/core/auth/register/ally';
 
   /// Resuelve el tenant antes de autenticarse (ADR-0018). No autoriza nada:
   /// Core toma el tenant definitivo del JWT que emite tras el registro.
-  static const headerTenantSlug = 'X-Tenant-Slug';
+  static const headerTenantId = 'X-Tenant-Id';
 
   @override
   Future<User> signInWithEmail({
@@ -167,20 +167,21 @@ class AuthRemoteDataSource implements IAuthRemoteDataSource {
     required String categoriaId,
     required List<Map<String, String>> documentosKYC,
   }) async {
-    // Mismo contrato que el registro de empresa: tenant solo en
-    // X-Tenant-Slug y rutas de Storage construidas por Core (ADR-0013).
+    // Tenant solo en X-Tenant-Id y rutas de Storage construidas por Core
+    // (ADR-0013). Nombres de campo en camelCase: así los define el contrato
+    // OpenAPI de CFG-16 (fullName/categoriaId), no snake_case español.
     final campos = <String, String>{
       'email': email.trim(),
       'password': password,
-      'nombre_completo': nombreCompleto.trim(),
-      'categoria_id': categoriaId.trim(),
+      'fullName': nombreCompleto.trim(),
+      'categoriaId': categoriaId.trim(),
     };
 
     final respuesta = await gateway.postMultipart(
       rutaRegistroPersonaNatural,
       campos: campos,
       archivos: [for (final doc in documentosKYC) _archivo(doc)],
-      headers: {headerTenantSlug: tenantId},
+      headers: {headerTenantId: tenantId},
     );
 
     return {
@@ -203,7 +204,7 @@ class AuthRemoteDataSource implements IAuthRemoteDataSource {
     String? categoriaId,
     required List<Map<String, String>> documentosKYC,
   }) async {
-    // El tenant va solo en X-Tenant-Slug, nunca en el cuerpo, y la ruta del
+    // El tenant va solo en X-Tenant-Id, nunca en el cuerpo, y la ruta del
     // documento en Storage la construye Core (tenant_id/aliado_id/documento,
     // ADR-0013): el cliente no envía rutas.
     final campos = <String, String>{
@@ -221,7 +222,7 @@ class AuthRemoteDataSource implements IAuthRemoteDataSource {
       rutaRegistroEmpresa,
       campos: campos,
       archivos: [for (final doc in documentosKYC) _archivo(doc)],
-      headers: {headerTenantSlug: tenantId},
+      headers: {headerTenantId: tenantId},
     );
 
     return {
