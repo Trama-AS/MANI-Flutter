@@ -59,6 +59,13 @@ class AuthRemoteDataSource implements IAuthRemoteDataSource {
   /// OpenAPI de CFG-16 (MANI-APIGateway/docs/openapi/core.yaml).
   static const rutaRegistroPersonaNatural = '/api/v1/core/auth/register/ally';
 
+  /// Registro de cliente persona natural en Core Node, a través del Gateway
+  /// (US-02.2.1-M2). Reutiliza el MISMO [GatewayClient] (sin crear un
+  /// segundo cliente HTTP) y el endpoint de identidad que Core ya expone
+  /// para Aliado (mismo authIdentityService del lado del servicio).
+  static const rutaRegistroClientePersonaNatural =
+      '/api/v1/core/auth/register/client';
+
   /// Resuelve el tenant antes de autenticarse (ADR-0018). No autoriza nada:
   /// Core toma el tenant definitivo del JWT que emite tras el registro.
   static const headerTenantSlug = 'X-Tenant-Slug';
@@ -87,73 +94,36 @@ class AuthRemoteDataSource implements IAuthRemoteDataSource {
     String? telefono,
     String? direccionHogar,
   }) async {
-    final cleanEmail = email.trim();
-    final cleanNombre = nombreCompleto.trim();
+    // US-02.2.1-M2: migrado de Supabase directo (auth.signUp + .rpc()/.from()
+    // de respaldo) al camino Gateway -> Core Node, igual que el registro de
+    // Aliado (US-02.1.1-M2). Mismo GatewayClient (gateway), mismo endpoint
+    // de identidad del lado de Core (CA-2): no se crea un segundo cliente
+    // HTTP ni una segunda implementación de autenticación.
+    //
+    // direccionHogar queda sin enviar: la creación del `sitio` inicial
+    // (hogar) que hacía la función PL/pgSQL legacy todavía no tiene
+    // equivalente en Core Node (fuera del alcance de esta subtarea,
+    // enfocada en reutilizar identidad/HTTP, no en portar `sitio`/`zona`).
+    final campos = <String, dynamic>{
+      'email': email.trim(),
+      'password': password,
+      'fullName': nombreCompleto.trim(),
+      if (telefono != null && telefono.trim().isNotEmpty)
+        'phone': telefono.trim(),
+    };
 
-    final authRes = await client.auth.signUp(
-      email: cleanEmail,
-      password: password,
-      data: {
-        'nombre_completo': cleanNombre,
-        'rol': 'CLIENTE',
-        'tipo': 'PERSONA_NATURAL',
-        'tenant_id': tenantId,
-        'telefono': telefono?.trim(),
-        'direccion_hogar': direccionHogar?.trim(),
-        'estado': 'ACTIVO',
-      },
+    final respuesta = await gateway.postJson(
+      rutaRegistroClientePersonaNatural,
+      campos,
+      headers: {headerTenantSlug: tenantId},
     );
 
-    final user = authRes.user;
-    if (user == null) {
-      throw const AuthException(
-        'No se pudo crear el usuario en Supabase Auth.',
-      );
-    }
-
-    if (authRes.session == null) {
-      try {
-        await client.auth.signInWithPassword(
-          email: cleanEmail,
-          password: password,
-        );
-      } catch (_) {}
-    }
-
-    try {
-      final rpcResult = await client.rpc(
-        'registrar_cliente_persona_natural',
-        params: {
-          'p_usuario_id': user.id,
-          'p_tenant_id': tenantId,
-          'p_email': cleanEmail,
-          'p_nombre_completo': cleanNombre,
-          'p_telefono': telefono?.trim(),
-          'p_direccion_hogar': direccionHogar?.trim(),
-        },
-      );
-      if (rpcResult is Map) return Map<String, dynamic>.from(rpcResult);
-    } catch (_) {
-      // RPC no disponible — intentar fallback con upsert directo.
-      await client.from('usuario').upsert({
-        'id': user.id,
-        'tenant_id': tenantId,
-        'email': cleanEmail,
-        'rol': 'CLIENTE',
-        'estado': 'ACTIVO',
-      });
-      await client.from('cliente').upsert({
-        'tenant_id': tenantId,
-        'usuario_id': user.id,
-        'tipo': 'PERSONA_NATURAL',
-      });
-    }
-
     return {
+      ...respuesta,
       'success': true,
-      'usuario_id': user.id,
-      'rol': 'CLIENTE',
-      'estado': 'ACTIVO',
+      'usuario_id': respuesta['profile']?['id'],
+      'rol': respuesta['profile']?['role'],
+      'estado': respuesta['profile']?['status'],
       'mensaje': 'Cuenta de cliente creada exitosamente.',
     };
   }

@@ -54,6 +54,8 @@ class AuthRepositoryImpl implements IAuthRepository {
         telefono: telefono,
         direccionHogar: direccionHogar,
       );
+    } on GatewayException catch (e) {
+      throw AuthFailure(e.message);
     } on AuthException catch (e) {
       throw AuthFailure(_mapAuthError(e.message));
     } catch (e) {
