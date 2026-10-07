@@ -100,16 +100,17 @@ class AuthRemoteDataSource implements IAuthRemoteDataSource {
     // de identidad del lado de Core (CA-2): no se crea un segundo cliente
     // HTTP ni una segunda implementación de autenticación.
     //
-    // direccionHogar queda sin enviar: la creación del `sitio` inicial
-    // (hogar) que hacía la función PL/pgSQL legacy todavía no tiene
-    // equivalente en Core Node (fuera del alcance de esta subtarea,
-    // enfocada en reutilizar identidad/HTTP, no en portar `sitio`/`zona`).
+    // direccionHogar (US-02.2.1-M2.2): Core Node crea el `sitio` (hogar)
+    // inicial si se envía una dirección no vacía, igual que hacía la
+    // función PL/pgSQL legacy (registrar_cliente_persona_natural).
     final campos = <String, dynamic>{
       'email': email.trim(),
       'password': password,
       'fullName': nombreCompleto.trim(),
       if (telefono != null && telefono.trim().isNotEmpty)
         'phone': telefono.trim(),
+      if (direccionHogar != null && direccionHogar.trim().isNotEmpty)
+        'direccionHogar': direccionHogar.trim(),
     };
 
     final respuesta = await gateway.postJson(

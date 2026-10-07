@@ -111,6 +111,28 @@ void main() {
       expect(body.containsKey('phone'), isFalse);
     });
 
+    test(
+      'con direccionHogar, viaja recortada como direccionHogar (US-02.2.1-M2.2)',
+      () async {
+        await registrar(datasource(), direccionHogar: '  Calle 1 # 2-3  ');
+
+        final body =
+            jsonDecode(utf8.decode(alGateway.single.bodyBytes))
+                as Map<String, dynamic>;
+        expect(body['direccionHogar'], 'Calle 1 # 2-3');
+      },
+    );
+
+    test('sin direccionHogar (o vacía), el campo no se envía', () async {
+      await registrar(datasource());
+      await registrar(datasource(), direccionHogar: '   ');
+
+      for (final r in alGateway) {
+        final body = jsonDecode(utf8.decode(r.bodyBytes)) as Map<String, dynamic>;
+        expect(body.containsKey('direccionHogar'), isFalse);
+      }
+    });
+
     test('el tenant no viaja en el cuerpo, solo como header '
         'de preautenticación (X-Tenant-Slug ADR-0018) (CA-5)', () async {
       await registrar(datasource());
