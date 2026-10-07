@@ -94,7 +94,7 @@ cuyo `slug` es el esperado.
 
 Hasta CFG-13 era no ejecutable: QA no tenia buckets. La carpeta `06 caso 6` tenia una
 peticion centinela que fallaba el dia que apareciera uno. CFG-13 aprovisiono el bucket
-(`supabase/poc-cfg13/10_bucket_kyc.sql`) y reemplazo la centinela por el caso real.
+(`MANI-APIGateway/supabase/poc-cfg13/10_bucket_kyc.sql`) y reemplazo la centinela por el caso real.
 
 Antes de correr la suite: `node qa/storage/cargar_kyc.mjs`, que sube la cedula de cada
 aliado con su propio JWT. Detalle del metodo y de los hallazgos en `qa/storage/README.md`.
@@ -128,11 +128,11 @@ Se declaran en vez de omitirse, como pide la plantilla de PoC.
 
 ## Dependencias
 
-1. `supabase/poc-cfg12/10_hook_claims_tenant.sql` aplicado **y** el hook registrado en
+1. `MANI-APIGateway/supabase/poc-cfg12/10_hook_claims_tenant.sql` aplicado **y** el hook registrado en
    Authentication > Hooks. Que este registrado no se puede comprobar desde SQL: lo
    comprueba la carpeta `01 propagacion` con un login real.
-2. `supabase/poc-cfg12/20_seed_identidad.sql` aplicado.
-3. El seed de CFG-04 (`supabase/seed/seed_qa_multitenant.sql`), del que dependen los dos
+2. `MANI-APIGateway/supabase/poc-cfg12/20_seed_identidad.sql` aplicado.
+3. El seed de CFG-04 (`MANI-APIGateway/supabase/seed/seed_qa_multitenant.sql`), del que dependen los dos
    tenants y sus datos.
-4. Para el caso 6: `supabase/poc-cfg13/10_bucket_kyc.sql` y `20_seed_storage.sql`
+4. Para el caso 6: `MANI-APIGateway/supabase/poc-cfg13/10_bucket_kyc.sql` y `20_seed_storage.sql`
    aplicados, y `qa/storage/cargar_kyc.mjs` corrido.

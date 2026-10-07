@@ -3,15 +3,15 @@
 Dispara N aceptaciones simultaneas sobre la misma solicitud para responder:
 **¿el UPDATE condicional de ADR-0021 deja exactamente 1 asignacion exitosa?**
 
-El codigo SQL de la PoC vive aparte, en `supabase/poc-cfg09/` (ADR-0001:
+El codigo SQL de la PoC vive aparte, en `MANI-APIGateway/supabase/poc-cfg09/` (ADR-0001:
 scripts ejecutables en el repo de codigo). El informe va a MANI-docs.
 
 ## Requisitos
 
 - k6 instalado (`brew install k6`). Version usada: **2.3.0**.
 - Los dos scripts aplicados en QA, en orden:
-  1. `supabase/poc-cfg09/10_seed_concurrencia.sql`
-  2. `supabase/poc-cfg09/20_rpc_aceptar_solicitud.sql`
+  1. `MANI-APIGateway/supabase/poc-cfg09/10_seed_concurrencia.sql`
+  2. `MANI-APIGateway/supabase/poc-cfg09/20_rpc_aceptar_solicitud.sql`
 - Un `.env` en la raiz con `SUPABASE_URL` y `SUPABASE_ANON_KEY` del proyecto
   QA. Esta gitignoreado; ver `.env.example`.
 
@@ -31,13 +31,13 @@ k6 run -e N=10 qa/k6/aceptar_concurrente.js
 ```
 
 Entre corridas hay que devolver la solicitud a `PENDIENTE` con
-`supabase/poc-cfg09/11_reset_solicitud.sql`. El bloque 1 de ese archivo
+`MANI-APIGateway/supabase/poc-cfg09/11_reset_solicitud.sql`. El bloque 1 de ese archivo
 captura el ganador saliente antes de borrarlo.
 
 ## Leer el resultado
 
 k6 reporta lo que el **cliente recibio**. La metrica del ticket se decide
-con `supabase/poc-cfg09/30_verificar_corrida.sql`, que lee lo que la base
+con `MANI-APIGateway/supabase/poc-cfg09/30_verificar_corrida.sql`, que lee lo que la base
 **hizo**. Si discrepan, manda la base.
 
 | | Caso principal | Control negativo |

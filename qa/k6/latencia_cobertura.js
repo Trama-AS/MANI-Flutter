@@ -3,7 +3,7 @@
 // =====================================================================
 // Ticket: SCRUM-927 (CFG-10) · Subtarea: SCRUM-969
 // Ambiente: SOLO QA (proyecto Supabase MANI-QA)
-// Requiere aplicados: supabase/poc-cfg10/10, 20, 30 y 60, y un nivel
+// Requiere aplicados: MANI-APIGateway/supabase/poc-cfg10/10, 20, 30 y 60, y un nivel
 //   sembrado (poc_cfg10.sembrar(10000) es el que se reporta).
 //
 // QUE MIDE
