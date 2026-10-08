@@ -102,35 +102,8 @@ class AuthRemoteDataSource implements IAuthRemoteDataSource {
       } catch (_) {}
     }
 
-    try {
-      final rpcResult = await client.rpc(
-        'registrar_cliente_persona_natural',
-        params: {
-          'p_usuario_id': user.id,
-          'p_tenant_id': tenantId,
-          'p_email': cleanEmail,
-          'p_nombre_completo': cleanNombre,
-          'p_telefono': telefono?.trim(),
-          'p_direccion_hogar': direccionHogar?.trim(),
-        },
-      );
-      if (rpcResult is Map) return Map<String, dynamic>.from(rpcResult);
-    } catch (_) {
-      // RPC no disponible — intentar fallback con upsert directo.
-      await client.from('usuario').upsert({
-        'id': user.id,
-        'tenant_id': tenantId,
-        'email': cleanEmail,
-        'rol': 'CLIENTE',
-        'estado': 'ACTIVO',
-      });
-      await client.from('cliente').upsert({
-        'tenant_id': tenantId,
-        'usuario_id': user.id,
-        'tipo': 'PERSONA_NATURAL',
-      });
-    }
-
+    // ADR-0027: Se retira todo acceso directo a PostgREST (.from) y RPC (.rpc).
+    // La sesión y los metadatos de usuario son gestionados exclusivamente por Supabase Auth.
     return {
       'success': true,
       'usuario_id': user.id,

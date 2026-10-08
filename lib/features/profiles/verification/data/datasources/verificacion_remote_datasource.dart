@@ -1,7 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:mani/core/network/api_gateway_client.dart';
 
-/// Acceso crudo a Supabase. `tenant_id` NUNCA se envía: las RPC lo derivan
-/// de `auth.uid()` (migración 002_verificacion_aliados.sql).
+/// Acceso a servicios de verificación de aliados a través del API Gateway (ADR-0019 / ADR-0027).
 abstract interface class VerificacionRemoteDataSource {
   Future<List<Map<String, dynamic>>> listarAliados();
   Future<Map<String, dynamic>> obtenerAliado(String aliadoId);
@@ -21,60 +21,66 @@ class SupabaseVerificacionDataSource implements VerificacionRemoteDataSource {
     this._client, {
     this.bucket = 'kyc',
     this.vigenciaUrl = const Duration(minutes: 5),
-  });
+    ApiGatewayClient? gatewayClient,
+  }) : _gatewayClient = gatewayClient ?? ApiGatewayClient();
 
   final SupabaseClient _client;
-
-  /// Bucket privado donde el registro de aliados guarda los documentos KYC.
   final String bucket;
-
-  /// Vida de la URL firmada: corta, porque los documentos son datos sensibles.
   final Duration vigenciaUrl;
+  final ApiGatewayClient _gatewayClient;
 
   @override
   Future<List<Map<String, dynamic>>> listarAliados() async {
-    final res = await _client.rpc('listar_aliados_verificacion');
-    if (res is! List) return const [];
-    return res
-        .map((e) => Map<String, dynamic>.from(e as Map))
-        .toList(growable: false);
+    final res = await _gatewayClient.get('/api/v1/core/verification/allies');
+    final data = res['data'] ?? res['aliados'];
+    if (data is List) {
+      return data
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList(growable: false);
+    }
+    return const [];
   }
 
   @override
-  Future<Map<String, dynamic>> obtenerAliado(String aliadoId) async =>
-      _comoMapa(
-        await _client.rpc(
-          'obtener_aliado_verificacion',
-          params: {'p_aliado_id': aliadoId},
-        ),
-      );
+  Future<Map<String, dynamic>> obtenerAliado(String aliadoId) async {
+    final res = await _gatewayClient.get(
+      '/api/v1/core/verification/allies/$aliadoId',
+    );
+    if (res['data'] is Map) {
+      return Map<String, dynamic>.from(res['data'] as Map);
+    }
+    return res;
+  }
 
   @override
   Future<Map<String, dynamic>> resolver(
     String aliadoId,
     String decision,
     String? motivo,
-  ) async => _comoMapa(
-    await _client.rpc(
-      'resolver_verificacion_aliado',
-      params: {
-        'p_aliado_id': aliadoId,
-        'p_decision': decision,
-        'p_motivo': motivo,
-      },
-    ),
-  );
+  ) async {
+    final res = await _gatewayClient.post(
+      '/api/v1/core/verification/allies/$aliadoId/resolve',
+      body: {'decision': decision, 'motivo': motivo},
+    );
+    if (res['data'] is Map) {
+      return Map<String, dynamic>.from(res['data'] as Map);
+    }
+    return res;
+  }
 
   @override
-  Future<String> urlFirmada(String rutaStorage) {
-    // El registro guarda rutas con el bucket como prefijo ("kyc/<tenant>/…").
-    final prefijo = '$bucket/';
-    final ruta = rutaStorage.startsWith(prefijo)
-        ? rutaStorage.substring(prefijo.length)
-        : rutaStorage;
-    return _client.storage
-        .from(bucket)
-        .createSignedUrl(ruta, vigenciaUrl.inSeconds);
+  Future<String> urlFirmada(String rutaStorage) async {
+    final res = await _gatewayClient.post(
+      '/api/v1/core/storage/signed-url',
+      body: {
+        'path': rutaStorage,
+        'bucket': bucket,
+        'expiresIn': vigenciaUrl.inSeconds,
+      },
+    );
+    return res['signedUrl']?.toString() ??
+        res['url']?.toString() ??
+        rutaStorage;
   }
 
   @override
@@ -82,12 +88,5 @@ class SupabaseVerificacionDataSource implements VerificacionRemoteDataSource {
     final user = _client.auth.currentUser;
     return (user?.appMetadata['tenant_id'] ?? user?.userMetadata?['tenant_id'])
         as String?;
-  }
-
-  static Map<String, dynamic> _comoMapa(dynamic res) {
-    if (res is Map) return Map<String, dynamic>.from(res);
-    throw const PostgrestException(
-      message: 'Respuesta inesperada del servidor',
-    );
   }
 }

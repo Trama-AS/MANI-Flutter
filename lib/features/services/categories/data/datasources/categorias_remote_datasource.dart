@@ -1,7 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:mani/core/network/api_gateway_client.dart';
 
-/// Acceso crudo a Supabase. `tenant_id` NUNCA se envía: las RPC lo derivan
-/// de `auth.uid()` (migración 003_categorias_servicio.sql).
+/// Acceso a servicios de categorías a través del API Gateway (ADR-0019 / ADR-0027).
 abstract interface class CategoriasRemoteDataSource {
   Future<List<Map<String, dynamic>>> listar();
   Future<Map<String, dynamic>> crear({
@@ -15,19 +15,22 @@ abstract interface class CategoriasRemoteDataSource {
 }
 
 class SupabaseCategoriasDataSource implements CategoriasRemoteDataSource {
-  SupabaseCategoriasDataSource(this._client);
+  SupabaseCategoriasDataSource(this._client, {ApiGatewayClient? gatewayClient})
+    : _gatewayClient = gatewayClient ?? ApiGatewayClient();
 
   final SupabaseClient _client;
+  final ApiGatewayClient _gatewayClient;
 
   @override
   Future<List<Map<String, dynamic>>> listar() async {
-    final res = await _client.rpc('listar_categorias_admin');
-    if (res is! List) {
-      return const [];
+    final res = await _gatewayClient.get('/api/v1/core/catalog/admin');
+    final data = res['data'] ?? res['categories'] ?? res['categorias'];
+    if (data is List) {
+      return data
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList(growable: false);
     }
-    return res
-        .map((e) => Map<String, dynamic>.from(e as Map))
-        .toList(growable: false);
+    return const [];
   }
 
   @override
@@ -36,20 +39,18 @@ class SupabaseCategoriasDataSource implements CategoriasRemoteDataSource {
     required String flujoOperativo,
     required bool activa,
   }) async {
-    final res = await _client.rpc(
-      'crear_categoria_servicio',
-      params: {
-        'p_nombre': nombre,
-        'p_flujo_operativo': flujoOperativo,
-        'p_activa': activa,
+    final res = await _gatewayClient.post(
+      '/api/v1/core/catalog/admin',
+      body: {
+        'nombre': nombre,
+        'flujo_operativo': flujoOperativo,
+        'activa': activa,
       },
     );
-    if (res is Map) {
-      return Map<String, dynamic>.from(res);
+    if (res['data'] is Map) {
+      return Map<String, dynamic>.from(res['data'] as Map);
     }
-    throw const PostgrestException(
-      message: 'Respuesta inesperada del servidor',
-    );
+    return res;
   }
 
   @override

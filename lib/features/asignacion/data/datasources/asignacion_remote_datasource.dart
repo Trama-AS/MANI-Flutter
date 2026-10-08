@@ -1,8 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:mani/core/network/api_gateway_client.dart';
 
-/// Acceso crudo a Supabase. Ni `tenant_id` ni `aliado_id` viajan desde la
-/// app: las RPC los derivan de `auth.uid()`
-/// (migración 005_aceptar_rechazar_solicitud.sql).
+/// Acceso a servicios de despacho a través del API Gateway (ADR-0019 / ADR-0027).
 abstract interface class AsignacionRemoteDataSource {
   Future<List<Map<String, dynamic>>> listar();
   Future<Map<String, dynamic>> aceptar(String solicitudId);
@@ -13,40 +12,39 @@ abstract interface class AsignacionRemoteDataSource {
 }
 
 class SupabaseAsignacionDataSource implements AsignacionRemoteDataSource {
-  SupabaseAsignacionDataSource(this._client);
+  SupabaseAsignacionDataSource(this._client, {ApiGatewayClient? gatewayClient})
+    : _gatewayClient = gatewayClient ?? ApiGatewayClient();
 
   final SupabaseClient _client;
+  final ApiGatewayClient _gatewayClient;
 
   @override
   Future<List<Map<String, dynamic>>> listar() async {
-    final res = await _client.rpc('listar_solicitudes_aliado');
-    if (res is! List) {
-      return const [];
+    final res = await _gatewayClient.get('/api/v1/dispatch/requests');
+    final data = res['data'] ?? res['requests'] ?? res['solicitudes'];
+    if (data is List) {
+      return data
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList(growable: false);
     }
-    return res
-        .map((e) => Map<String, dynamic>.from(e as Map))
-        .toList(growable: false);
+    return const [];
   }
 
   @override
   Future<Map<String, dynamic>> aceptar(String solicitudId) async {
-    final res = await _client.rpc(
-      'aceptar_solicitud',
-      params: {'p_solicitud_id': solicitudId},
+    final res = await _gatewayClient.post(
+      '/api/v1/dispatch/requests/$solicitudId/accept',
     );
-    if (res is Map) {
-      return Map<String, dynamic>.from(res);
-    }
-    throw const PostgrestException(
-      message: 'Respuesta inesperada del servidor',
-    );
+    return res;
   }
 
   @override
-  Future<void> rechazar(String solicitudId, String? motivo) => _client.rpc(
-    'rechazar_solicitud',
-    params: {'p_solicitud_id': solicitudId, 'p_motivo': motivo},
-  );
+  Future<void> rechazar(String solicitudId, String? motivo) async {
+    await _gatewayClient.post(
+      '/api/v1/dispatch/requests/$solicitudId/reject',
+      body: {'motivo': motivo},
+    );
+  }
 
   @override
   String? get tenantIdSesion {
