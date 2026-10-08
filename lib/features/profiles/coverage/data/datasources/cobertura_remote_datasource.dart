@@ -1,8 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:mani/core/network/api_gateway_client.dart';
 
-/// Acceso crudo a Supabase. La app llama a Supabase directamente con el SDK
-/// (no hay backend intermedio). `tenant_id` y `aliado_id` NUNCA se envían:
-/// la RPC los toma del JWT (anti tenant-spoofing, DDL_MANI §estrategia).
+/// Acceso a servicios de cobertura a través del API Gateway (ADR-0019 / ADR-0027).
 abstract interface class CoberturaRemoteDataSource {
   Future<List<Map<String, dynamic>>> listarZonas(String? padreId);
   Future<List<Map<String, dynamic>>> buscarZonas(String ciudadId, String texto);
@@ -14,38 +13,70 @@ abstract interface class CoberturaRemoteDataSource {
 }
 
 class SupabaseCoberturaDataSource implements CoberturaRemoteDataSource {
-  SupabaseCoberturaDataSource(this._client);
+  SupabaseCoberturaDataSource(this._client, {ApiGatewayClient? gatewayClient})
+    : _gatewayClient = gatewayClient ?? ApiGatewayClient();
 
   final SupabaseClient _client;
-
-  Future<List<Map<String, dynamic>>> _rpc(
-    String fn, [
-    Map<String, dynamic>? params,
-  ]) async {
-    final res = await _client.rpc(fn, params: params);
-    if (res is! List) return const [];
-    return res
-        .map((e) => Map<String, dynamic>.from(e as Map))
-        .toList(growable: false);
-  }
+  final ApiGatewayClient _gatewayClient;
 
   @override
-  Future<List<Map<String, dynamic>>> listarZonas(String? padreId) =>
-      _rpc('listar_zonas', {'p_padre_id': padreId});
+  Future<List<Map<String, dynamic>>> listarZonas(String? padreId) async {
+    final query = padreId != null ? '?padre_id=$padreId' : '';
+    final res = await _gatewayClient.get('/api/v1/core/zones$query');
+    final data = res['data'] ?? res['zonas'] ?? res['zones'];
+    if (data is List) {
+      return data
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList(growable: false);
+    }
+    return const [];
+  }
 
   @override
   Future<List<Map<String, dynamic>>> buscarZonas(
     String ciudadId,
     String texto,
-  ) => _rpc('buscar_zonas', {'p_ciudad_id': ciudadId, 'p_texto': texto});
+  ) async {
+    final res = await _gatewayClient.get(
+      '/api/v1/core/zones/search?ciudad_id=$ciudadId&q=$texto',
+    );
+    final data = res['data'] ?? res['zonas'];
+    if (data is List) {
+      return data
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList(growable: false);
+    }
+    return const [];
+  }
 
   @override
-  Future<List<Map<String, dynamic>>> obtenerMiCobertura() =>
-      _rpc('obtener_mi_cobertura');
+  Future<List<Map<String, dynamic>>> obtenerMiCobertura() async {
+    final res = await _gatewayClient.get('/api/v1/core/profiles/me/coverage');
+    final data = res['data'] ?? res['cobertura'];
+    if (data is List) {
+      return data
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList(growable: false);
+    }
+    return const [];
+  }
 
   @override
-  Future<List<Map<String, dynamic>>> declararCobertura(List<String> zonaIds) =>
-      _rpc('declarar_cobertura', {'p_zona_ids': zonaIds});
+  Future<List<Map<String, dynamic>>> declararCobertura(
+    List<String> zonaIds,
+  ) async {
+    final res = await _gatewayClient.post(
+      '/api/v1/core/profiles/me/coverage',
+      body: {'zona_ids': zonaIds},
+    );
+    final data = res['data'] ?? res['cobertura'];
+    if (data is List) {
+      return data
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList(growable: false);
+    }
+    return const [];
+  }
 
   @override
   String? get tenantIdSesion =>
