@@ -41,8 +41,8 @@ class _RegistroClienteViewState extends State<_RegistroClienteView> {
 
   bool _showPassword = false;
 
-  // Tenant por defecto para el cliente (asignado internamente sin selector)
-  static const String _defaultTenantId = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11';
+  // Tenant por defecto para el cliente (slug público para pre-autenticación según ADR-0018)
+  static const String _defaultTenantId = 'plomeria-express';
 
   @override
   void dispose() {
