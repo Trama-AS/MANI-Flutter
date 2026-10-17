@@ -2,7 +2,10 @@ name: Build & Publish Docker Image to GHCR
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
+      - release
+      - develop
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+*'
   workflow_dispatch:
@@ -23,6 +26,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Ensure environment file exists
+        run: cp .env.example .env 2>/dev/null || touch .env
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -39,7 +45,9 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=staging,enable=${{ github.ref == 'refs/heads/release' }}
+            type=raw,value=develop,enable=${{ github.ref == 'refs/heads/develop' }}
             type=ref,event=branch
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
