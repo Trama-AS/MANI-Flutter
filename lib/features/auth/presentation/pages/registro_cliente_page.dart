@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:mani/core/theme/app_theme.dart';
 import 'package:mani/core/di/injection_container.dart';
 import 'package:mani/features/auth/presentation/bloc/auth_cubit.dart';
+import 'package:mani/features/auth/presentation/widgets/terminos_condiciones_section.dart';
 
 /// Pantalla independiente de Registro para Clientes de MANI Web.
 /// - Formulario enfocado y sin fricción para el hogar.
@@ -40,6 +41,8 @@ class _RegistroClienteViewState extends State<_RegistroClienteView> {
   final _passwordController = TextEditingController();
 
   bool _showPassword = false;
+  bool _aceptaTerminos = false;
+  bool _mostrarErrorTerminos = false;
 
   // Tenant por defecto para el cliente (asignado internamente sin selector)
   static const String _defaultTenantId = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11';
@@ -57,6 +60,12 @@ class _RegistroClienteViewState extends State<_RegistroClienteView> {
   void _handleRegistro() {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
+    if (!_aceptaTerminos) {
+      setState(() => _mostrarErrorTerminos = true);
+      _showNotification(AuthCubit.mensajeTerminosObligatorios);
+      return;
+    }
+
     context.read<AuthCubit>().registerCliente(
       email: _emailController.text,
       password: _passwordController.text,
@@ -64,6 +73,7 @@ class _RegistroClienteViewState extends State<_RegistroClienteView> {
       tenantId: _defaultTenantId,
       telefono: _telefonoController.text,
       direccionHogar: _direccionHogarController.text,
+      aceptaTerminos: _aceptaTerminos,
     );
   }
 
@@ -276,7 +286,18 @@ class _RegistroClienteViewState extends State<_RegistroClienteView> {
                                   }
                                 },
                               ),
-                              const SizedBox(height: 32),
+                              const SizedBox(height: 24),
+
+                              // Sección obligatoria de Términos y Condiciones (SCRUM-856)
+                              TerminosCondicionesSection(
+                                aceptaTerminos: _aceptaTerminos,
+                                mostrarError: _mostrarErrorTerminos,
+                                onChanged: (val) => setState(() {
+                                  _aceptaTerminos = val;
+                                  if (val) _mostrarErrorTerminos = false;
+                                }),
+                              ),
+                              const SizedBox(height: 24),
 
                               // Barra de acción inferior
                               _buildBottomAction(isLoading),

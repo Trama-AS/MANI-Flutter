@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:mani/core/theme/app_theme.dart';
 import 'package:mani/core/di/injection_container.dart';
 import 'package:mani/features/auth/presentation/bloc/auth_cubit.dart';
+import 'package:mani/features/auth/presentation/widgets/terminos_condiciones_section.dart';
 
 /// Pantalla independiente de Registro para Aliados Técnicos de MANI Web.
 /// - Formulario con selección de especialidad técnica y validación KYC.
@@ -41,6 +42,8 @@ class _RegistroAliadoViewState extends State<_RegistroAliadoView> {
   final _passwordController = TextEditingController();
 
   bool _showPassword = false;
+  bool _aceptaTerminos = false;
+  bool _mostrarErrorTerminos = false;
 
   // Tenant seleccionado (slug público para pre-autenticación según ADR-0018)
   String _selectedTenantId = 'plomeria-express';
@@ -109,10 +112,15 @@ class _RegistroAliadoViewState extends State<_RegistroAliadoView> {
       return;
     }
 
+    if (!_aceptaTerminos) {
+      setState(() => _mostrarErrorTerminos = true);
+      _showNotification(AuthCubit.mensajeTerminosObligatorios);
+      return;
+    }
+
     final documentos = <Map<String, String>>[
       _documento('CEDULA_CIUDADANIA', 'cedula', _cedulaFile!),
-      if (_rutFile != null)
-        _documento('RUT_CERTIFICADO', 'rut', _rutFile!),
+      if (_rutFile != null) _documento('RUT_CERTIFICADO', 'rut', _rutFile!),
     ];
 
     context.read<AuthCubit>().registerAliado(
@@ -122,6 +130,7 @@ class _RegistroAliadoViewState extends State<_RegistroAliadoView> {
       tenantId: _selectedTenantId,
       categoriaId: _selectedCategoriaId,
       documentosKYC: documentos,
+      aceptaTerminos: _aceptaTerminos,
     );
   }
 
@@ -345,7 +354,18 @@ class _RegistroAliadoViewState extends State<_RegistroAliadoView> {
                                   }
                                 },
                               ),
-                              const SizedBox(height: 32),
+                              const SizedBox(height: 24),
+
+                              // Sección obligatoria de Términos y Condiciones (SCRUM-856)
+                              TerminosCondicionesSection(
+                                aceptaTerminos: _aceptaTerminos,
+                                mostrarError: _mostrarErrorTerminos,
+                                onChanged: (val) => setState(() {
+                                  _aceptaTerminos = val;
+                                  if (val) _mostrarErrorTerminos = false;
+                                }),
+                              ),
+                              const SizedBox(height: 24),
 
                               // Barra de acción inferior
                               _buildBottomAction(isLoading),

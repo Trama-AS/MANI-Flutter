@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:mani/core/theme/app_theme.dart';
 import 'package:mani/core/di/injection_container.dart';
 import 'package:mani/features/auth/presentation/bloc/auth_cubit.dart';
+import 'package:mani/features/auth/presentation/widgets/terminos_condiciones_section.dart';
 
 /// Pantalla independiente de Registro para Empresas de Servicios (Persona Jurídica).
 /// US-02.1.2: Registro de empresa con Cámara de Comercio y datos del representante legal.
@@ -46,6 +47,8 @@ class _RegistroAliadoEmpresaViewState
   final _passwordController = TextEditingController();
 
   bool _showPassword = false;
+  bool _aceptaTerminos = false;
+  bool _mostrarErrorTerminos = false;
 
   // Tenant seleccionado (slug público para pre-autenticación según ADR-0018)
   String _selectedTenantId = 'plomeria-express';
@@ -126,6 +129,12 @@ class _RegistroAliadoEmpresaViewState
       return;
     }
 
+    if (!_aceptaTerminos) {
+      setState(() => _mostrarErrorTerminos = true);
+      _showNotification(AuthCubit.mensajeTerminosObligatorios);
+      return;
+    }
+
     final documentos = <Map<String, String>>[
       _documento('CAMARA_COMERCIO', 'camara', _camaraComercioFile!),
       _documento('RUT_EMPRESA', 'rut', _rutEmpresaFile!),
@@ -144,6 +153,7 @@ class _RegistroAliadoEmpresaViewState
       telefonoContacto: _telefonoController.text,
       categoriaId: _selectedCategoriaId,
       documentosKYC: documentos,
+      aceptaTerminos: _aceptaTerminos,
     );
   }
 
@@ -367,7 +377,18 @@ class _RegistroAliadoEmpresaViewState
                                   }
                                 },
                               ),
-                              const SizedBox(height: 32),
+                              const SizedBox(height: 24),
+
+                              // Sección obligatoria de Términos y Condiciones (SCRUM-856)
+                              TerminosCondicionesSection(
+                                aceptaTerminos: _aceptaTerminos,
+                                mostrarError: _mostrarErrorTerminos,
+                                onChanged: (val) => setState(() {
+                                  _aceptaTerminos = val;
+                                  if (val) _mostrarErrorTerminos = false;
+                                }),
+                              ),
+                              const SizedBox(height: 24),
 
                               // Barra de acción inferior
                               _buildBottomAction(isLoading),
