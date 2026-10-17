@@ -11,6 +11,10 @@ import 'package:mani/features/auth/domain/usecases/register_cliente_usecase.dart
 import 'package:mani/features/auth/domain/usecases/register_aliado_usecase.dart';
 import 'package:mani/features/auth/domain/usecases/register_empresa_usecase.dart';
 import 'package:mani/features/auth/presentation/bloc/auth_cubit.dart';
+import 'package:mani/features/availability/data/datasources/disponibilidad_remote_datasource.dart';
+import 'package:mani/features/availability/data/repositories/disponibilidad_repository_impl.dart';
+import 'package:mani/features/availability/domain/repositories/i_disponibilidad_repository.dart';
+import 'package:mani/features/availability/presentation/bloc/disponibilidad_cubit.dart';
 import 'package:mani/features/profile_categories/data/datasources/categories_remote_datasource.dart';
 import 'package:mani/features/profile_categories/data/repositories/categories_repository_impl.dart';
 import 'package:mani/features/profile_categories/domain/repositories/i_categories_repository.dart';
@@ -123,6 +127,16 @@ Future<void> init() async {
   // Data sources
   sl.registerLazySingleton<CategoriesRemoteDataSource>(
     () => SupabaseCategoriesDataSource(sl()),
+  );
+
+  // Features - Availability (US-02.1.6). Va por el Gateway: Core Node expone
+  // /profiles/me/unavailability y resuelve tenant y aliado desde el JWT.
+  sl.registerFactory(() => DisponibilidadCubit(repository: sl()));
+  sl.registerLazySingleton<IDisponibilidadRepository>(
+    () => DisponibilidadRepositoryImpl(remoteDataSource: sl()),
+  );
+  sl.registerLazySingleton<DisponibilidadRemoteDataSource>(
+    () => GatewayDisponibilidadDataSource(sl()),
   );
 
   // Features - Profiles / Coverage (US-02.1.4)
