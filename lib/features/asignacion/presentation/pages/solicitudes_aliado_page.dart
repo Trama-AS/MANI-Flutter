@@ -21,11 +21,13 @@ class SolicitudesAliadoPage extends StatefulWidget {
     super.key,
     this.onAbrirCobertura,
     this.onAbrirCategorias,
+    this.onAbrirDisponibilidad,
     this.intervaloRefresco = const Duration(seconds: 30),
   });
 
   final VoidCallback? onAbrirCobertura;
   final VoidCallback? onAbrirCategorias;
+  final VoidCallback? onAbrirDisponibilidad;
 
   /// Cada cuánto se refresca la bandeja para no ofrecer solicitudes que otro
   /// aliado ya tomó. `null` desactiva el refresco (tests).
@@ -76,6 +78,7 @@ class _SolicitudesAliadoPageState extends State<SolicitudesAliadoPage> {
               _BarraSuperior(
                 onAbrirCobertura: widget.onAbrirCobertura,
                 onAbrirCategorias: widget.onAbrirCategorias,
+                onAbrirDisponibilidad: widget.onAbrirDisponibilidad,
               ),
               Expanded(
                 child:
@@ -406,10 +409,15 @@ class _Vacio extends StatelessWidget {
 }
 
 class _BarraSuperior extends StatelessWidget {
-  const _BarraSuperior({this.onAbrirCobertura, this.onAbrirCategorias});
+  const _BarraSuperior({
+    this.onAbrirCobertura,
+    this.onAbrirCategorias,
+    this.onAbrirDisponibilidad,
+  });
 
   final VoidCallback? onAbrirCobertura;
   final VoidCallback? onAbrirCategorias;
+  final VoidCallback? onAbrirDisponibilidad;
 
   @override
   Widget build(BuildContext context) {
@@ -486,6 +494,13 @@ class _BarraSuperior extends StatelessWidget {
               tooltip: 'Mis especialidades',
               onPressed: onAbrirCategorias,
               icon: const Icon(Icons.handyman_outlined, color: AppTheme.dark),
+            ),
+          if (onAbrirDisponibilidad != null)
+            IconButton(
+              key: const ValueKey('btn-ir-disponibilidad'),
+              tooltip: 'Mi disponibilidad',
+              onPressed: onAbrirDisponibilidad,
+              icon: const Icon(Icons.event_busy_outlined, color: AppTheme.dark),
             ),
           IconButton(
             key: const ValueKey('btn-actualizar-solicitudes'),
