@@ -19,6 +19,8 @@ import 'package:mani/features/services/categories/presentation/bloc/categorias_c
 import 'package:mani/features/services/categories/presentation/pages/gestion_categorias_page.dart';
 import 'package:mani/features/services/requests/presentation/bloc/crear_solicitud_cubit.dart';
 import 'package:mani/features/services/requests/presentation/pages/crear_solicitud_page.dart';
+import 'package:mani/features/profiles/site_rules/presentation/bloc/reglas_sitio_cubit.dart';
+import 'package:mani/features/profiles/site_rules/presentation/pages/reglas_sitio_page.dart';
 
 /// Notifica a go_router cada vez que cambia el estado de autenticación de
 /// Supabase, para que el `redirect` de abajo se reevalúe automáticamente
@@ -143,6 +145,22 @@ final appRouter = GoRouter(
       path: '/aliado/cobertura',
       name: 'declarar-cobertura',
       builder: (context, state) => DeclararCoberturaPage(controller: sl()),
+    ),
+    // Configuración y consulta de reglas contextuales de un sitio (US-02.2.3 / SCRUM-853)
+    GoRoute(
+      path: '/sitios/:id/reglas',
+      name: 'reglas-sitio',
+      builder: (context, state) {
+        final siteId = state.pathParameters['id'] ?? '';
+        final esAliado = state.uri.queryParameters['esAliado'] == 'true';
+        return BlocProvider(
+          create: (_) => sl<ReglasSitioCubit>(),
+          child: ReglasSitioPage(
+            siteId: siteId,
+            esVistaAliado: esAliado,
+          ),
+        );
+      },
     ),
     // Crear solicitud (US-04.1.1): el cliente describe su problema y adjunta
     // fotos; el tenant y el cliente salen de la sesión, nunca de la app.

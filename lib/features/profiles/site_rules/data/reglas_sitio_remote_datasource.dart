@@ -18,7 +18,8 @@ class ReglasSitioRemoteDataSource implements IReglasSitioRemoteDataSource {
 
   final GatewayClient gateway;
 
-  static String rutaReglasSitio(String siteId) => '/api/v1/sites/$siteId/rules';
+  static String rutaReglasSitio(String siteId) =>
+      '/api/v1/core/sites/$siteId/rules';
 
   @override
   Future<ReglasContextualesSitio> obtenerReglas(String siteId) async {

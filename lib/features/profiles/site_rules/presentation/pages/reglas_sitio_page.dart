@@ -206,11 +206,14 @@ class _ReglasSitioPageState extends State<ReglasSitioPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SwitchListTile(
-            key: const Key('switch_requiere_epp'),
-            title: const Text('Exigir Elementos de Protección Personal (EPP)'),
-            value: _requiereEpp,
-            onChanged: (val) => setState(() => _requiereEpp = val),
+          Material(
+            type: MaterialType.transparency,
+            child: SwitchListTile(
+              key: const Key('switch_requiere_epp'),
+              title: const Text('Exigir Elementos de Protección Personal (EPP)'),
+              value: _requiereEpp,
+              onChanged: (val) => setState(() => _requiereEpp = val),
+            ),
           ),
           const SizedBox(height: 12),
           TextFormField(

@@ -96,7 +96,7 @@ void main() {
           expect(peticiones.last.method, 'PUT');
           expect(
             peticiones.last.url.toString(),
-            'http://gateway.local/api/v1/sites/site-101/rules',
+            'http://gateway.local/api/v1/core/sites/site-101/rules',
           );
           expect(
             find.textContaining('Usar casco dieléctrico y botas con puntera'),

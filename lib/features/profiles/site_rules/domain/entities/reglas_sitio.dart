@@ -8,7 +8,11 @@ class ReglasContextualesSitio extends Equatable {
     this.requiereEpp = false,
     this.horarioPermitido,
     this.documentosRequeridos = const [],
+    this.permisosRequeridos = const [],
+    this.elementosProteccion = const [],
     this.instruccionesIngreso,
+    this.requiereAprobacionPrevia = false,
+    this.contactoAcceso,
     this.notasAdicionales,
   });
 
@@ -16,7 +20,11 @@ class ReglasContextualesSitio extends Equatable {
   final bool requiereEpp;
   final String? horarioPermitido;
   final List<String> documentosRequeridos;
+  final List<String> permisosRequeridos;
+  final List<String> elementosProteccion;
   final String? instruccionesIngreso;
+  final bool requiereAprobacionPrevia;
+  final Map<String, dynamic>? contactoAcceso;
   final String? notasAdicionales;
 
   factory ReglasContextualesSitio.fromJson(
@@ -29,32 +37,88 @@ class ReglasContextualesSitio extends Equatable {
     final reglas = (data['reglas'] is Map<String, dynamic>)
         ? data['reglas'] as Map<String, dynamic>
         : data;
-    final rawDocs = reglas['documentosRequeridos'] ?? const [];
+
+    String? horarioTexto;
+    if (reglas['horario'] is Map) {
+      final h = reglas['horario'] as Map;
+      final inicio = h['inicio']?.toString() ?? '08:00';
+      final fin = h['fin']?.toString() ?? '17:00';
+      horarioTexto = '$inicio - $fin';
+    } else {
+      horarioTexto = reglas['horarioPermitido']?.toString();
+    }
+
+    final rawPermisos = reglas['permisosRequeridos'] ??
+        reglas['documentosRequeridos'] ??
+        const [];
+    final docs = rawPermisos is List
+        ? rawPermisos.map((e) => e.toString()).toList()
+        : <String>[];
+
+    final rawEpp = reglas['elementosProteccion'] ?? const [];
+    final epp = rawEpp is List
+        ? rawEpp.map((e) => e.toString()).toList()
+        : <String>[];
+    final reqEpp = (reglas['requiereEpp'] as bool?) ?? epp.isNotEmpty;
 
     return ReglasContextualesSitio(
       siteId: (data['id'] ?? data['siteId'] ?? siteId).toString(),
-      requiereEpp: reglas['requiereEpp'] as bool? ?? false,
-      horarioPermitido: reglas['horarioPermitido']?.toString(),
-      documentosRequeridos: rawDocs is List
-          ? rawDocs.map((e) => e.toString()).toList()
-          : const [],
+      requiereEpp: reqEpp,
+      horarioPermitido: horarioTexto,
+      documentosRequeridos: docs,
+      permisosRequeridos: docs,
+      elementosProteccion: epp,
       instruccionesIngreso: reglas['instruccionesIngreso']?.toString(),
+      requiereAprobacionPrevia:
+          (reglas['requiereAprobacionPrevia'] as bool?) ?? false,
+      contactoAcceso: reglas['contactoAcceso'] is Map
+          ? Map<String, dynamic>.from(reglas['contactoAcceso'] as Map)
+          : null,
       notasAdicionales: reglas['notasAdicionales']?.toString(),
     );
   }
 
   Map<String, dynamic> toPayload() {
+    Map<String, dynamic>? horarioMap;
+    if (horarioPermitido != null && horarioPermitido!.contains('-')) {
+      final parts = horarioPermitido!.split('-');
+      if (parts.length == 2) {
+        final inicio = parts[0].replaceAll(RegExp(r'[^0-9:]'), '').trim();
+        final fin = parts[1].replaceAll(RegExp(r'[^0-9:]'), '').trim();
+        if (inicio.isNotEmpty && fin.isNotEmpty) {
+          horarioMap = {
+            'inicio': inicio.padLeft(5, '0'),
+            'fin': fin.padLeft(5, '0'),
+            'diasPermitidos': const ['LUN', 'MAR', 'MIE', 'JUE', 'VIE'],
+          };
+        }
+      }
+    }
+    horarioMap ??= const {
+      'inicio': '08:00',
+      'fin': '17:00',
+      'diasPermitidos': ['LUN', 'MAR', 'MIE', 'JUE', 'VIE'],
+    };
+
+    final eppList = elementosProteccion.isNotEmpty
+        ? elementosProteccion
+        : (requiereEpp
+            ? const ['Casco', 'Botas de seguridad']
+            : const <String>[]);
+
     return {
       'reglas': {
-        'requiereEpp': requiereEpp,
-        if (horarioPermitido != null && horarioPermitido!.trim().isNotEmpty)
-          'horarioPermitido': horarioPermitido!.trim(),
+        'horario': horarioMap,
+        'permisosRequeridos': permisosRequeridos.isNotEmpty
+            ? permisosRequeridos
+            : documentosRequeridos,
+        'elementosProteccion': eppList,
+        'instruccionesIngreso': instruccionesIngreso ?? '',
+        'requiereAprobacionPrevia': requiereAprobacionPrevia,
+        if (contactoAcceso != null) 'contactoAcceso': contactoAcceso,
+        'requiereEpp': requiereEpp || eppList.isNotEmpty,
+        'horarioPermitido': horarioPermitido,
         'documentosRequeridos': documentosRequeridos,
-        if (instruccionesIngreso != null &&
-            instruccionesIngreso!.trim().isNotEmpty)
-          'instruccionesIngreso': instruccionesIngreso!.trim(),
-        if (notasAdicionales != null && notasAdicionales!.trim().isNotEmpty)
-          'notasAdicionales': notasAdicionales!.trim(),
       },
     };
   }
@@ -65,7 +129,11 @@ class ReglasContextualesSitio extends Equatable {
     requiereEpp,
     horarioPermitido,
     documentosRequeridos,
+    permisosRequeridos,
+    elementosProteccion,
     instruccionesIngreso,
+    requiereAprobacionPrevia,
+    contactoAcceso,
     notasAdicionales,
   ];
 }
