@@ -49,7 +49,7 @@ class AuthCubit extends Cubit<AuthState> {
     required String tenantId,
     String? telefono,
     String? direccionHogar,
-    bool aceptaTerminos = true,
+    required bool aceptaTerminos,
   }) async {
     if (!aceptaTerminos) {
       emit(const AuthError(message: mensajeTerminosObligatorios));
@@ -80,7 +80,7 @@ class AuthCubit extends Cubit<AuthState> {
     required String tenantId,
     required String categoriaId,
     required List<Map<String, String>> documentosKYC,
-    bool aceptaTerminos = true,
+    required bool aceptaTerminos,
   }) async {
     if (!aceptaTerminos) {
       emit(const AuthError(message: mensajeTerminosObligatorios));
@@ -115,7 +115,7 @@ class AuthCubit extends Cubit<AuthState> {
     String? telefonoContacto,
     String? categoriaId,
     required List<Map<String, String>> documentosKYC,
-    bool aceptaTerminos = true,
+    required bool aceptaTerminos,
   }) async {
     if (!aceptaTerminos) {
       emit(const AuthError(message: mensajeTerminosObligatorios));

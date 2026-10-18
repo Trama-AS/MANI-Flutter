@@ -41,6 +41,15 @@ abstract class IAuthRemoteDataSource {
     required List<Map<String, String>> documentosKYC,
   });
 
+  Future<List<Map<String, dynamic>>> obtenerDocumentosLegalesActivos({
+    String? tenantSlug,
+  });
+
+  Future<void> registrarConsentimientoLegal({
+    List<String>? documentoLegalIds,
+    String? token,
+  });
+
   Future<void> signOut();
 }
 
@@ -69,6 +78,64 @@ class AuthRemoteDataSource implements IAuthRemoteDataSource {
   /// Resuelve el tenant antes de autenticarse (ADR-0018). No autoriza nada:
   /// Core toma el tenant definitivo del JWT que emite tras el registro.
   static const headerTenantSlug = 'X-Tenant-Slug';
+
+  /// Documentos legales activos y registro de consentimientos (SCRUM-856 / Node#14).
+  static const rutaDocumentosLegalesActivos =
+      '/api/v1/core/legal/documents/active';
+  static const rutaConsentimientosLegales = '/api/v1/core/legal/consents';
+
+  @override
+  Future<List<Map<String, dynamic>>> obtenerDocumentosLegalesActivos({
+    String? tenantSlug,
+  }) async {
+    try {
+      final respuesta = await gateway.get(
+        rutaDocumentosLegalesActivos,
+        headers: {
+          if (tenantSlug != null && tenantSlug.trim().isNotEmpty)
+            headerTenantSlug: tenantSlug.trim(),
+        },
+      );
+      final raw = respuesta['data'];
+      if (raw is List) {
+        return raw.whereType<Map<String, dynamic>>().toList();
+      }
+    } catch (_) {}
+    return const [];
+  }
+
+  @override
+  Future<void> registrarConsentimientoLegal({
+    List<String>? documentoLegalIds,
+    String? token,
+  }) async {
+    final payload = <String, dynamic>{
+      if (documentoLegalIds != null && documentoLegalIds.isNotEmpty)
+        'documentoLegalIds': documentoLegalIds,
+    };
+    final headers = <String, String>{
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+    };
+    try {
+      await gateway.postJson(
+        rutaConsentimientosLegales,
+        payload,
+        headers: headers,
+      );
+    } catch (_) {}
+  }
+
+  Future<void> _registrarConsentimientoSeguro(
+    Map<String, dynamic> respuesta,
+  ) async {
+    final token = (respuesta['session'] is Map)
+        ? respuesta['session']['access_token']?.toString()
+        : (respuesta['access_token']?.toString() ??
+            client.auth.currentSession?.accessToken);
+    if (token != null && token.isNotEmpty) {
+      await registrarConsentimientoLegal(token: token);
+    }
+  }
 
   @override
   Future<User> signInWithEmail({
@@ -118,6 +185,8 @@ class AuthRemoteDataSource implements IAuthRemoteDataSource {
       headers: {headerTenantSlug: tenantId},
     );
 
+    await _registrarConsentimientoSeguro(respuesta);
+
     return {
       ...respuesta,
       'success': true,
@@ -153,6 +222,8 @@ class AuthRemoteDataSource implements IAuthRemoteDataSource {
       archivos: [for (final doc in documentosKYC) _archivo(doc)],
       headers: {headerTenantSlug: tenantId},
     );
+
+    await _registrarConsentimientoSeguro(respuesta);
 
     return {
       ...respuesta,
@@ -194,6 +265,8 @@ class AuthRemoteDataSource implements IAuthRemoteDataSource {
       archivos: [for (final doc in documentosKYC) _archivo(doc)],
       headers: {headerTenantSlug: tenantId},
     );
+
+    await _registrarConsentimientoSeguro(respuesta);
 
     return {
       ...respuesta,

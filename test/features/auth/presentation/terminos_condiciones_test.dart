@@ -70,10 +70,10 @@ class _FakeAuthRepository implements IAuthRepository {
 
 void main() {
   group(
-    'SCRUM-856 (SCRUM-1036 / SCRUM-1037 / SCRUM-1038) — Aceptación de Términos y Condiciones',
+    'SCRUM-856 (US-02.3.2) — Aceptación de Términos y Condiciones y Habeas Data',
     () {
       testWidgets(
-        'SCRUM-1036: muestra checkbox desmarcado, enlaces legales y mensaje de error cuando es obligatorio',
+        'US-02.3.2: muestra checkbox desmarcado, enlaces legales y mensaje de error cuando es obligatorio',
         (tester) async {
           bool aceptado = false;
 
@@ -120,7 +120,7 @@ void main() {
       );
 
       testWidgets(
-        'SCRUM-1037: abre el modal con el documento legal completo (v1.0 y Ley 1581) y permite aceptar tras leerlo',
+        'US-02.3.2: abre el modal con el documento legal completo (v1.0 y Ley 1581) y permite aceptar tras leerlo',
         (tester) async {
           bool aceptado = false;
 
@@ -165,7 +165,7 @@ void main() {
       );
 
       test(
-        'SCRUM-1035 / SCRUM-1038: AuthCubit bloquea el registro de cliente, aliado y empresa si aceptaTerminos es false',
+        'US-02.3.2: AuthCubit bloquea el registro de cliente, aliado y empresa si aceptaTerminos es false',
         () async {
           final repo = _FakeAuthRepository();
           final cubit = AuthCubit(

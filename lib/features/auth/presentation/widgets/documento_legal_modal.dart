@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:get_it/get_it.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:mani/core/network/gateway_client.dart';
 import 'package:mani/core/theme/app_theme.dart';
 
-/// Tipo de documento legal expuesto durante el registro (SCRUM-856 / SCRUM-1037).
+/// Tipo de documento legal expuesto durante el registro (SCRUM-856 / US-02.3.2).
 enum TipoDocumentoLegal {
   terminosCondiciones(
     codigo: 'TERMINOS_CONDICIONES',
@@ -28,7 +30,7 @@ enum TipoDocumentoLegal {
 
 /// Modal que permite al usuario leer el contenido completo de los Términos y
 /// Condiciones y de la Política de Tratamiento de Datos Personales antes de
-/// otorgar su consentimiento informado (SCRUM-1037).
+/// otorgar su consentimiento informado (SCRUM-856).
 class DocumentoLegalModal extends StatefulWidget {
   const DocumentoLegalModal({
     super.key,
@@ -60,11 +62,28 @@ class DocumentoLegalModal extends StatefulWidget {
 
 class _DocumentoLegalModalState extends State<DocumentoLegalModal> {
   late TipoDocumentoLegal _seleccionado;
+  List<Map<String, dynamic>> _documentosBackend = const [];
 
   @override
   void initState() {
     super.initState();
     _seleccionado = widget.documentoInicial;
+    _cargarDocumentosActivos();
+  }
+
+  Future<void> _cargarDocumentosActivos() async {
+    try {
+      if (GetIt.instance.isRegistered<GatewayClient>()) {
+        final gateway = GetIt.instance<GatewayClient>();
+        final res = await gateway.get('/api/v1/core/legal/documents/active');
+        final raw = res['data'];
+        if (raw is List && raw.isNotEmpty && mounted) {
+          setState(() {
+            _documentosBackend = raw.whereType<Map<String, dynamic>>().toList();
+          });
+        }
+      }
+    } catch (_) {}
   }
 
   @override
@@ -199,9 +218,27 @@ class _DocumentoLegalModalState extends State<DocumentoLegalModal> {
   }
 
   Widget _buildDocumentBody() {
-    final contenido = _seleccionado == TipoDocumentoLegal.terminosCondiciones
+    String contenido = _seleccionado == TipoDocumentoLegal.terminosCondiciones
         ? _textoTerminosCondiciones
         : _textoPoliticaDatos;
+    String version = _seleccionado.version;
+
+    for (final doc in _documentosBackend) {
+      final tipo = (doc['tipo'] ?? '').toString().toUpperCase();
+      if ((_seleccionado == TipoDocumentoLegal.terminosCondiciones &&
+              (tipo.contains('TERMINOS') || tipo.contains('TERMS'))) ||
+          (_seleccionado == TipoDocumentoLegal.politicaDatos &&
+              (tipo.contains('DATOS') || tipo.contains('PRIVACY')))) {
+        if (doc['contenido'] != null &&
+            doc['contenido'].toString().isNotEmpty) {
+          contenido = doc['contenido'].toString();
+        }
+        if (doc['version'] != null && doc['version'].toString().isNotEmpty) {
+          version = doc['version'].toString();
+        }
+        break;
+      }
+    }
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -225,7 +262,7 @@ class _DocumentoLegalModalState extends State<DocumentoLegalModal> {
             ),
             const SizedBox(height: 4),
             Text(
-              'Código: ${_seleccionado.codigo} · Versión ${_seleccionado.version}',
+              'Código: ${_seleccionado.codigo} · Versión $version',
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
