@@ -99,7 +99,7 @@ void main() {
         expect(peticiones, hasLength(2));
         expect(
           peticiones.last.url.toString(),
-          'http://gateway.local/api/v1/clients/companies/cli-corp-1/sites',
+          'http://gateway.local/api/v1/core/clients/cli-corp-1/sites',
         );
         expect(find.byKey(const Key('sede_card_sede-2')), findsOneWidget);
         expect(find.text('Sucursal Norte Usaquén'), findsOneWidget);

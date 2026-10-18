@@ -19,6 +19,8 @@ import 'package:mani/features/services/categories/presentation/bloc/categorias_c
 import 'package:mani/features/services/categories/presentation/pages/gestion_categorias_page.dart';
 import 'package:mani/features/services/requests/presentation/bloc/crear_solicitud_cubit.dart';
 import 'package:mani/features/services/requests/presentation/pages/crear_solicitud_page.dart';
+import 'package:mani/features/profiles/company_sites/presentation/bloc/sedes_empresa_cubit.dart';
+import 'package:mani/features/profiles/company_sites/presentation/pages/gestion_sedes_empresa_page.dart';
 
 /// Notifica a go_router cada vez que cambia el estado de autenticación de
 /// Supabase, para que el `redirect` de abajo se reevalúe automáticamente
@@ -143,6 +145,20 @@ final appRouter = GoRouter(
       path: '/aliado/cobertura',
       name: 'declarar-cobertura',
       builder: (context, state) => DeclararCoberturaPage(controller: sl()),
+    ),
+    // Gestión de múltiples sedes del cliente empresa (US-02.2.2 / SCRUM-852)
+    GoRoute(
+      path: '/cliente/sedes',
+      name: 'sedes-empresa',
+      builder: (context, state) {
+        final clienteId = state.uri.queryParameters['clienteId'] ??
+            Supabase.instance.client.auth.currentUser?.id ??
+            '';
+        return BlocProvider(
+          create: (_) => sl<SedesEmpresaCubit>(),
+          child: GestionSedesEmpresaPage(clienteId: clienteId),
+        );
+      },
     ),
     // Crear solicitud (US-04.1.1): el cliente describe su problema y adjunta
     // fotos; el tenant y el cliente salen de la sesión, nunca de la app.

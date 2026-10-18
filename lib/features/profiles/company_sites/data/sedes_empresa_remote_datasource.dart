@@ -17,7 +17,7 @@ class SedesEmpresaRemoteDataSource implements ISedesEmpresaRemoteDataSource {
   final GatewayClient gateway;
 
   static String rutaSedesCliente(String clienteId) =>
-      '/api/v1/clients/companies/$clienteId/sites';
+      '/api/v1/core/clients/$clienteId/sites';
 
   @override
   Future<List<SedeEmpresa>> listarSedes(String clienteId) async {
@@ -41,6 +41,7 @@ class SedesEmpresaRemoteDataSource implements ISedesEmpresaRemoteDataSource {
       'nombre': sede.nombre.trim(),
       'direccion': sede.direccion.trim(),
       'zonaId': sede.zonaId.trim(),
+      'reglas': <String, dynamic>{},
       if (sede.contactoNombre != null && sede.contactoNombre!.trim().isNotEmpty)
         'contactoNombre': sede.contactoNombre!.trim(),
       if (sede.contactoTelefono != null &&
