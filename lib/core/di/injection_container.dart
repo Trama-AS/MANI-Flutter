@@ -43,6 +43,9 @@ import 'package:mani/features/services/requests/data/repositories/solicitudes_cl
 import 'package:mani/features/services/requests/domain/repositories/solicitudes_cliente_repository.dart';
 import 'package:mani/features/services/requests/domain/usecases/solicitud_usecases.dart';
 import 'package:mani/features/services/requests/presentation/bloc/crear_solicitud_cubit.dart';
+import 'package:mani/features/profiles/direct_employees/data/empleados_directos_remote_datasource.dart';
+import 'package:mani/features/profiles/direct_employees/domain/usecases/registrar_empleado_directo_usecase.dart';
+import 'package:mani/features/profiles/direct_employees/presentation/bloc/empleado_directo_cubit.dart';
 
 final sl = GetIt.instance; // sl = service locator
 
@@ -196,5 +199,15 @@ Future<void> init() async {
   );
   sl.registerLazySingleton<SolicitudesClienteRemoteDataSource>(
     () => SupabaseSolicitudesClienteDataSource(sl()),
+  );
+
+  // Features - Profiles / Empleados Directos (US-02.1.5 / SCRUM-850)
+  sl.registerFactory(() => EmpleadoDirectoCubit(registrarUseCase: sl()));
+  sl.registerLazySingleton(() => RegistrarEmpleadoDirectoUseCase(sl()));
+  sl.registerLazySingleton<IEmpleadosDirectosRepository>(
+    () => EmpleadosDirectosRepositoryImpl(remoteDataSource: sl()),
+  );
+  sl.registerLazySingleton<IEmpleadosDirectosRemoteDataSource>(
+    () => EmpleadosDirectosRemoteDataSource(gateway: sl()),
   );
 }

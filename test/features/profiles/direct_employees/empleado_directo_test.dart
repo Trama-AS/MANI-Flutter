@@ -60,7 +60,7 @@ void main() {
         expect(capturada.method, 'POST');
         expect(
           capturada.url.toString(),
-          'http://gateway.local/api/v1/allies/direct-employees',
+          'http://gateway.local/api/v1/core/allies/employees',
         );
         expect(capturada.headers['Authorization'], 'Bearer jwt-admin-token');
 

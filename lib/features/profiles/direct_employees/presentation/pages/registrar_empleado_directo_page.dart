@@ -255,20 +255,23 @@ class _RegistrarEmpleadoDirectoPageState
           const SizedBox(height: 8),
           ...widget.categoriasDisponibles.entries.map((entry) {
             final seleccionado = _categoriasSeleccionadas.contains(entry.key);
-            return CheckboxListTile(
-              key: Key('chk_categoria_${entry.key}'),
-              value: seleccionado,
-              title: Text(entry.value),
-              controlAffinity: ListTileControlAffinity.leading,
-              onChanged: (val) {
-                setState(() {
-                  if (val == true) {
-                    _categoriasSeleccionadas.add(entry.key);
-                  } else {
-                    _categoriasSeleccionadas.remove(entry.key);
-                  }
-                });
-              },
+            return Material(
+              type: MaterialType.transparency,
+              child: CheckboxListTile(
+                key: Key('chk_categoria_${entry.key}'),
+                value: seleccionado,
+                title: Text(entry.value),
+                controlAffinity: ListTileControlAffinity.leading,
+                onChanged: (val) {
+                  setState(() {
+                    if (val == true) {
+                      _categoriasSeleccionadas.add(entry.key);
+                    } else {
+                      _categoriasSeleccionadas.remove(entry.key);
+                    }
+                  });
+                },
+              ),
             );
           }),
           const SizedBox(height: 20),

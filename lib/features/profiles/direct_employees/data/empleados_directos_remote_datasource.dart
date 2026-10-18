@@ -18,7 +18,7 @@ class EmpleadosDirectosRemoteDataSource
 
   final GatewayClient gateway;
 
-  static const String rutaEmpleadosDirectos = '/api/v1/allies/direct-employees';
+  static const String rutaEmpleadosDirectos = '/api/v1/core/allies/employees';
 
   @override
   Future<EmpleadoDirectoCreado> registrarEmpleadoDirecto(
@@ -28,7 +28,11 @@ class EmpleadosDirectosRemoteDataSource
       'email': nuevoEmpleado.email.trim(),
       'password': nuevoEmpleado.password,
       'nombreCompleto': nuevoEmpleado.nombreCompleto.trim(),
+      'fullName': nuevoEmpleado.nombreCompleto.trim(),
+      'nombre': nuevoEmpleado.nombreCompleto.trim(),
       'categoriaIds': nuevoEmpleado.categoriaIds,
+      if (nuevoEmpleado.categoriaIds.isNotEmpty)
+        'categoriaId': nuevoEmpleado.categoriaIds.first,
       if (nuevoEmpleado.telefono != null &&
           nuevoEmpleado.telefono!.trim().isNotEmpty)
         'telefono': nuevoEmpleado.telefono!.trim(),
