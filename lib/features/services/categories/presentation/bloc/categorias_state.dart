@@ -23,6 +23,7 @@ class CategoriasState extends Equatable {
     this.categorias = const [],
     this.busqueda = '',
     this.guardando = false,
+    this.cambiandoEstadoIds = const {},
     this.recienCreadaId,
     this.error,
     this.aviso,
@@ -33,10 +34,16 @@ class CategoriasState extends Equatable {
   final String busqueda;
   final bool guardando;
 
+  /// IDs de categorías cuyo estado (`ACTIVO` / `INACTIVO`) se está
+  /// actualizando en este instante (US-03.1.2).
+  final Set<String> cambiandoEstadoIds;
+
   /// Categoría recién creada, para resaltarla en el catálogo.
   final String? recienCreadaId;
   final CategoriaFailure? error;
   final AvisoCategorias? aviso;
+
+  bool cambiandoEstadoDe(String id) => cambiandoEstadoIds.contains(id);
 
   List<CategoriaServicio> get visibles =>
       categorias.where((c) => c.coincideCon(busqueda)).toList(growable: false);
@@ -49,6 +56,7 @@ class CategoriasState extends Equatable {
     List<CategoriaServicio>? categorias,
     String? busqueda,
     bool? guardando,
+    Set<String>? cambiandoEstadoIds,
     Object? recienCreadaId = _sinCambio,
     Object? error = _sinCambio,
     Object? aviso = _sinCambio,
@@ -57,6 +65,7 @@ class CategoriasState extends Equatable {
     categorias: categorias ?? this.categorias,
     busqueda: busqueda ?? this.busqueda,
     guardando: guardando ?? this.guardando,
+    cambiandoEstadoIds: cambiandoEstadoIds ?? this.cambiandoEstadoIds,
     recienCreadaId: identical(recienCreadaId, _sinCambio)
         ? this.recienCreadaId
         : recienCreadaId as String?,
@@ -74,6 +83,7 @@ class CategoriasState extends Equatable {
     categorias,
     busqueda,
     guardando,
+    cambiandoEstadoIds,
     recienCreadaId,
     error?.tipo,
     aviso,
