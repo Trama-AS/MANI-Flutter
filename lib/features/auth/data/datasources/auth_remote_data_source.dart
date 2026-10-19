@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:mani/core/logging/structured_logger.dart';
 import 'package:mani/core/network/gateway_client.dart';
 import 'package:mani/core/network/gateway_exception.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -57,7 +58,13 @@ class AuthRemoteDataSource implements IAuthRemoteDataSource {
   final SupabaseClient client;
   final GatewayClient gateway;
 
-  AuthRemoteDataSource({required this.client, required this.gateway});
+  AuthRemoteDataSource({
+    required this.client,
+    required this.gateway,
+    StructuredLogger? logger,
+  }) : _log = logger ?? StructuredLogger(canal: 'mani.consentimiento');
+
+  final StructuredLogger _log;
 
   /// Registro de aliado empresa en Core Node, a través del Gateway
   /// (US-02.1.2-M2). Contrato provisional hasta que CFG-16 lo publique.
@@ -122,7 +129,15 @@ class AuthRemoteDataSource implements IAuthRemoteDataSource {
         payload,
         headers: headers,
       );
-    } catch (_) {}
+    } catch (e) {
+      // La cuenta ya quedó creada: no se revierte el registro, pero el fallo no se oculta.
+      // Sin datos personales en el log (solo el tipo de error).
+      _log.error(
+        'No se pudo registrar el consentimiento legal tras el registro',
+        traceId: StructuredLogger.nuevoTraceId(),
+        extra: {'error_type': e.runtimeType.toString()},
+      );
+    }
   }
 
   Future<void> _registrarConsentimientoSeguro(

@@ -171,7 +171,7 @@ class _DocumentoLegalModalState extends State<DocumentoLegalModal> {
           child: _buildTabButton(
             key: const Key('tab_terminos_condiciones'),
             tipo: TipoDocumentoLegal.terminosCondiciones,
-            etiqueta: 'Términos y Condiciones (v1.0)',
+            etiqueta: 'Términos y Condiciones',
           ),
         ),
         const SizedBox(width: 10),
@@ -339,7 +339,7 @@ El usuario declara que la información suministrada durante el registro es veraz
 Los clientes se comprometen a brindar condiciones seguras en el inmueble o sede registrada. Los aliados se comprometen a cumplir las reglas contextuales del sitio (seguridad industrial, horarios y protocolos de ingreso) y a ejecutar los servicios conforme a la cotización aprobada.
 
 4. TRAZABILIDAD DEL CONSENTIMIENTO
-La aceptación de estos Términos y Condiciones queda registrada de forma inmutable con marca de tiempo (timestamp), versión del documento (v1.0) e identificador del usuario dentro del tenant correspondiente.
+Al aceptar, MANI guarda tu aceptación de la versión vigente de este documento junto con la fecha y hora, tu identificador de usuario y el tenant en el que te registras.
 ''';
 
   static const String _textoPoliticaDatos = '''
