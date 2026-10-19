@@ -30,6 +30,7 @@ class _ReglasSitioPageState extends State<ReglasSitioPage> {
   final _instruccionesController = TextEditingController();
   final _documentosController = TextEditingController();
   bool _requiereEpp = false;
+  ReglasContextualesSitio? _cargadas;
 
   @override
   void initState() {
@@ -46,6 +47,7 @@ class _ReglasSitioPageState extends State<ReglasSitioPage> {
   }
 
   void _sincronizarFormulario(ReglasContextualesSitio reglas) {
+    _cargadas = reglas;
     _requiereEpp = reglas.requiereEpp;
     _horarioController.text = reglas.horarioPermitido ?? '';
     _instruccionesController.text = reglas.instruccionesIngreso ?? '';
@@ -62,10 +64,19 @@ class _ReglasSitioPageState extends State<ReglasSitioPage> {
     context.read<ReglasSitioCubit>().guardarReglas(
       ReglasContextualesSitio(
         siteId: widget.siteId,
-        requiereEpp: _requiereEpp,
         horarioPermitido: _horarioController.text,
-        documentosRequeridos: docs,
+        // Se conservan los valores que este formulario no edita.
+        diasPermitidos:
+            _cargadas?.diasPermitidos ?? ReglasContextualesSitio.diasHabiles,
+        permisosRequeridos: docs,
+        elementosProteccion: _requiereEpp
+            ? ((_cargadas?.elementosProteccion.isNotEmpty ?? false)
+                  ? _cargadas!.elementosProteccion
+                  : const ['Casco', 'Botas de seguridad'])
+            : const [],
         instruccionesIngreso: _instruccionesController.text,
+        requiereAprobacionPrevia: _cargadas?.requiereAprobacionPrevia ?? false,
+        contactoAcceso: _cargadas?.contactoAcceso,
       ),
     );
   }

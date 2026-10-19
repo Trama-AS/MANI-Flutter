@@ -1,31 +1,46 @@
 import 'package:equatable/equatable.dart';
 
-/// Reglas contextuales de ingreso y operación configuradas por el cliente
-/// corporativo en un sitio y visibles para el aliado (US-02.2.3 / SCRUM-853).
+/// Reglas contextuales de ingreso y operación configuradas para un sitio y visibles para el aliado
+/// (US-02.2.3 / SCRUM-853).
+///
+/// El JSON es exactamente el objeto `SiteRules` de Core (MANI-Node#12), documentado en
+/// `ModeloDatos.md` (`sitio.reglas`):
+/// `{ horario: { inicio, fin, diasPermitidos }, permisosRequeridos, elementosProteccion,
+///    instruccionesIngreso, requiereAprobacionPrevia, contactoAcceso: { nombre, telefono } }`.
+/// `horario` es opcional: sin él el sitio no tiene restricción horaria.
 class ReglasContextualesSitio extends Equatable {
   const ReglasContextualesSitio({
     required this.siteId,
-    this.requiereEpp = false,
     this.horarioPermitido,
-    this.documentosRequeridos = const [],
+    this.diasPermitidos = diasHabiles,
     this.permisosRequeridos = const [],
     this.elementosProteccion = const [],
     this.instruccionesIngreso,
     this.requiereAprobacionPrevia = false,
     this.contactoAcceso,
-    this.notasAdicionales,
   });
 
+  static const diasHabiles = ['LUN', 'MAR', 'MIE', 'JUE', 'VIE'];
+
   final String siteId;
-  final bool requiereEpp;
+
+  /// Horario en texto para la UI (`HH:mm - HH:mm`); null si el sitio no restringe horario.
   final String? horarioPermitido;
-  final List<String> documentosRequeridos;
+  final List<String> diasPermitidos;
   final List<String> permisosRequeridos;
   final List<String> elementosProteccion;
   final String? instruccionesIngreso;
   final bool requiereAprobacionPrevia;
   final Map<String, dynamic>? contactoAcceso;
-  final String? notasAdicionales;
+
+  /// En la UI la casilla "Requiere EPP" equivale a tener elementos de protección.
+  bool get requiereEpp => elementosProteccion.isNotEmpty;
+
+  /// Nombre que usa la UI para los permisos exigidos en portería.
+  List<String> get documentosRequeridos => permisosRequeridos;
+
+  static List<String> _lista(Object? raw) =>
+      raw is List ? raw.map((e) => e.toString()).toList() : const <String>[];
 
   factory ReglasContextualesSitio.fromJson(
     String siteId,
@@ -39,87 +54,59 @@ class ReglasContextualesSitio extends Equatable {
         : data;
 
     String? horarioTexto;
+    var dias = diasHabiles;
     if (reglas['horario'] is Map) {
       final h = reglas['horario'] as Map;
-      final inicio = h['inicio']?.toString() ?? '08:00';
-      final fin = h['fin']?.toString() ?? '17:00';
-      horarioTexto = '$inicio - $fin';
-    } else {
-      horarioTexto = reglas['horarioPermitido']?.toString();
+      if (h['inicio'] != null && h['fin'] != null) {
+        horarioTexto = '${h['inicio']} - ${h['fin']}';
+      }
+      final rawDias = _lista(h['diasPermitidos']);
+      if (rawDias.isNotEmpty) dias = rawDias;
     }
-
-    final rawPermisos =
-        reglas['permisosRequeridos'] ??
-        reglas['documentosRequeridos'] ??
-        const [];
-    final docs = rawPermisos is List
-        ? rawPermisos.map((e) => e.toString()).toList()
-        : <String>[];
-
-    final rawEpp = reglas['elementosProteccion'] ?? const [];
-    final epp = rawEpp is List
-        ? rawEpp.map((e) => e.toString()).toList()
-        : <String>[];
-    final reqEpp = (reglas['requiereEpp'] as bool?) ?? epp.isNotEmpty;
 
     return ReglasContextualesSitio(
       siteId: (data['id'] ?? data['siteId'] ?? siteId).toString(),
-      requiereEpp: reqEpp,
       horarioPermitido: horarioTexto,
-      documentosRequeridos: docs,
-      permisosRequeridos: docs,
-      elementosProteccion: epp,
+      diasPermitidos: dias,
+      permisosRequeridos: _lista(reglas['permisosRequeridos']),
+      elementosProteccion: _lista(reglas['elementosProteccion']),
       instruccionesIngreso: reglas['instruccionesIngreso']?.toString(),
       requiereAprobacionPrevia:
           (reglas['requiereAprobacionPrevia'] as bool?) ?? false,
       contactoAcceso: reglas['contactoAcceso'] is Map
           ? Map<String, dynamic>.from(reglas['contactoAcceso'] as Map)
           : null,
-      notasAdicionales: reglas['notasAdicionales']?.toString(),
     );
   }
 
-  Map<String, dynamic> toPayload() {
-    Map<String, dynamic>? horarioMap;
-    if (horarioPermitido != null && horarioPermitido!.contains('-')) {
-      final parts = horarioPermitido!.split('-');
-      if (parts.length == 2) {
-        final inicio = parts[0].replaceAll(RegExp(r'[^0-9:]'), '').trim();
-        final fin = parts[1].replaceAll(RegExp(r'[^0-9:]'), '').trim();
-        if (inicio.isNotEmpty && fin.isNotEmpty) {
-          horarioMap = {
-            'inicio': inicio.padLeft(5, '0'),
-            'fin': fin.padLeft(5, '0'),
-            'diasPermitidos': const ['LUN', 'MAR', 'MIE', 'JUE', 'VIE'],
-          };
-        }
-      }
-    }
-    horarioMap ??= const {
-      'inicio': '08:00',
-      'fin': '17:00',
-      'diasPermitidos': ['LUN', 'MAR', 'MIE', 'JUE', 'VIE'],
+  /// Convierte `HH:mm - HH:mm` al objeto `horario` de Core; null si no hay horario válido.
+  Map<String, dynamic>? _horario() {
+    final texto = horarioPermitido;
+    if (texto == null || !texto.contains('-')) return null;
+    final partes = texto.split('-');
+    if (partes.length != 2) return null;
+    final inicio = partes[0].replaceAll(RegExp(r'[^0-9:]'), '').trim();
+    final fin = partes[1].replaceAll(RegExp(r'[^0-9:]'), '').trim();
+    if (inicio.isEmpty || fin.isEmpty) return null;
+    return {
+      'inicio': inicio.padLeft(5, '0'),
+      'fin': fin.padLeft(5, '0'),
+      'diasPermitidos': diasPermitidos,
     };
+  }
 
-    final eppList = elementosProteccion.isNotEmpty
-        ? elementosProteccion
-        : (requiereEpp
-              ? const ['Casco', 'Botas de seguridad']
-              : const <String>[]);
-
+  Map<String, dynamic> toPayload() {
+    final horario = _horario();
+    final instrucciones = instruccionesIngreso?.trim();
     return {
       'reglas': {
-        'horario': horarioMap,
-        'permisosRequeridos': permisosRequeridos.isNotEmpty
-            ? permisosRequeridos
-            : documentosRequeridos,
-        'elementosProteccion': eppList,
-        'instruccionesIngreso': instruccionesIngreso ?? '',
+        'horario': ?horario,
+        'permisosRequeridos': permisosRequeridos,
+        'elementosProteccion': elementosProteccion,
+        if (instrucciones != null && instrucciones.isNotEmpty)
+          'instruccionesIngreso': instrucciones,
         'requiereAprobacionPrevia': requiereAprobacionPrevia,
         if (contactoAcceso != null) 'contactoAcceso': contactoAcceso,
-        'requiereEpp': requiereEpp || eppList.isNotEmpty,
-        'horarioPermitido': horarioPermitido,
-        'documentosRequeridos': documentosRequeridos,
       },
     };
   }
@@ -127,14 +114,12 @@ class ReglasContextualesSitio extends Equatable {
   @override
   List<Object?> get props => [
     siteId,
-    requiereEpp,
     horarioPermitido,
-    documentosRequeridos,
+    diasPermitidos,
     permisosRequeridos,
     elementosProteccion,
     instruccionesIngreso,
     requiereAprobacionPrevia,
     contactoAcceso,
-    notasAdicionales,
   ];
 }

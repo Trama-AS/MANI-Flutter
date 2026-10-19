@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:mani/core/network/gateway_client.dart';
 import 'package:mani/features/profiles/site_rules/data/reglas_sitio_remote_datasource.dart';
+import 'package:mani/features/profiles/site_rules/domain/entities/reglas_sitio.dart';
 import 'package:mani/features/profiles/site_rules/domain/usecases/reglas_sitio_usecases.dart';
 import 'package:mani/features/profiles/site_rules/presentation/bloc/reglas_sitio_cubit.dart';
 import 'package:mani/features/profiles/site_rules/presentation/pages/reglas_sitio_page.dart';
@@ -30,9 +31,18 @@ void main() {
                     'data': {
                       'id': 'site-101',
                       'reglas': {
-                        'requiereEpp': true,
-                        'horarioPermitido': '08:00 - 17:00',
-                        'documentosRequeridos': ['ARL vigente', 'Cédula'],
+                        'horario': {
+                          'inicio': '07:00',
+                          'fin': '16:00',
+                          'diasPermitidos': ['LUN', 'MAR', 'SAB'],
+                        },
+                        'permisosRequeridos': ['ARL vigente', 'Cédula'],
+                        'elementosProteccion': ['Casco dieléctrico'],
+                        'requiereAprobacionPrevia': true,
+                        'contactoAcceso': {
+                          'nombre': 'Portería',
+                          'telefono': '6011234567',
+                        },
                         'instruccionesIngreso':
                             'Anunciarse en recepción torre B',
                       },
@@ -103,9 +113,68 @@ void main() {
             findsWidgets,
           );
 
+          // El PUT envía solo el formato SiteRules de Core (MANI-Node#12) y conserva lo no editado.
+          final enviado =
+              (jsonDecode(peticiones.last.body)
+                      as Map<String, dynamic>)['reglas']
+                  as Map<String, dynamic>;
+          expect(enviado.keys.toSet(), {
+            'horario',
+            'permisosRequeridos',
+            'elementosProteccion',
+            'instruccionesIngreso',
+            'requiereAprobacionPrevia',
+            'contactoAcceso',
+          });
+          expect(enviado['horario'], {
+            'inicio': '07:00',
+            'fin': '16:00',
+            'diasPermitidos': ['LUN', 'MAR', 'SAB'],
+          });
+          expect(enviado['elementosProteccion'], ['Casco dieléctrico']);
+          expect(enviado['requiereAprobacionPrevia'], true);
+
           await cubit.close();
         },
       );
     },
   );
+
+  group('ReglasContextualesSitio.toPayload', () {
+    test(
+      'sin horario no inventa uno: el sitio queda sin restricción horaria',
+      () {
+        const reglas = ReglasContextualesSitio(siteId: 's1');
+
+        final payload = reglas.toPayload()['reglas'] as Map<String, dynamic>;
+
+        expect(payload.containsKey('horario'), isFalse);
+        expect(payload.containsKey('requiereEpp'), isFalse);
+        expect(payload.containsKey('horarioPermitido'), isFalse);
+        expect(payload.containsKey('documentosRequeridos'), isFalse);
+      },
+    );
+
+    test(
+      'convierte el horario de texto al objeto de Core y lee el mismo formato de vuelta',
+      () {
+        const reglas = ReglasContextualesSitio(
+          siteId: 's1',
+          horarioPermitido: '8:00 - 17:30',
+          permisosRequeridos: ['ARL'],
+        );
+
+        final payload = reglas.toPayload();
+        final leido = ReglasContextualesSitio.fromJson('s1', payload);
+
+        expect((payload['reglas'] as Map)['horario'], {
+          'inicio': '08:00',
+          'fin': '17:30',
+          'diasPermitidos': ReglasContextualesSitio.diasHabiles,
+        });
+        expect(leido.horarioPermitido, '08:00 - 17:30');
+        expect(leido.permisosRequeridos, ['ARL']);
+      },
+    );
+  });
 }
