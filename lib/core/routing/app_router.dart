@@ -153,7 +153,8 @@ final appRouter = GoRouter(
       path: '/cliente/sedes',
       name: 'sedes-empresa',
       builder: (context, state) {
-        final clienteId = state.uri.queryParameters['clienteId'] ??
+        final clienteId =
+            state.uri.queryParameters['clienteId'] ??
             Supabase.instance.client.auth.currentUser?.id ??
             '';
         return BlocProvider(

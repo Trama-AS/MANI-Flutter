@@ -217,10 +217,7 @@ Future<void> init() async {
 
   // Features - Profiles / Sedes Empresa (US-02.2.2 / SCRUM-852)
   sl.registerFactory(
-    () => SedesEmpresaCubit(
-      listarUseCase: sl(),
-      agregarUseCase: sl(),
-    ),
+    () => SedesEmpresaCubit(listarUseCase: sl(), agregarUseCase: sl()),
   );
   sl.registerLazySingleton(() => ListarSedesEmpresaUseCase(sl()));
   sl.registerLazySingleton(() => AgregarSedeEmpresaUseCase(sl()));

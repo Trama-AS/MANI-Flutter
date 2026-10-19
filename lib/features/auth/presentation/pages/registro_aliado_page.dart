@@ -111,8 +111,7 @@ class _RegistroAliadoViewState extends State<_RegistroAliadoView> {
 
     final documentos = <Map<String, String>>[
       _documento('CEDULA_CIUDADANIA', 'cedula', _cedulaFile!),
-      if (_rutFile != null)
-        _documento('RUT_CERTIFICADO', 'rut', _rutFile!),
+      if (_rutFile != null) _documento('RUT_CERTIFICADO', 'rut', _rutFile!),
     ];
 
     context.read<AuthCubit>().registerAliado(
