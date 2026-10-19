@@ -20,6 +20,8 @@ import 'package:mani/features/services/categories/presentation/bloc/categorias_c
 import 'package:mani/features/services/categories/presentation/pages/gestion_categorias_page.dart';
 import 'package:mani/features/services/requests/presentation/bloc/crear_solicitud_cubit.dart';
 import 'package:mani/features/services/requests/presentation/pages/crear_solicitud_page.dart';
+import 'package:mani/features/profiles/company_sites/presentation/bloc/sedes_empresa_cubit.dart';
+import 'package:mani/features/profiles/company_sites/presentation/pages/gestion_sedes_empresa_page.dart';
 import 'package:mani/features/profiles/direct_employees/presentation/bloc/empleado_directo_cubit.dart';
 import 'package:mani/features/profiles/direct_employees/presentation/pages/registrar_empleado_directo_page.dart';
 
@@ -147,6 +149,21 @@ final appRouter = GoRouter(
       path: '/aliado/cobertura',
       name: 'declarar-cobertura',
       builder: (context, state) => DeclararCoberturaPage(controller: sl()),
+    ),
+    // Gestión de múltiples sedes del cliente empresa (US-02.2.2 / SCRUM-852)
+    GoRoute(
+      path: '/cliente/sedes',
+      name: 'sedes-empresa',
+      builder: (context, state) {
+        final clienteId =
+            state.uri.queryParameters['clienteId'] ??
+            Supabase.instance.client.auth.currentUser?.id ??
+            '';
+        return BlocProvider(
+          create: (_) => sl<SedesEmpresaCubit>(),
+          child: GestionSedesEmpresaPage(clienteId: clienteId),
+        );
+      },
     ),
     // Ruta independiente: Registro de empleado directo del aliado (US-02.1.5 / SCRUM-850)
     GoRoute(
