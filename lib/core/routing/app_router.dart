@@ -26,6 +26,7 @@ import 'package:mani/features/profiles/company_sites/presentation/bloc/sedes_emp
 import 'package:mani/features/profiles/company_sites/presentation/pages/gestion_sedes_empresa_page.dart';
 import 'package:mani/features/profiles/direct_employees/presentation/bloc/empleado_directo_cubit.dart';
 import 'package:mani/features/profiles/direct_employees/presentation/pages/registrar_empleado_directo_page.dart';
+import 'package:mani/features/profiles/own_profile/presentation/pages/editar_perfil_page.dart';
 
 /// Notifica a go_router cada vez que cambia el estado de autenticación de
 /// Supabase, para que el `redirect` de abajo se reevalúe automáticamente
@@ -164,6 +165,12 @@ final appRouter = GoRouter(
           child: ReglasSitioPage(siteId: siteId, esVistaAliado: esAliado),
         );
       },
+    ),
+    // Edición del perfil propio de cliente o aliado (US-02.3.1 / SCRUM-854)
+    GoRoute(
+      path: '/perfil/editar',
+      name: 'editar-perfil',
+      builder: (context, state) => EditarPerfilPage(dataSource: sl()),
     ),
     // Gestión de múltiples sedes del cliente empresa (US-02.2.2 / SCRUM-852)
     GoRoute(
