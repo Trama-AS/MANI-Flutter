@@ -116,8 +116,7 @@ void main() {
       await registrar(datasource());
 
       final r = alGateway.single;
-      final body =
-          jsonDecode(utf8.decode(r.bodyBytes)) as Map<String, dynamic>;
+      final body = jsonDecode(utf8.decode(r.bodyBytes)) as Map<String, dynamic>;
       expect(body.containsKey('tenantId'), isFalse);
       expect(body.containsKey('tenant_id'), isFalse);
       expect(r.headers[AuthRemoteDataSource.headerTenantSlug], 'tenant-a');
