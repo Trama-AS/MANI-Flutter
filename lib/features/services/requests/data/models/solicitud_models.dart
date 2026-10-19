@@ -1,7 +1,9 @@
 import '../../domain/entities/catalogo_solicitud.dart';
 import '../../domain/entities/solicitud_publicada.dart';
 
-/// Mapeos del JSON de las RPC de la migración 006.
+/// Mapeos del JSON de las RPC de la migración 006 (catálogos, snake_case) y
+/// de la respuesta de Core al crear la solicitud (camelCase, contrato
+/// `core.yaml`).
 class CategoriaDisponibleModel extends CategoriaDisponible {
   const CategoriaDisponibleModel({
     required super.id,
@@ -62,19 +64,20 @@ class SolicitudPublicadaModel extends SolicitudPublicada {
     super.cantidadFotos,
   });
 
+  /// Objeto `solicitud` de `POST /api/v1/core/solicitudes` (`ServiceRequest`).
   factory SolicitudPublicadaModel.fromJson(Map<String, dynamic> json) =>
       SolicitudPublicadaModel(
         id: json['id'] as String,
         categoria: json['categoria'] as String? ?? '',
-        modalidad: ModalidadCobro.desde(json['flujo_operativo'] as String?),
+        modalidad: ModalidadCobro.desde(json['flujoOperativo'] as String?),
         descripcion: json['descripcion'] as String? ?? '',
         direccion: json['direccion'] as String? ?? '',
         zona: json['zona'] as String? ?? '',
-        zonaPadre: json['zona_padre'] as String?,
+        zonaPadre: json['zonaPadre'] as String?,
         cantidadFotos: (json['fotos'] as num?)?.toInt() ?? 0,
         fechaCreacion:
-            (json['created_at'] is String
-                ? DateTime.tryParse(json['created_at'] as String)?.toLocal()
+            (json['createdAt'] is String
+                ? DateTime.tryParse(json['createdAt'] as String)?.toLocal()
                 : null) ??
             DateTime.now(),
       );
