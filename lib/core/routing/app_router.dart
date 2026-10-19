@@ -22,6 +22,8 @@ import 'package:mani/features/services/requests/presentation/bloc/crear_solicitu
 import 'package:mani/features/services/requests/presentation/pages/crear_solicitud_page.dart';
 import 'package:mani/features/profiles/site_rules/presentation/bloc/reglas_sitio_cubit.dart';
 import 'package:mani/features/profiles/site_rules/presentation/pages/reglas_sitio_page.dart';
+import 'package:mani/features/profiles/direct_employees/presentation/bloc/empleado_directo_cubit.dart';
+import 'package:mani/features/profiles/direct_employees/presentation/pages/registrar_empleado_directo_page.dart';
 
 /// Notifica a go_router cada vez que cambia el estado de autenticación de
 /// Supabase, para que el `redirect` de abajo se reevalúe automáticamente
@@ -160,6 +162,15 @@ final appRouter = GoRouter(
           child: ReglasSitioPage(siteId: siteId, esVistaAliado: esAliado),
         );
       },
+    ),
+    // Ruta independiente: Registro de empleado directo del aliado (US-02.1.5 / SCRUM-850)
+    GoRoute(
+      path: '/aliado/empleados/nuevo',
+      name: 'registrar-empleado-directo',
+      builder: (context, state) => BlocProvider(
+        create: (_) => sl<EmpleadoDirectoCubit>(),
+        child: const RegistrarEmpleadoDirectoPage(),
+      ),
     ),
     // Crear solicitud (US-04.1.1): el cliente describe su problema y adjunta
     // fotos; el tenant y el cliente salen de la sesión, nunca de la app.
