@@ -87,7 +87,7 @@ void main() {
         expect(r.method, 'POST');
         expect(
           r.url.toString(),
-          'http://gateway.local${AuthRemoteDataSource.rutaRegistroEmpresa}',
+          'http://gateway.local/api/v1/core/auth/register/ally/company',
         );
         expect(r.headers['X-Correlation-ID'], 'corr-test');
       },
@@ -112,12 +112,12 @@ void main() {
         'name="$n"(?:\r\n[^\r]+)*\r\n\r\n([^\r]*)',
       ).firstMatch(cuerpo)!.group(1)!;
       expect(campo('email'), 'admin@plomeria.co');
-      expect(campo('razon_social'), 'Plomería SAS');
+      expect(campo('razonSocial'), 'Plomería SAS');
       expect(campo('nit'), '900123456-7');
-      expect(campo('nombre_representante'), 'Ana Gómez');
-      expect(campo('categoria_id'), 'cat-1');
-      expect(cuerpo, isNot(contains('name="doc_representante"')));
-      expect(cuerpo, isNot(contains('name="telefono_contacto"')));
+      expect(campo('nombreRepresentante'), 'Ana Gómez');
+      expect(campo('categoriaId'), 'cat-1');
+      expect(cuerpo, isNot(contains('name="docRepresentante"')));
+      expect(cuerpo, isNot(contains('name="phone"')));
     });
 
     test('CC-2/CA-6: el tenant no viaja en el cuerpo, solo como slug '

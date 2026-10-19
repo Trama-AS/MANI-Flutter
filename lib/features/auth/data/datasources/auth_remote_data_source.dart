@@ -67,8 +67,9 @@ class AuthRemoteDataSource implements IAuthRemoteDataSource {
   final StructuredLogger _log;
 
   /// Registro de aliado empresa en Core Node, a través del Gateway
-  /// (US-02.1.2-M2). Contrato provisional hasta que CFG-16 lo publique.
-  static const rutaRegistroEmpresa = '/api/v1/core/aliados/empresa';
+  /// (US-02.1.2-M2). Ruta y nombres de campo definidos por el contrato
+  /// OpenAPI de Core (`RegisterAllyCompanyRequest` en core.yaml).
+  static const rutaRegistroEmpresa = '/api/v1/core/auth/register/ally/company';
 
   /// Registro de aliado persona natural en Core Node, a través del Gateway
   /// (US-02.1.1-M2). Ruta y nombres de campo definidos por el contrato
@@ -262,16 +263,17 @@ class AuthRemoteDataSource implements IAuthRemoteDataSource {
   }) async {
     // El tenant va solo en X-Tenant-Slug (ADR-0018), nunca en el cuerpo, y la ruta del
     // documento en Storage la construye Core (tenant_id/aliado_id/documento,
-    // ADR-0013): el cliente no envía rutas.
+    // ADR-0013): el cliente no envía rutas. Campos en camelCase, como los
+    // declara el contrato.
     final campos = <String, String>{
       'email': email.trim(),
       'password': password,
-      'razon_social': razonSocial.trim(),
+      'razonSocial': razonSocial.trim(),
       'nit': nit.trim(),
-      'nombre_representante': nombreRepresentante.trim(),
-      'doc_representante': ?_texto(docRepresentante),
-      'telefono_contacto': ?_texto(telefonoContacto),
-      'categoria_id': ?_texto(categoriaId),
+      'nombreRepresentante': nombreRepresentante.trim(),
+      'docRepresentante': ?_texto(docRepresentante),
+      'phone': ?_texto(telefonoContacto),
+      'categoriaId': ?_texto(categoriaId),
     };
 
     final respuesta = await gateway.postMultipart(
