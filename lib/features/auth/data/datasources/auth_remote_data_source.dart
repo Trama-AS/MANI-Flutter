@@ -131,7 +131,7 @@ class AuthRemoteDataSource implements IAuthRemoteDataSource {
     final token = (respuesta['session'] is Map)
         ? respuesta['session']['access_token']?.toString()
         : (respuesta['access_token']?.toString() ??
-            client.auth.currentSession?.accessToken);
+              client.auth.currentSession?.accessToken);
     if (token != null && token.isNotEmpty) {
       await registrarConsentimientoLegal(token: token);
     }
