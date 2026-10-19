@@ -33,7 +33,7 @@ class GatewayPerfilPropioDataSource implements PerfilPropioRemoteDataSource {
 
   @override
   Future<PerfilPropio> obtenerPerfilPropio() async {
-    final res = await _gatewayClient.get('/api/v1/profiles/me');
+    final res = await _gatewayClient.get('/api/v1/core/profiles/me');
     return PerfilPropio.fromJson(res);
   }
 
@@ -43,7 +43,7 @@ class GatewayPerfilPropioDataSource implements PerfilPropioRemoteDataSource {
     required String phone,
     required String address,
   }) async {
-    final res = await _gatewayClient.patch('/api/v1/profiles/me', {
+    final res = await _gatewayClient.patch('/api/v1/core/profiles/me', {
       'fullName': fullName.trim(),
       'phone': phone.trim(),
       'address': address.trim(),
@@ -62,7 +62,7 @@ class GatewayPerfilPropioDataSource implements PerfilPropioRemoteDataSource {
       );
     }
     final res = await _gatewayClient.postMultipart(
-      '/api/v1/profiles/me/photo',
+      '/api/v1/core/profiles/me/photo',
       campos: const {},
       archivos: [
         ArchivoMultipart(campo: 'photo', nombre: nombreArchivo, bytes: bytes),

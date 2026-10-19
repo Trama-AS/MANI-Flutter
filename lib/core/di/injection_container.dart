@@ -48,6 +48,7 @@ import 'package:mani/features/services/requests/domain/repositories/solicitudes_
 import 'package:mani/features/services/requests/domain/usecases/solicitud_usecases.dart';
 import 'package:mani/features/services/requests/presentation/bloc/crear_solicitud_cubit.dart';
 import 'package:mani/features/profiles/direct_employees/data/empleados_directos_remote_datasource.dart';
+import 'package:mani/features/profiles/own_profile/data/datasources/perfil_propio_remote_datasource.dart';
 import 'package:mani/features/profiles/direct_employees/domain/usecases/registrar_empleado_directo_usecase.dart';
 import 'package:mani/features/profiles/direct_employees/presentation/bloc/empleado_directo_cubit.dart';
 
@@ -213,6 +214,11 @@ Future<void> init() async {
   );
   sl.registerLazySingleton<SolicitudesClienteRemoteDataSource>(
     () => SupabaseSolicitudesClienteDataSource(sl()),
+  );
+
+  // Features - Profiles / Perfil propio (US-02.3.1 / SCRUM-854): habla con Core por el Gateway.
+  sl.registerLazySingleton<PerfilPropioRemoteDataSource>(
+    () => GatewayPerfilPropioDataSource(sl()),
   );
 
   // Features - Profiles / Empleados Directos (US-02.1.5 / SCRUM-850)

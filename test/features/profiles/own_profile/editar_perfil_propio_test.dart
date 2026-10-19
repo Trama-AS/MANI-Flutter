@@ -14,7 +14,7 @@ void main() {
     'US-02.3.1 (SCRUM-854 / SCRUM-1029 / SCRUM-1030 / SCRUM-1031) — Editar perfil propio',
     () {
       test(
-        'GatewayPerfilPropioDataSource consulta GET /api/v1/profiles/me y actualiza PATCH /api/v1/profiles/me',
+        'GatewayPerfilPropioDataSource consulta GET /api/v1/core/profiles/me y actualiza PATCH /api/v1/core/profiles/me',
         () async {
           String? lastMethod;
           String? lastPath;
@@ -70,7 +70,7 @@ void main() {
 
           final actual = await ds.obtenerPerfilPropio();
           expect(lastMethod, 'GET');
-          expect(lastPath, '/api/v1/profiles/me');
+          expect(lastPath, '/api/v1/core/profiles/me');
           expect(actual.fullName, 'Usuario Inicial');
 
           final actualizado = await ds.actualizarPerfilPropio(
@@ -79,7 +79,7 @@ void main() {
             address: 'Carrera 15 # 85-30 Bogotá',
           );
           expect(lastMethod, 'PATCH');
-          expect(lastPath, '/api/v1/profiles/me');
+          expect(lastPath, '/api/v1/core/profiles/me');
           expect(actualizado.fullName, 'Laura Gómez');
           expect(actualizado.phone, '+57 315 222 3344');
           expect(actualizado.address, 'Carrera 15 # 85-30 Bogotá');
@@ -105,7 +105,7 @@ void main() {
 
           final mockHttp = MockClient((request) async {
             if (request.method == 'GET' &&
-                request.url.path == '/api/v1/profiles/me') {
+                request.url.path == '/api/v1/core/profiles/me') {
               return http.Response(
                 jsonEncode({'profile': estadoServidor}),
                 200,
@@ -113,7 +113,7 @@ void main() {
               );
             }
             if (request.method == 'PATCH' &&
-                request.url.path == '/api/v1/profiles/me') {
+                request.url.path == '/api/v1/core/profiles/me') {
               final body = jsonDecode(request.body) as Map<String, dynamic>;
               estadoServidor = {
                 ...estadoServidor,
@@ -128,7 +128,7 @@ void main() {
               );
             }
             if (request.method == 'POST' &&
-                request.url.path == '/api/v1/profiles/me/photo') {
+                request.url.path == '/api/v1/core/profiles/me/photo') {
               estadoServidor = {
                 ...estadoServidor,
                 'photoUrl': 'trama-demo/u-1/avatar-nuevo.png',

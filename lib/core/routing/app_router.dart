@@ -22,6 +22,7 @@ import 'package:mani/features/services/requests/presentation/bloc/crear_solicitu
 import 'package:mani/features/services/requests/presentation/pages/crear_solicitud_page.dart';
 import 'package:mani/features/profiles/direct_employees/presentation/bloc/empleado_directo_cubit.dart';
 import 'package:mani/features/profiles/direct_employees/presentation/pages/registrar_empleado_directo_page.dart';
+import 'package:mani/features/profiles/own_profile/presentation/pages/editar_perfil_page.dart';
 
 /// Notifica a go_router cada vez que cambia el estado de autenticación de
 /// Supabase, para que el `redirect` de abajo se reevalúe automáticamente
@@ -147,6 +148,12 @@ final appRouter = GoRouter(
       path: '/aliado/cobertura',
       name: 'declarar-cobertura',
       builder: (context, state) => DeclararCoberturaPage(controller: sl()),
+    ),
+    // Edición del perfil propio de cliente o aliado (US-02.3.1 / SCRUM-854)
+    GoRoute(
+      path: '/perfil/editar',
+      name: 'editar-perfil',
+      builder: (context, state) => EditarPerfilPage(dataSource: sl()),
     ),
     // Ruta independiente: Registro de empleado directo del aliado (US-02.1.5 / SCRUM-850)
     GoRoute(
