@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:mani/core/logging/structured_logger.dart';
+import 'package:mani/core/network/gateway_exception.dart';
 
 import '../../domain/entities/catalogo_solicitud.dart';
 import '../../domain/entities/nueva_solicitud.dart';
@@ -40,45 +41,28 @@ class SolicitudesClienteRepositoryImpl implements SolicitudesClienteRepository {
     )).map<ZonaOpcion>(ZonaOpcionModel.fromJson).toList(),
   );
 
-  /// Sube las fotos y crea la solicitud. Las rutas dependen de la clave de
-  /// idempotencia, así un reintento reemplaza los mismos archivos en vez de
-  /// duplicarlos.
+  /// Envía la solicitud con sus fotos a Core por el Gateway en una sola
+  /// petición. Core sube las fotos, crea la solicitud y, si falla o es un
+  /// reintento, borra lo que subió: la app ya no compensa en Storage.
   ///
-  /// Compensación: si la publicación falla se borran las fotos subidas,
-  /// EXCEPTO cuando la RPC ya se envió y el resultado es desconocido (sin
-  /// conexión): el servidor pudo haber creado la solicitud, y el reintento
-  /// con la misma clave la recupera junto con sus fotos.
+  /// Si la respuesta se pierde (sin conexión), el reintento con la misma
+  /// clave de idempotencia devuelve la solicitud que Core ya creó.
   @override
   Future<SolicitudPublicada> publicar(NuevaSolicitud solicitud) async {
     final traceId = StructuredLogger.nuevoTraceId();
     final tenantId = _ds.tenantIdSesion;
     final sw = Stopwatch()..start();
-    final subidas = <String>[];
-    var rpcEnviada = false;
     try {
-      final usuario = _ds.usuarioId;
-      if (usuario == null) {
+      if (_ds.usuarioId == null) {
         throw const SolicitudFailure(SolicitudErrorTipo.sinSesion);
       }
-      for (var i = 0; i < solicitud.fotos.length; i++) {
-        final foto = solicitud.fotos[i];
-        final ruta =
-            '$usuario/${solicitud.claveIdempotencia}/${i + 1}.${foto.extension}';
-        await _guard(
-          () => _ds.subirFoto(ruta, foto.bytes, foto.mime),
-          alFallar: SolicitudErrorTipo.subidaFotosFallida,
-        );
-        subidas.add(ruta);
-      }
-
       final ubicacion = solicitud.ubicacion;
-      rpcEnviada = true;
       final publicada = await _guard(
         () async => SolicitudPublicadaModel.fromJson(
           await _ds.crear(
             categoriaId: solicitud.categoria.id,
             descripcion: solicitud.descripcion,
-            fotos: subidas,
+            fotos: solicitud.fotos,
             claveIdempotencia: solicitud.claveIdempotencia,
             sitioId: switch (ubicacion) {
               SitioExistente(:final sitio) => sitio.id,
@@ -103,18 +87,13 @@ class SolicitudesClienteRepositoryImpl implements SolicitudesClienteRepository {
           'event': _evento,
           'solicitud_id': publicada.id,
           'categoria_id': solicitud.categoria.id,
-          'fotos': subidas.length,
+          'fotos': solicitud.fotos.length,
           'sitio_nuevo': ubicacion is NuevaDireccion,
           'duracion_ms': sw.elapsedMilliseconds,
         },
       );
       return publicada;
     } on SolicitudFailure catch (f) {
-      final resultadoDesconocido =
-          rpcEnviada && f.tipo == SolicitudErrorTipo.sinConexion;
-      if (!resultadoDesconocido) {
-        await _limpiar(subidas);
-      }
       _log.error(
         'solicitud_no_creada',
         traceId: traceId,
@@ -130,30 +109,15 @@ class SolicitudesClienteRepositoryImpl implements SolicitudesClienteRepository {
     }
   }
 
-  /// Compensación: sin solicitud no deben quedar fotos huérfanas.
-  Future<void> _limpiar(List<String> rutas) async {
-    if (rutas.isEmpty) {
-      return;
-    }
-    try {
-      await _ds.eliminarFotos(rutas);
-    } catch (_) {
-      // Mejor esfuerzo: un fallo aquí no debe ocultar el error original.
-    }
-  }
-
-  Future<T> _guard<T>(
-    Future<T> Function() op, {
-    SolicitudErrorTipo alFallar = SolicitudErrorTipo.desconocido,
-  }) async {
+  Future<T> _guard<T>(Future<T> Function() op) async {
     try {
       return await op();
+    } on GatewayException catch (e) {
+      throw mapearGateway(e);
     } on PostgrestException catch (e) {
       throw mapearMensaje(e.message);
     } on AuthException catch (e) {
       throw SolicitudFailure(SolicitudErrorTipo.sinSesion, e.message);
-    } on StorageException catch (e) {
-      throw SolicitudFailure(SolicitudErrorTipo.subidaFotosFallida, e.message);
     } on SolicitudFailure {
       rethrow;
     } catch (e) {
@@ -163,11 +127,25 @@ class SolicitudesClienteRepositoryImpl implements SolicitudesClienteRepository {
           s.contains('TimeoutException')) {
         throw SolicitudFailure(SolicitudErrorTipo.sinConexion, s);
       }
-      throw SolicitudFailure(alFallar, s);
+      throw SolicitudFailure(SolicitudErrorTipo.desconocido, s);
     }
   }
 
-  /// Traduce el prefijo `MANI-SOL-*` de las RPC de la migración 006.
+  /// Traduce la respuesta de Core: los 400/422 traen el código `MANI-SOL-*`
+  /// al inicio del mensaje; el resto se decide por el status.
+  static SolicitudFailure mapearGateway(GatewayException e) {
+    final detalle = '${e.statusCode ?? 'sin respuesta'}: ${e.message}';
+    return switch (e.statusCode) {
+      null => SolicitudFailure(SolicitudErrorTipo.sinConexion, detalle),
+      401 => SolicitudFailure(SolicitudErrorTipo.sinSesion, detalle),
+      403 => SolicitudFailure(SolicitudErrorTipo.noEsCliente, detalle),
+      413 => SolicitudFailure(SolicitudErrorTipo.fotoMuyPesada, detalle),
+      400 || 422 => mapearMensaje(e.message),
+      _ => SolicitudFailure(SolicitudErrorTipo.desconocido, detalle),
+    };
+  }
+
+  /// Traduce el prefijo `MANI-SOL-*` (Core y RPC de la migración 006).
   static SolicitudFailure mapearMensaje(String mensaje) {
     const tabla = <String, SolicitudErrorTipo>{
       'MANI-SOL-401': SolicitudErrorTipo.sinSesion,

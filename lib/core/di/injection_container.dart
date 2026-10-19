@@ -50,6 +50,9 @@ import 'package:mani/features/services/requests/presentation/bloc/crear_solicitu
 import 'package:mani/features/profiles/site_rules/data/reglas_sitio_remote_datasource.dart';
 import 'package:mani/features/profiles/site_rules/domain/usecases/reglas_sitio_usecases.dart';
 import 'package:mani/features/profiles/site_rules/presentation/bloc/reglas_sitio_cubit.dart';
+import 'package:mani/features/profiles/company_sites/data/sedes_empresa_remote_datasource.dart';
+import 'package:mani/features/profiles/company_sites/domain/usecases/sedes_empresa_usecases.dart';
+import 'package:mani/features/profiles/company_sites/presentation/bloc/sedes_empresa_cubit.dart';
 import 'package:mani/features/profiles/direct_employees/data/empleados_directos_remote_datasource.dart';
 import 'package:mani/features/profiles/direct_employees/domain/usecases/registrar_empleado_directo_usecase.dart';
 import 'package:mani/features/profiles/direct_employees/presentation/bloc/empleado_directo_cubit.dart';
@@ -215,7 +218,7 @@ Future<void> init() async {
     () => SolicitudesClienteRepositoryImpl(sl()),
   );
   sl.registerLazySingleton<SolicitudesClienteRemoteDataSource>(
-    () => SupabaseSolicitudesClienteDataSource(sl()),
+    () => SolicitudesClienteRemoteDataSourceImpl(sl(), sl()),
   );
 
   // Features - Profiles / Reglas de Sitio (US-02.2.3 / SCRUM-853)
@@ -229,8 +232,20 @@ Future<void> init() async {
   );
   sl.registerLazySingleton<IReglasSitioRemoteDataSource>(
     () => ReglasSitioRemoteDataSource(gateway: sl()),
+  );
 
-    );
+  // Features - Profiles / Sedes Empresa (US-02.2.2 / SCRUM-852)
+  sl.registerFactory(
+    () => SedesEmpresaCubit(listarUseCase: sl(), agregarUseCase: sl()),
+  );
+  sl.registerLazySingleton(() => ListarSedesEmpresaUseCase(sl()));
+  sl.registerLazySingleton(() => AgregarSedeEmpresaUseCase(sl()));
+  sl.registerLazySingleton<ISedesEmpresaRepository>(
+    () => SedesEmpresaRepositoryImpl(remoteDataSource: sl()),
+  );
+  sl.registerLazySingleton<ISedesEmpresaRemoteDataSource>(
+    () => SedesEmpresaRemoteDataSource(gateway: sl()),
+  );
 
   // Features - Profiles / Empleados Directos (US-02.1.5 / SCRUM-850)
   sl.registerFactory(() => EmpleadoDirectoCubit(registrarUseCase: sl()));

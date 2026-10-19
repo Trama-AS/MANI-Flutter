@@ -3,9 +3,10 @@
 // Recorre la historia de punta a punta con TODAS las capas reales:
 //   CrearSolicitudPage → CrearSolicitudCubit → casos de uso →
 //   SolicitudesClienteRepositoryImpl → SolicitudesClienteRemoteDataSource
-// Solo se sustituye Supabase por `ServidorSolicitudesFake`, que replica las
-// RPC de `006_crear_solicitud.sql` y el bucket privado de fotos (tenant y
-// cliente desde la sesión, carpeta propia en Storage, idempotencia por clave).
+// Solo se sustituyen Core (por el Gateway) y Supabase por
+// `ServidorSolicitudesFake`, que replica `POST /api/v1/core/solicitudes`, las
+// RPC de catálogo de `006_crear_solicitud.sql` y el bucket privado de fotos
+// (tenant y cliente desde la sesión, idempotencia por clave).
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -146,11 +147,11 @@ void main() {
       expect(fila['estado'], 'PENDIENTE');
       expect(fila['descripcion'], descripcionValida);
       expect(fila['fotos'], [
-        'uid-ana/00000000-0000-4000-8000-000000000001/1.jpg',
-        'uid-ana/00000000-0000-4000-8000-000000000001/2.png',
+        'tenant-a/uid-ana/1-fuga.jpg',
+        'tenant-a/uid-ana/2-tubo.png',
       ]);
       expect(
-        servidor.storage.keys.every((r) => r.startsWith('uid-ana/')),
+        servidor.storage.keys.every((r) => r.startsWith('tenant-a/uid-ana/')),
         isTrue,
         reason: 'fotos en la carpeta privada del cliente',
       );

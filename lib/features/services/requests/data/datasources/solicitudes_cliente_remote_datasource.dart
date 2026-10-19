@@ -1,44 +1,49 @@
-import 'dart:typed_data';
-
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// Acceso crudo a Supabase (RPC de la migración 006 y Storage). Ni
-/// `tenant_id` ni `cliente_id` viajan desde la app: salen de `auth.uid()`.
+import 'package:mani/core/network/gateway_client.dart';
+
+import '../../domain/entities/foto_adjunta.dart';
+
+/// Acceso remoto de US-04.1.1. Ni `tenant_id` ni `cliente_id` viajan desde la
+/// app: Core los toma del JWT.
+///
+/// La creación va por el API Gateway a Core (`POST /api/v1/core/solicitudes`,
+/// SCRUM-1072, ADR-0027): Core valida, sube las fotos al bucket `solicitudes` y
+/// crea la solicitud en una transacción. Los catálogos (categorías, sitios y
+/// zonas) siguen en las RPC de la migración 006 hasta que Core exponga sus
+/// endpoints.
 abstract interface class SolicitudesClienteRemoteDataSource {
   Future<List<Map<String, dynamic>>> listarCategorias();
   Future<List<Map<String, dynamic>>> listarSitios();
   Future<List<Map<String, dynamic>>> buscarZonas(String texto);
 
-  /// Sube (o reemplaza) un archivo en el bucket privado de solicitudes.
-  Future<void> subirFoto(String ruta, Uint8List bytes, String mime);
-  Future<void> eliminarFotos(List<String> rutas);
-
+  /// Publica la solicitud con sus fotos en una sola petición multipart.
+  /// Devuelve el objeto `solicitud` de la respuesta de Core.
   Future<Map<String, dynamic>> crear({
     required String categoriaId,
     required String descripcion,
-    required List<String> fotos,
+    required List<FotoAdjunta> fotos,
     required String claveIdempotencia,
     String? sitioId,
     String? direccion,
     String? zonaId,
   });
 
-  /// Carpeta del usuario en Storage (`auth.uid()`); `null` sin sesión.
+  /// `null` sin sesión; evita enviar la petición sin JWT.
   String? get usuarioId;
 
   /// Solo para trazas (log estructurado); nunca se usa para autorizar.
   String? get tenantIdSesion;
 }
 
-class SupabaseSolicitudesClienteDataSource
+class SolicitudesClienteRemoteDataSourceImpl
     implements SolicitudesClienteRemoteDataSource {
-  SupabaseSolicitudesClienteDataSource(
-    this._client, {
-    this.bucket = 'solicitudes',
-  });
+  SolicitudesClienteRemoteDataSourceImpl(this._client, this._gateway);
+
+  static const rutaCrear = '/api/v1/core/solicitudes';
 
   final SupabaseClient _client;
-  final String bucket;
+  final GatewayClient _gateway;
 
   Future<List<Map<String, dynamic>>> _lista(
     String fn, [
@@ -66,47 +71,43 @@ class SupabaseSolicitudesClienteDataSource
       _lista('buscar_zonas_cliente', {'p_texto': texto});
 
   @override
-  Future<void> subirFoto(String ruta, Uint8List bytes, String mime) => _client
-      .storage
-      .from(bucket)
-      .uploadBinary(
-        ruta,
-        bytes,
-        fileOptions: FileOptions(contentType: mime, upsert: true),
-      );
-
-  @override
-  Future<void> eliminarFotos(List<String> rutas) =>
-      _client.storage.from(bucket).remove(rutas);
-
-  @override
   Future<Map<String, dynamic>> crear({
     required String categoriaId,
     required String descripcion,
-    required List<String> fotos,
+    required List<FotoAdjunta> fotos,
     required String claveIdempotencia,
     String? sitioId,
     String? direccion,
     String? zonaId,
   }) async {
-    final res = await _client.rpc(
-      'crear_solicitud',
-      params: {
-        'p_categoria_id': categoriaId,
-        'p_descripcion': descripcion,
-        'p_sitio_id': sitioId,
-        'p_direccion': direccion,
-        'p_zona_id': zonaId,
-        'p_fotos': fotos,
-        'p_clave_idempotencia': claveIdempotencia,
+    final respuesta = await _gateway.postMultipart(
+      rutaCrear,
+      campos: {
+        'categoriaId': categoriaId,
+        'descripcion': descripcion,
+        'claveIdempotencia': claveIdempotencia,
+        'sitioId': ?sitioId,
+        'direccion': ?direccion,
+        'zonaId': ?zonaId,
       },
+      archivos: [
+        for (var i = 0; i < fotos.length; i++)
+          ArchivoMultipart(
+            campo: 'fotos',
+            nombre: '${i + 1}.${fotos[i].extension}',
+            bytes: fotos[i].bytes,
+            tipoContenido: fotos[i].mime,
+          ),
+      ],
+      // Core es idempotente por claveIdempotencia: el GatewayClient puede
+      // reintentar ante red caída o 502/503/504 sin duplicar la solicitud.
+      headers: {GatewayClient.headerIdempotencyKey: claveIdempotencia},
     );
-    if (res is Map) {
-      return Map<String, dynamic>.from(res);
+    final solicitud = respuesta['solicitud'];
+    if (solicitud is Map) {
+      return Map<String, dynamic>.from(solicitud);
     }
-    throw const PostgrestException(
-      message: 'Respuesta inesperada del servidor',
-    );
+    throw const FormatException('Respuesta inesperada de Core');
   }
 
   @override

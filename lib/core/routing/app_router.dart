@@ -22,6 +22,8 @@ import 'package:mani/features/services/requests/presentation/bloc/crear_solicitu
 import 'package:mani/features/services/requests/presentation/pages/crear_solicitud_page.dart';
 import 'package:mani/features/profiles/site_rules/presentation/bloc/reglas_sitio_cubit.dart';
 import 'package:mani/features/profiles/site_rules/presentation/pages/reglas_sitio_page.dart';
+import 'package:mani/features/profiles/company_sites/presentation/bloc/sedes_empresa_cubit.dart';
+import 'package:mani/features/profiles/company_sites/presentation/pages/gestion_sedes_empresa_page.dart';
 import 'package:mani/features/profiles/direct_employees/presentation/bloc/empleado_directo_cubit.dart';
 import 'package:mani/features/profiles/direct_employees/presentation/pages/registrar_empleado_directo_page.dart';
 
@@ -160,6 +162,21 @@ final appRouter = GoRouter(
         return BlocProvider(
           create: (_) => sl<ReglasSitioCubit>(),
           child: ReglasSitioPage(siteId: siteId, esVistaAliado: esAliado),
+        );
+      },
+    ),
+    // Gestión de múltiples sedes del cliente empresa (US-02.2.2 / SCRUM-852)
+    GoRoute(
+      path: '/cliente/sedes',
+      name: 'sedes-empresa',
+      builder: (context, state) {
+        final clienteId =
+            state.uri.queryParameters['clienteId'] ??
+            Supabase.instance.client.auth.currentUser?.id ??
+            '';
+        return BlocProvider(
+          create: (_) => sl<SedesEmpresaCubit>(),
+          child: GestionSedesEmpresaPage(clienteId: clienteId),
         );
       },
     ),

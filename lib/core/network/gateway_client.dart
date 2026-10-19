@@ -4,6 +4,7 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'package:mani/core/logging/structured_logger.dart';
 import 'package:mani/core/network/gateway_exception.dart';
 import 'package:mani/core/utils/generador_id.dart';
@@ -22,11 +23,16 @@ class ArchivoMultipart {
     required this.campo,
     required this.nombre,
     required this.bytes,
+    this.tipoContenido,
   });
 
   final String campo;
   final String nombre;
   final Uint8List bytes;
+
+  /// MIME de la parte (p. ej. `image/png`). Sin él, `http` envía
+  /// `application/octet-stream` y los servicios que validan el tipo lo rechazan.
+  final String? tipoContenido;
 }
 
 /// Cliente HTTP único contra el NGINX API Gateway (ADR-0019).
@@ -127,7 +133,14 @@ class GatewayClient {
         ..fields.addAll(campos)
         ..files.addAll([
           for (final a in archivos)
-            http.MultipartFile.fromBytes(a.campo, a.bytes, filename: a.nombre),
+            http.MultipartFile.fromBytes(
+              a.campo,
+              a.bytes,
+              filename: a.nombre,
+              contentType: a.tipoContenido == null
+                  ? null
+                  : MediaType.parse(a.tipoContenido!),
+            ),
         ]),
       headers: headers,
     );

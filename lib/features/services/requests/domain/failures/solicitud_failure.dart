@@ -1,5 +1,6 @@
-/// Errores de US-04.1.1. Los códigos `MANI-SOL-*` los emiten las RPC de la
-/// migración `006_crear_solicitud.sql`; el resto se detecta en la app.
+/// Errores de US-04.1.1. Los códigos `MANI-SOL-*` los emite Core al crear la
+/// solicitud (`POST /api/v1/core/solicitudes`, mismos códigos que la
+/// migración `006_crear_solicitud.sql`); el resto se detecta en la app.
 enum SolicitudErrorTipo {
   sinSesion, // MANI-SOL-401
   noEsCliente, // MANI-SOL-403C
