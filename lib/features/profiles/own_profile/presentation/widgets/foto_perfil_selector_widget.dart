@@ -3,8 +3,8 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:mani/features/profiles/own_profile/data/datasources/perfil_propio_remote_datasource.dart';
 
-typedef SelectorArchivoImagen = Future<({String nombre, Uint8List bytes})?>
-    Function();
+typedef SelectorArchivoImagen =
+    Future<({String nombre, Uint8List bytes})?> Function();
 
 /// SCRUM-1030: Componente para cambiar y subir una nueva foto de perfil.
 class FotoPerfilSelectorWidget extends StatelessWidget {
@@ -21,7 +21,7 @@ class FotoPerfilSelectorWidget extends StatelessWidget {
   final String? photoUrl;
   final bool subiendo;
   final Future<void> Function(String nombreArchivo, Uint8List bytes)
-      onFotoSeleccionada;
+  onFotoSeleccionada;
   final SelectorArchivoImagen? selectorImagen;
 
   String get _iniciales {
