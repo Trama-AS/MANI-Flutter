@@ -11,6 +11,7 @@ import 'package:mani/features/auth/presentation/pages/login_page.dart';
 import 'package:mani/features/auth/presentation/pages/registro_cliente_page.dart';
 import 'package:mani/features/auth/presentation/pages/registro_aliado_page.dart';
 import 'package:mani/features/auth/presentation/pages/registro_aliado_empresa_page.dart';
+import 'package:mani/features/availability/presentation/pages/disponibilidad_page.dart';
 import 'package:mani/features/profile_categories/presentation/pages/categories_page.dart';
 import 'package:mani/features/profiles/coverage/presentation/pages/declarar_cobertura_page.dart';
 import 'package:mani/features/profiles/verification/presentation/bloc/bandeja_verificacion_cubit.dart';
@@ -63,6 +64,7 @@ bool _isPublicPath(String path) {
 /// - `/register-empresa`: Pantalla independiente de registro para aliados empresas (US-02.1.2)
 /// - `/categories`: Pantalla de selección de categorías del aliado (US-03.1.3)
 /// - `/aliado/cobertura`: Zona de cobertura del aliado (US-02.1.4)
+/// - `/aliado/disponibilidad`: Ausencias del aliado, "No disponible" (US-02.1.6)
 /// - `/cliente/solicitudes/nueva`: El cliente publica su solicitud con fotos (US-04.1.1)
 /// - `/aliado/solicitudes`: Bandeja del aliado para aceptar/rechazar solicitudes (US-04.1.4)
 /// - `/admin/verificacion-aliados`: Bandeja de verificación del admin del tenant (US-02.1.3)
@@ -175,8 +177,15 @@ final appRouter = GoRouter(
         child: SolicitudesAliadoPage(
           onAbrirCobertura: () => context.push('/aliado/cobertura'),
           onAbrirCategorias: () => context.push('/categories'),
+          onAbrirDisponibilidad: () => context.push('/aliado/disponibilidad'),
         ),
       ),
+    ),
+    // Ausencias del aliado (US-02.1.6). Rol y tenant los valida Core.
+    GoRoute(
+      path: '/aliado/disponibilidad',
+      name: 'disponibilidad-aliado',
+      builder: (context, state) => const DisponibilidadPage(),
     ),
     // Bandeja de verificación de aliados (US-02.1.3). La autorización real
     // la aplica el servidor: las RPC exigen rol ADMIN_TENANT.
