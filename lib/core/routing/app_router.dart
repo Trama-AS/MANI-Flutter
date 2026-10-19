@@ -157,10 +157,7 @@ final appRouter = GoRouter(
         final esAliado = state.uri.queryParameters['esAliado'] == 'true';
         return BlocProvider(
           create: (_) => sl<ReglasSitioCubit>(),
-          child: ReglasSitioPage(
-            siteId: siteId,
-            esVistaAliado: esAliado,
-          ),
+          child: ReglasSitioPage(siteId: siteId, esVistaAliado: esAliado),
         );
       },
     ),

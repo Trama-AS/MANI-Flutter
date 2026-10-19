@@ -48,7 +48,8 @@ class ReglasContextualesSitio extends Equatable {
       horarioTexto = reglas['horarioPermitido']?.toString();
     }
 
-    final rawPermisos = reglas['permisosRequeridos'] ??
+    final rawPermisos =
+        reglas['permisosRequeridos'] ??
         reglas['documentosRequeridos'] ??
         const [];
     final docs = rawPermisos is List
@@ -103,8 +104,8 @@ class ReglasContextualesSitio extends Equatable {
     final eppList = elementosProteccion.isNotEmpty
         ? elementosProteccion
         : (requiereEpp
-            ? const ['Casco', 'Botas de seguridad']
-            : const <String>[]);
+              ? const ['Casco', 'Botas de seguridad']
+              : const <String>[]);
 
     return {
       'reglas': {

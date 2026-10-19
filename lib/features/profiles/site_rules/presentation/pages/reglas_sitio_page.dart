@@ -210,7 +210,9 @@ class _ReglasSitioPageState extends State<ReglasSitioPage> {
             type: MaterialType.transparency,
             child: SwitchListTile(
               key: const Key('switch_requiere_epp'),
-              title: const Text('Exigir Elementos de Protección Personal (EPP)'),
+              title: const Text(
+                'Exigir Elementos de Protección Personal (EPP)',
+              ),
               value: _requiereEpp,
               onChanged: (val) => setState(() => _requiereEpp = val),
             ),

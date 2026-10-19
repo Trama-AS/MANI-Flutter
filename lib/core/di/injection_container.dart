@@ -217,10 +217,7 @@ Future<void> init() async {
 
   // Features - Profiles / Reglas de Sitio (US-02.2.3 / SCRUM-853)
   sl.registerFactory(
-    () => ReglasSitioCubit(
-      obtenerUseCase: sl(),
-      configurarUseCase: sl(),
-    ),
+    () => ReglasSitioCubit(obtenerUseCase: sl(), configurarUseCase: sl()),
   );
   sl.registerLazySingleton(() => ObtenerReglasSitioUseCase(sl()));
   sl.registerLazySingleton(() => ConfigurarReglasSitioUseCase(sl()));
