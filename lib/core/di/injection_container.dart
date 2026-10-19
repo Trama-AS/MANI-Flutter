@@ -212,7 +212,7 @@ Future<void> init() async {
     () => SolicitudesClienteRepositoryImpl(sl()),
   );
   sl.registerLazySingleton<SolicitudesClienteRemoteDataSource>(
-    () => SupabaseSolicitudesClienteDataSource(sl()),
+    () => SolicitudesClienteRemoteDataSourceImpl(sl(), sl()),
   );
 
   // Features - Profiles / Empleados Directos (US-02.1.5 / SCRUM-850)

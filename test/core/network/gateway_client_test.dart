@@ -182,6 +182,36 @@ void main() {
     expect(cuerpo, contains('PDF-CAMARA'));
   });
 
+  test('multipart envía el MIME de cada archivo cuando se indica', () async {
+    late http.Request recibida;
+    final c = _cliente((r) async {
+      recibida = r;
+      return _json(201, {'id': '1'});
+    });
+
+    await c.postMultipart(
+      '/up',
+      campos: const {},
+      archivos: [
+        ArchivoMultipart(
+          campo: 'fotos',
+          nombre: '1.png',
+          bytes: Uint8List.fromList([1, 2, 3]),
+          tipoContenido: 'image/png',
+        ),
+        ArchivoMultipart(
+          campo: 'fotos',
+          nombre: 'sin_tipo.bin',
+          bytes: Uint8List.fromList([4]),
+        ),
+      ],
+    );
+
+    final cuerpo = latin1.decode(recibida.bodyBytes);
+    expect(cuerpo, contains('content-type: image/png'));
+    expect(cuerpo, contains('content-type: application/octet-stream'));
+  });
+
   group('reintentos y backoff exponencial (idempotencia)', () {
     test('GET reintenta ante 502/503/504 y tiene éxito en reintento', () async {
       int llamadas = 0;
