@@ -215,7 +215,7 @@ Future<void> init() async {
     () => SolicitudesClienteRepositoryImpl(sl()),
   );
   sl.registerLazySingleton<SolicitudesClienteRemoteDataSource>(
-    () => SupabaseSolicitudesClienteDataSource(sl()),
+    () => SolicitudesClienteRemoteDataSourceImpl(sl(), sl()),
   );
 
   // Features - Profiles / Sedes Empresa (US-02.2.2 / SCRUM-852)

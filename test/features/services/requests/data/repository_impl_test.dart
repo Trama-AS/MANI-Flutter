@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mani/core/logging/structured_logger.dart';
+import 'package:mani/core/network/gateway_exception.dart';
 import 'package:mani/features/services/requests/data/repositories/solicitudes_cliente_repository_impl.dart';
 import 'package:mani/features/services/requests/domain/entities/catalogo_solicitud.dart';
 import 'package:mani/features/services/requests/domain/entities/foto_adjunta.dart';
@@ -87,24 +88,23 @@ void main() {
   });
 
   group('Publicar', () {
-    test(
-      'sube las fotos en la carpeta del usuario y crea la solicitud',
-      () async {
-        final p = await repo.publicar(_nueva(fotos: 2));
+    test('envía las fotos a Core, que las guarda en la carpeta del tenant y '
+        'del usuario, y crea la solicitud', () async {
+      final p = await repo.publicar(_nueva(fotos: 2));
 
-        expect(servidor.storage.keys, [
-          'uid-ana/clave-1/1.jpg',
-          'uid-ana/clave-1/2.png',
-        ]);
-        final fila = servidor.solicitudes.single;
-        expect(fila['estado'], 'PENDIENTE');
-        expect(fila['descripcion'], descripcionValida);
-        expect(fila['fotos'], servidor.storage.keys.toList());
-        expect(p.cantidadFotos, 2);
-        expect(p.direccion, 'Calle Colima 120');
-        expect(servidor.eventos.single['tipo_evento'], 'SOLICITUD_CREADA');
-      },
-    );
+      expect(servidor.llamadasCrear, 1, reason: 'una sola petición');
+      expect(servidor.storage.keys, [
+        'tenant-a/uid-ana/1-f0.jpg',
+        'tenant-a/uid-ana/2-f1.png',
+      ]);
+      final fila = servidor.solicitudes.single;
+      expect(fila['estado'], 'PENDIENTE');
+      expect(fila['descripcion'], descripcionValida);
+      expect(fila['fotos'], servidor.storage.keys.toList());
+      expect(p.cantidadFotos, 2);
+      expect(p.direccion, 'Calle Colima 120');
+      expect(servidor.eventos.single['tipo_evento'], 'SOLICITUD_CREADA');
+    });
 
     test(
       'una dirección nueva crea el sitio y queda disponible después',
@@ -126,11 +126,15 @@ void main() {
 
       expect(reintento.id, primera.id);
       expect(servidor.solicitudes, hasLength(1));
-      expect(servidor.storage, hasLength(1), reason: 'misma ruta, reemplazada');
+      expect(
+        servidor.storage,
+        hasLength(1),
+        reason: 'Core descarta las fotos del reintento',
+      );
       expect(servidor.eventos, hasLength(1));
     });
 
-    test('si la RPC falla borra las fotos subidas (sin huérfanas)', () async {
+    test('si Core rechaza la solicitud no quedan fotos huérfanas', () async {
       servidor.fallarCrearCon = 'MANI-SOL-422Z: zona';
 
       await expectLater(
@@ -141,8 +145,8 @@ void main() {
       expect(servidor.solicitudes, isEmpty);
     });
 
-    test('si la respuesta se pierde NO borra las fotos y el reintento recupera '
-        'la misma solicitud', () async {
+    test('si la respuesta se pierde las fotos se conservan y el reintento '
+        'recupera la misma solicitud', () async {
       servidor.perderRespuestaUnaVez = true;
 
       await expectLater(
@@ -157,16 +161,6 @@ void main() {
       expect(reintento.id, servidor.solicitudes.single['id']);
       expect(servidor.solicitudes, hasLength(1));
       expect(servidor.storage.keys, servidor.solicitudes.single['fotos']);
-    });
-
-    test('si falla una subida no se crea la solicitud', () async {
-      servidor.fallarSubida = true;
-
-      await expectLater(
-        repo.publicar(_nueva(fotos: 2)),
-        _falla(SolicitudErrorTipo.subidaFotosFallida),
-      );
-      expect(servidor.solicitudes, isEmpty);
     });
 
     test('una categoría de otro tenant o inactiva se rechaza', () async {
@@ -199,12 +193,13 @@ void main() {
       );
     });
 
-    test('sin sesión no sube nada', () async {
+    test('sin sesión no envía nada a Core', () async {
       servidor.usuario = null;
       await expectLater(
         repo.publicar(_nueva(fotos: 1)),
         _falla(SolicitudErrorTipo.sinSesion),
       );
+      expect(servidor.llamadasCrear, 0);
       expect(servidor.storage, isEmpty);
     });
 
@@ -257,7 +252,29 @@ void main() {
     });
   });
 
-  test('mapearMensaje traduce cada código de la migración 006', () {
+  test('mapearGateway traduce el status y el código MANI-SOL de Core', () {
+    final casos = <GatewayException, SolicitudErrorTipo>{
+      const GatewayException(message: 'sin red'):
+          SolicitudErrorTipo.sinConexion,
+      GatewayException.fromStatus(401): SolicitudErrorTipo.sinSesion,
+      GatewayException.fromStatus(403): SolicitudErrorTipo.noEsCliente,
+      GatewayException.fromStatus(413): SolicitudErrorTipo.fotoMuyPesada,
+      GatewayException.fromStatus(422, detalle: 'MANI-SOL-422Z: zona'):
+          SolicitudErrorTipo.zonaInvalida,
+      GatewayException.fromStatus(400, detalle: 'File too large'):
+          SolicitudErrorTipo.desconocido,
+      GatewayException.fromStatus(503): SolicitudErrorTipo.desconocido,
+    };
+    casos.forEach((e, tipo) {
+      expect(
+        SolicitudesClienteRepositoryImpl.mapearGateway(e).tipo,
+        tipo,
+        reason: e.toString(),
+      );
+    });
+  });
+
+  test('mapearMensaje traduce cada código MANI-SOL', () {
     const casos = {
       'MANI-SOL-401: x': SolicitudErrorTipo.sinSesion,
       'MANI-SOL-403C: x': SolicitudErrorTipo.noEsCliente,
