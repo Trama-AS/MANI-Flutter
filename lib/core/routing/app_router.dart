@@ -20,6 +20,8 @@ import 'package:mani/features/services/categories/presentation/bloc/categorias_c
 import 'package:mani/features/services/categories/presentation/pages/gestion_categorias_page.dart';
 import 'package:mani/features/services/requests/presentation/bloc/crear_solicitud_cubit.dart';
 import 'package:mani/features/services/requests/presentation/pages/crear_solicitud_page.dart';
+import 'package:mani/features/profiles/site_rules/presentation/bloc/reglas_sitio_cubit.dart';
+import 'package:mani/features/profiles/site_rules/presentation/pages/reglas_sitio_page.dart';
 import 'package:mani/features/profiles/company_sites/presentation/bloc/sedes_empresa_cubit.dart';
 import 'package:mani/features/profiles/company_sites/presentation/pages/gestion_sedes_empresa_page.dart';
 import 'package:mani/features/profiles/direct_employees/presentation/bloc/empleado_directo_cubit.dart';
@@ -150,6 +152,19 @@ final appRouter = GoRouter(
       path: '/aliado/cobertura',
       name: 'declarar-cobertura',
       builder: (context, state) => DeclararCoberturaPage(controller: sl()),
+    ),
+    // Configuración y consulta de reglas contextuales de un sitio (US-02.2.3 / SCRUM-853)
+    GoRoute(
+      path: '/sitios/:id/reglas',
+      name: 'reglas-sitio',
+      builder: (context, state) {
+        final siteId = state.pathParameters['id'] ?? '';
+        final esAliado = state.uri.queryParameters['esAliado'] == 'true';
+        return BlocProvider(
+          create: (_) => sl<ReglasSitioCubit>(),
+          child: ReglasSitioPage(siteId: siteId, esVistaAliado: esAliado),
+        );
+      },
     ),
     // Edición del perfil propio de cliente o aliado (US-02.3.1 / SCRUM-854)
     GoRoute(

@@ -47,6 +47,9 @@ import 'package:mani/features/services/requests/data/repositories/solicitudes_cl
 import 'package:mani/features/services/requests/domain/repositories/solicitudes_cliente_repository.dart';
 import 'package:mani/features/services/requests/domain/usecases/solicitud_usecases.dart';
 import 'package:mani/features/services/requests/presentation/bloc/crear_solicitud_cubit.dart';
+import 'package:mani/features/profiles/site_rules/data/reglas_sitio_remote_datasource.dart';
+import 'package:mani/features/profiles/site_rules/domain/usecases/reglas_sitio_usecases.dart';
+import 'package:mani/features/profiles/site_rules/presentation/bloc/reglas_sitio_cubit.dart';
 import 'package:mani/features/profiles/company_sites/data/sedes_empresa_remote_datasource.dart';
 import 'package:mani/features/profiles/company_sites/domain/usecases/sedes_empresa_usecases.dart';
 import 'package:mani/features/profiles/company_sites/presentation/bloc/sedes_empresa_cubit.dart';
@@ -217,6 +220,19 @@ Future<void> init() async {
   );
   sl.registerLazySingleton<SolicitudesClienteRemoteDataSource>(
     () => SolicitudesClienteRemoteDataSourceImpl(sl(), sl()),
+  );
+
+  // Features - Profiles / Reglas de Sitio (US-02.2.3 / SCRUM-853)
+  sl.registerFactory(
+    () => ReglasSitioCubit(obtenerUseCase: sl(), configurarUseCase: sl()),
+  );
+  sl.registerLazySingleton(() => ObtenerReglasSitioUseCase(sl()));
+  sl.registerLazySingleton(() => ConfigurarReglasSitioUseCase(sl()));
+  sl.registerLazySingleton<IReglasSitioRepository>(
+    () => ReglasSitioRepositoryImpl(remoteDataSource: sl()),
+  );
+  sl.registerLazySingleton<IReglasSitioRemoteDataSource>(
+    () => ReglasSitioRemoteDataSource(gateway: sl()),
   );
 
   // Features - Profiles / Perfil propio (US-02.3.1 / SCRUM-854): habla con Core por el Gateway.
