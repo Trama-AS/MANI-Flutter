@@ -11,6 +11,7 @@ import 'package:mani/features/auth/presentation/pages/login_page.dart';
 import 'package:mani/features/auth/presentation/pages/registro_cliente_page.dart';
 import 'package:mani/features/auth/presentation/pages/registro_aliado_page.dart';
 import 'package:mani/features/auth/presentation/pages/registro_aliado_empresa_page.dart';
+import 'package:mani/features/availability/presentation/pages/disponibilidad_page.dart';
 import 'package:mani/features/profile_categories/presentation/pages/categories_page.dart';
 import 'package:mani/features/profiles/coverage/presentation/pages/declarar_cobertura_page.dart';
 import 'package:mani/features/profiles/verification/presentation/bloc/bandeja_verificacion_cubit.dart';
@@ -19,6 +20,13 @@ import 'package:mani/features/services/categories/presentation/bloc/categorias_c
 import 'package:mani/features/services/categories/presentation/pages/gestion_categorias_page.dart';
 import 'package:mani/features/services/requests/presentation/bloc/crear_solicitud_cubit.dart';
 import 'package:mani/features/services/requests/presentation/pages/crear_solicitud_page.dart';
+import 'package:mani/features/profiles/site_rules/presentation/bloc/reglas_sitio_cubit.dart';
+import 'package:mani/features/profiles/site_rules/presentation/pages/reglas_sitio_page.dart';
+import 'package:mani/features/profiles/company_sites/presentation/bloc/sedes_empresa_cubit.dart';
+import 'package:mani/features/profiles/company_sites/presentation/pages/gestion_sedes_empresa_page.dart';
+import 'package:mani/features/profiles/direct_employees/presentation/bloc/empleado_directo_cubit.dart';
+import 'package:mani/features/profiles/direct_employees/presentation/pages/registrar_empleado_directo_page.dart';
+import 'package:mani/features/profiles/own_profile/presentation/pages/editar_perfil_page.dart';
 
 /// Notifica a go_router cada vez que cambia el estado de autenticación de
 /// Supabase, para que el `redirect` de abajo se reevalúe automáticamente
@@ -61,6 +69,7 @@ bool _isPublicPath(String path) {
 /// - `/register-empresa`: Pantalla independiente de registro para aliados empresas (US-02.1.2)
 /// - `/categories`: Pantalla de selección de categorías del aliado (US-03.1.3)
 /// - `/aliado/cobertura`: Zona de cobertura del aliado (US-02.1.4)
+/// - `/aliado/disponibilidad`: Ausencias del aliado, "No disponible" (US-02.1.6)
 /// - `/cliente/solicitudes/nueva`: El cliente publica su solicitud con fotos (US-04.1.1)
 /// - `/aliado/solicitudes`: Bandeja del aliado para aceptar/rechazar solicitudes (US-04.1.4)
 /// - `/admin/verificacion-aliados`: Bandeja de verificación del admin del tenant (US-02.1.3)
@@ -144,6 +153,49 @@ final appRouter = GoRouter(
       name: 'declarar-cobertura',
       builder: (context, state) => DeclararCoberturaPage(controller: sl()),
     ),
+    // Configuración y consulta de reglas contextuales de un sitio (US-02.2.3 / SCRUM-853)
+    GoRoute(
+      path: '/sitios/:id/reglas',
+      name: 'reglas-sitio',
+      builder: (context, state) {
+        final siteId = state.pathParameters['id'] ?? '';
+        final esAliado = state.uri.queryParameters['esAliado'] == 'true';
+        return BlocProvider(
+          create: (_) => sl<ReglasSitioCubit>(),
+          child: ReglasSitioPage(siteId: siteId, esVistaAliado: esAliado),
+        );
+      },
+    ),
+    // Edición del perfil propio de cliente o aliado (US-02.3.1 / SCRUM-854)
+    GoRoute(
+      path: '/perfil/editar',
+      name: 'editar-perfil',
+      builder: (context, state) => EditarPerfilPage(dataSource: sl()),
+    ),
+    // Gestión de múltiples sedes del cliente empresa (US-02.2.2 / SCRUM-852)
+    GoRoute(
+      path: '/cliente/sedes',
+      name: 'sedes-empresa',
+      builder: (context, state) {
+        final clienteId =
+            state.uri.queryParameters['clienteId'] ??
+            Supabase.instance.client.auth.currentUser?.id ??
+            '';
+        return BlocProvider(
+          create: (_) => sl<SedesEmpresaCubit>(),
+          child: GestionSedesEmpresaPage(clienteId: clienteId),
+        );
+      },
+    ),
+    // Ruta independiente: Registro de empleado directo del aliado (US-02.1.5 / SCRUM-850)
+    GoRoute(
+      path: '/aliado/empleados/nuevo',
+      name: 'registrar-empleado-directo',
+      builder: (context, state) => BlocProvider(
+        create: (_) => sl<EmpleadoDirectoCubit>(),
+        child: const RegistrarEmpleadoDirectoPage(),
+      ),
+    ),
     // Crear solicitud (US-04.1.1): el cliente describe su problema y adjunta
     // fotos; el tenant y el cliente salen de la sesión, nunca de la app.
     GoRoute(
@@ -164,8 +216,15 @@ final appRouter = GoRouter(
         child: SolicitudesAliadoPage(
           onAbrirCobertura: () => context.push('/aliado/cobertura'),
           onAbrirCategorias: () => context.push('/categories'),
+          onAbrirDisponibilidad: () => context.push('/aliado/disponibilidad'),
         ),
       ),
+    ),
+    // Ausencias del aliado (US-02.1.6). Rol y tenant los valida Core.
+    GoRoute(
+      path: '/aliado/disponibilidad',
+      name: 'disponibilidad-aliado',
+      builder: (context, state) => const DisponibilidadPage(),
     ),
     // Bandeja de verificación de aliados (US-02.1.3). La autorización real
     // la aplica el servidor: las RPC exigen rol ADMIN_TENANT.

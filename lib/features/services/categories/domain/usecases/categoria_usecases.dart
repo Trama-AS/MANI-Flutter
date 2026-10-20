@@ -31,3 +31,21 @@ class CrearCategoria {
     return _repo.crear(categoria);
   }
 }
+
+/// Oculta o vuelve a mostrar una categoría en el catálogo público del tenant
+/// sin afectar los servicios que ya están en curso (US-03.1.2).
+class CambiarEstadoCategoria {
+  const CambiarEstadoCategoria(this._repo);
+  final CategoriasRepository _repo;
+
+  Future<CategoriaServicio> call({
+    required String categoriaId,
+    required bool activa,
+  }) {
+    final id = categoriaId.trim();
+    if (id.isEmpty) {
+      throw const CategoriaFailure(CategoriaErrorTipo.noEncontrada);
+    }
+    return _repo.cambiarEstado(categoriaId: id, activa: activa);
+  }
+}

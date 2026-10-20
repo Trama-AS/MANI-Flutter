@@ -126,6 +126,8 @@ docker run -d -p 8080:80 --name mani-web mani-flutter:local
 ```
 Accede desde el navegador en `http://localhost:8080`.
 
+> **Base de datos y stack local.** Este repo ya no trae `database/`, `scripts/`, `supabase/` ni `docker-compose.yml` (CFG-33 / SCRUM-1110): viven en [MANI-APIGateway](https://github.com/Trama-AS/MANI-APIGateway). Para levantar Postgres, el Gateway y este cliente web juntos, construye aquí la imagen con `docker build -t mani-web:local .` y sigue la guía de `database/README.md` de MANI-APIGateway (perfiles `db` y `web`). La configuración de Nginx del cliente web está en `docker/nginx-web.conf`.
+
 ---
 
 ## 🌿 Flujo de Trabajo y CI/CD (Gitflow)

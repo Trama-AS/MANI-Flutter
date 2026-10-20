@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -6,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:mani/core/theme/app_theme.dart';
 import 'package:mani/core/di/injection_container.dart';
 import 'package:mani/features/auth/presentation/bloc/auth_cubit.dart';
+import 'package:mani/features/auth/presentation/widgets/terminos_condiciones_section.dart';
 
 /// Pantalla independiente de Registro para Aliados Técnicos de MANI Web.
 /// - Formulario con selección de especialidad técnica y validación KYC.
@@ -38,13 +42,15 @@ class _RegistroAliadoViewState extends State<_RegistroAliadoView> {
   final _passwordController = TextEditingController();
 
   bool _showPassword = false;
+  bool _aceptaTerminos = false;
+  bool _mostrarErrorTerminos = false;
 
-  // Tenant seleccionado
-  String _selectedTenantId = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11';
+  // Tenant seleccionado (slug público para pre-autenticación según ADR-0018)
+  String _selectedTenantId = 'plomeria-express';
   final Map<String, String> _tenants = const {
-    'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11': 'Plomería Express CDMX SA',
-    'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a22': 'Electricistas Pro Monterrey',
-    'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a33': 'Cerrajería Total GDL',
+    'plomeria-express': 'Plomería Express CDMX SA',
+    'electricistas-pro': 'Electricistas Pro Monterrey',
+    'cerrajeria-total': 'Cerrajería Total GDL',
   };
 
   // Categoría de servicio seleccionada
@@ -58,6 +64,10 @@ class _RegistroAliadoViewState extends State<_RegistroAliadoView> {
   // Documentos KYC adjuntos
   PlatformFile? _cedulaFile;
   PlatformFile? _rutFile;
+
+  // Contenido de cada documento, leído al seleccionarlo, para que viaje por
+  // el Gateway junto con el formulario (US-02.1.1-M3).
+  final Map<String, Uint8List> _contenidos = {};
 
   @override
   void dispose() {
@@ -75,11 +85,15 @@ class _RegistroAliadoViewState extends State<_RegistroAliadoView> {
       );
 
       if (result.isNotEmpty) {
+        final bytes = await result.first.readAsBytes();
+        if (!mounted) return;
         setState(() {
           if (isCedula) {
             _cedulaFile = result.first;
+            _contenidos['cedula'] = bytes;
           } else {
             _rutFile = result.first;
+            _contenidos['rut'] = bytes;
           }
         });
       }
@@ -98,16 +112,15 @@ class _RegistroAliadoViewState extends State<_RegistroAliadoView> {
       return;
     }
 
+    if (!_aceptaTerminos) {
+      setState(() => _mostrarErrorTerminos = true);
+      _showNotification(AuthCubit.mensajeTerminosObligatorios);
+      return;
+    }
+
     final documentos = <Map<String, String>>[
-      {
-        'tipo_documento': 'CEDULA_CIUDADANIA',
-        'ruta_storage': 'kyc/$_selectedTenantId/cedula_${_cedulaFile!.name}',
-      },
-      if (_rutFile != null)
-        {
-          'tipo_documento': 'RUT_CERTIFICADO',
-          'ruta_storage': 'kyc/$_selectedTenantId/rut_${_rutFile!.name}',
-        },
+      _documento('CEDULA_CIUDADANIA', 'cedula', _cedulaFile!),
+      if (_rutFile != null) _documento('RUT_CERTIFICADO', 'rut', _rutFile!),
     ];
 
     context.read<AuthCubit>().registerAliado(
@@ -117,8 +130,20 @@ class _RegistroAliadoViewState extends State<_RegistroAliadoView> {
       tenantId: _selectedTenantId,
       categoriaId: _selectedCategoriaId,
       documentosKYC: documentos,
+      aceptaTerminos: _aceptaTerminos,
     );
   }
+
+  /// La ruta en Storage la decide Core (ADR-0013); aquí solo va el archivo.
+  Map<String, String> _documento(
+    String tipo,
+    String docType,
+    PlatformFile archivo,
+  ) => {
+    'tipo_documento': tipo,
+    'nombre_archivo': archivo.name,
+    'contenido_base64': base64Encode(_contenidos[docType] ?? const <int>[]),
+  };
 
   void _mostrarExitoAliadoDialog() {
     showDialog(
@@ -329,7 +354,18 @@ class _RegistroAliadoViewState extends State<_RegistroAliadoView> {
                                   }
                                 },
                               ),
-                              const SizedBox(height: 32),
+                              const SizedBox(height: 24),
+
+                              // Sección obligatoria de Términos y Condiciones (SCRUM-856)
+                              TerminosCondicionesSection(
+                                aceptaTerminos: _aceptaTerminos,
+                                mostrarError: _mostrarErrorTerminos,
+                                onChanged: (val) => setState(() {
+                                  _aceptaTerminos = val;
+                                  if (val) _mostrarErrorTerminos = false;
+                                }),
+                              ),
+                              const SizedBox(height: 24),
 
                               // Barra de acción inferior
                               _buildBottomAction(isLoading),

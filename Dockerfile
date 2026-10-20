@@ -22,7 +22,7 @@ RUN flutter build web --release
 # Stage 2: Serve with lightweight Nginx
 FROM nginx:alpine
 
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY docker/nginx-web.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /app/build/web /usr/share/nginx/html
 
 EXPOSE 80

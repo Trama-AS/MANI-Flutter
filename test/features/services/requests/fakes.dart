@@ -2,9 +2,11 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:mani/core/network/gateway_exception.dart';
 import 'package:mani/core/platform/selector_fotos.dart';
 import 'package:mani/features/services/requests/data/datasources/solicitudes_cliente_remote_datasource.dart';
 import 'package:mani/features/services/requests/domain/entities/catalogo_solicitud.dart';
+import 'package:mani/features/services/requests/domain/entities/foto_adjunta.dart';
 import 'package:mani/features/services/requests/domain/entities/nueva_solicitud.dart';
 import 'package:mani/features/services/requests/domain/entities/solicitud_publicada.dart';
 import 'package:mani/features/services/requests/domain/failures/solicitud_failure.dart';
@@ -161,9 +163,10 @@ CrearSolicitudCubit crearCubit(
   );
 }
 
-// -------------------------------------------- servidor Supabase simulado
-/// Simula las RPC de `006_crear_solicitud.sql` y el bucket privado
-/// `solicitudes` para un cliente autenticado.
+// ------------------------------------------- servidor Core/Supabase simulado
+/// Simula, para un cliente autenticado, las RPC de catálogo de
+/// `006_crear_solicitud.sql` y la creación en Core por el Gateway
+/// (SCRUM-1072), con el bucket privado `solicitudes`.
 class ServidorSolicitudesFake implements SolicitudesClienteRemoteDataSource {
   ServidorSolicitudesFake({
     this.usuario = 'uid-ana',
@@ -182,17 +185,17 @@ class ServidorSolicitudesFake implements SolicitudesClienteRemoteDataSource {
   final List<Map<String, dynamic>> solicitudes = [];
   final List<Map<String, dynamic>> eventos = [];
 
-  /// Objetos en Storage: ruta → bytes.
+  /// Objetos que Core dejó en el bucket `solicitudes`: ruta → bytes.
   final Map<String, Uint8List> storage = {};
 
   Object? errorDeRed;
-  bool fallarSubida = false;
+  int llamadasCrear = 0;
 
-  /// Si se asigna, `crear` falla con este mensaje de RPC.
+  /// Si se asigna, `crear` falla con un 422 cuyo mensaje es este.
   String? fallarCrearCon;
 
-  /// Simula que la RPC se ejecuta en el servidor pero la respuesta se pierde
-  /// por la red (una sola vez): el cliente no sabe si se creó.
+  /// Simula que Core crea la solicitud pero la respuesta se pierde por la red
+  /// (una sola vez): el cliente no sabe si se creó.
   bool perderRespuestaUnaVez = false;
 
   void sembrarBase() {
@@ -270,14 +273,17 @@ class ServidorSolicitudesFake implements SolicitudesClienteRemoteDataSource {
     return {
       'id': s['id'],
       'estado': s['estado'],
+      'categoriaId': s['categoria_id'],
       'categoria': cat['nombre'],
-      'flujo_operativo': cat['flujo_operativo'],
+      'flujoOperativo': cat['flujo_operativo'],
       'descripcion': s['descripcion'],
+      'sitioId': s['sitio_id'],
       'direccion': sitio['direccion'],
+      'zonaId': sitio['zona_id'],
       'zona': zona['nombre'],
-      'zona_padre': zona['padre'],
+      'zonaPadre': zona['padre'],
       'fotos': (s['fotos'] as List).length,
-      'created_at': DateTime.now().toUtc().toIso8601String(),
+      'createdAt': DateTime.now().toUtc().toIso8601String(),
     };
   }
 
@@ -331,45 +337,87 @@ class ServidorSolicitudesFake implements SolicitudesClienteRemoteDataSource {
         .toList();
   }
 
-  @override
-  Future<void> subirFoto(String ruta, Uint8List bytes, String mime) async {
-    if (errorDeRed != null) {
-      throw errorDeRed!;
-    }
-    if (fallarSubida) {
-      throw const StorageException('Upload failed', statusCode: '500');
-    }
-    // Política de Storage: solo en la carpeta propia.
-    if (!ruta.startsWith('$usuario/')) {
-      throw const StorageException('new row violates RLS', statusCode: '403');
-    }
-    storage[ruta] = bytes;
-  }
-
-  @override
-  Future<void> eliminarFotos(List<String> rutas) async {
-    for (final r in rutas) {
-      storage.remove(r);
-    }
-  }
-
+  /// Simula `POST /api/v1/core/solicitudes` (SCRUM-1072): Core sube las
+  /// fotos a `{tenant}/{usuario}/...`, crea la solicitud y, si falla o es un
+  /// reintento, borra lo que subió. Los errores llegan como los traduce el
+  /// GatewayClient.
   @override
   Future<Map<String, dynamic>> crear({
     required String categoriaId,
     required String descripcion,
-    required List<String> fotos,
+    required List<FotoAdjunta> fotos,
     required String claveIdempotencia,
     String? sitioId,
     String? direccion,
     String? zonaId,
   }) async {
-    _exigirCliente();
+    llamadasCrear++;
+    if (errorDeRed != null) {
+      throw const GatewayException(message: 'Sin conexión');
+    }
+    if (usuario == null) {
+      throw GatewayException.fromStatus(401);
+    }
+    if (!esCliente) {
+      throw GatewayException.fromStatus(403);
+    }
+    if (fotos.length > 5) {
+      throw _rechazo('MANI-SOL-422F: fotos');
+    }
+    final subidas = <String>[];
+    for (final f in fotos) {
+      final ruta = '$tenant/$usuario/${++_subidasTotales}-${f.nombre}';
+      storage[ruta] = f.bytes;
+      subidas.add(ruta);
+    }
+    try {
+      final fila = _crearFila(
+        categoriaId: categoriaId,
+        descripcion: descripcion,
+        claveIdempotencia: claveIdempotencia,
+        sitioId: sitioId,
+        direccion: direccion,
+        zonaId: zonaId,
+        fotos: subidas,
+      );
+      if (fila['fotos'] != subidas) {
+        _descartar(subidas); // reintento: Core devuelve la existente
+      }
+      if (perderRespuestaUnaVez) {
+        perderRespuestaUnaVez = false;
+        throw const GatewayException(message: 'respuesta perdida');
+      }
+      return _jsonSolicitud(fila);
+    } on GatewayException catch (e) {
+      if (e.statusCode != null) {
+        _descartar(subidas);
+      }
+      rethrow;
+    }
+  }
+
+  int _subidasTotales = 0;
+
+  void _descartar(List<String> rutas) => rutas.forEach(storage.remove);
+
+  GatewayException _rechazo(String mensaje) =>
+      GatewayException.fromStatus(422, detalle: mensaje);
+
+  Map<String, dynamic> _crearFila({
+    required String categoriaId,
+    required String descripcion,
+    required String claveIdempotencia,
+    required List<String> fotos,
+    String? sitioId,
+    String? direccion,
+    String? zonaId,
+  }) {
     if (fallarCrearCon != null) {
-      throw PostgrestException(message: fallarCrearCon!);
+      throw _rechazo(fallarCrearCon!);
     }
     for (final s in solicitudes) {
       if (s['cliente'] == usuario && s['clave'] == claveIdempotencia) {
-        return _jsonSolicitud(s);
+        return s;
       }
     }
     final cat = categorias.where(
@@ -379,14 +427,11 @@ class ServidorSolicitudesFake implements SolicitudesClienteRemoteDataSource {
           c['estado'] == 'ACTIVO',
     );
     if (cat.isEmpty) {
-      throw const PostgrestException(message: 'MANI-SOL-422C: categoría');
+      throw _rechazo('MANI-SOL-422C: categoría');
     }
     final d = descripcion.trim();
     if (d.length < 20 || d.length > 1000) {
-      throw const PostgrestException(message: 'MANI-SOL-422D: descripción');
-    }
-    if (fotos.length > 5 || fotos.any((f) => !f.startsWith('$usuario/'))) {
-      throw const PostgrestException(message: 'MANI-SOL-422F: fotos');
+      throw _rechazo('MANI-SOL-422D: descripción');
     }
     String idSitio;
     if (sitioId != null) {
@@ -394,17 +439,17 @@ class ServidorSolicitudesFake implements SolicitudesClienteRemoteDataSource {
         (x) => x['id'] == sitioId && x['cliente'] == usuario,
       );
       if (s.isEmpty) {
-        throw const PostgrestException(message: 'MANI-SOL-422S: sitio');
+        throw _rechazo('MANI-SOL-422S: sitio');
       }
       idSitio = sitioId;
     } else {
       final dir = (direccion ?? '').trim();
       if (dir.length < 5 || dir.length > 200) {
-        throw const PostgrestException(message: 'MANI-SOL-422S: dirección');
+        throw _rechazo('MANI-SOL-422S: dirección');
       }
       final z = _zona(zonaId);
       if (z == null || z['estado'] != 'ACTIVO') {
-        throw const PostgrestException(message: 'MANI-SOL-422Z: zona');
+        throw _rechazo('MANI-SOL-422Z: zona');
       }
       idSitio = 'sitio-${sitios.length + 1}';
       sitios.add({
@@ -423,7 +468,7 @@ class ServidorSolicitudesFake implements SolicitudesClienteRemoteDataSource {
       'sitio_id': idSitio,
       'estado': 'PENDIENTE',
       'descripcion': d,
-      'fotos': List<String>.of(fotos),
+      'fotos': fotos,
       'clave': claveIdempotencia,
     };
     solicitudes.add(fila);
@@ -431,11 +476,7 @@ class ServidorSolicitudesFake implements SolicitudesClienteRemoteDataSource {
       'solicitud_id': fila['id'],
       'tipo_evento': 'SOLICITUD_CREADA',
     });
-    if (perderRespuestaUnaVez) {
-      perderRespuestaUnaVez = false;
-      throw TimeoutException('respuesta perdida');
-    }
-    return _jsonSolicitud(fila);
+    return fila;
   }
 
   @override
