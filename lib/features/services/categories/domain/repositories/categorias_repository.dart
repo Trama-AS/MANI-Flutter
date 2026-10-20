@@ -12,4 +12,11 @@ abstract interface class CategoriasRepository {
 
   /// Crea la categoría y la devuelve tal como quedó guardada.
   Future<CategoriaServicio> crear(NuevaCategoria categoria);
+
+  /// Cambia la visibilidad (`ACTIVO` / `INACTIVO`) de una categoría del
+  /// tenant sin cancelar los servicios en curso (US-03.1.2).
+  Future<CategoriaServicio> cambiarEstado({
+    required String categoriaId,
+    required bool activa,
+  });
 }

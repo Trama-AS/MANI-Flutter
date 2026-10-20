@@ -127,6 +127,12 @@ class _Catalogo extends StatelessWidget {
                               categoria: visibles[i],
                               recienCreada:
                                   visibles[i].id == state.recienCreadaId,
+                              cambiandoEstado: state.cambiandoEstadoDe(
+                                visibles[i].id,
+                              ),
+                              onCambiarEstado: (activa) => context
+                                  .read<CategoriasCubit>()
+                                  .cambiarEstado(visibles[i], activa: activa),
                             ),
                           ),
                         ),

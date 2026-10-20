@@ -179,15 +179,18 @@ Future<void> init() async {
     () => SupabaseVerificacionDataSource(sl()),
   );
 
-  // Features - Services / Categories (US-03.1.1)
-  sl.registerFactory(() => CategoriasCubit(listar: sl(), crear: sl()));
+  // Features - Services / Categories (US-03.1.1 / US-03.1.2)
+  sl.registerFactory(
+    () => CategoriasCubit(listar: sl(), crear: sl(), cambiarEstado: sl()),
+  );
   sl.registerLazySingleton(() => ListarCategorias(sl()));
   sl.registerLazySingleton(() => CrearCategoria(sl()));
+  sl.registerLazySingleton(() => CambiarEstadoCategoria(sl()));
   sl.registerLazySingleton<CategoriasRepository>(
     () => CategoriasRepositoryImpl(sl()),
   );
   sl.registerLazySingleton<CategoriasRemoteDataSource>(
-    () => SupabaseCategoriasDataSource(sl()),
+    () => SupabaseCategoriasDataSource(sl(), gateway: sl()),
   );
 
   // Features - Asignación / Aceptar-rechazar solicitud (US-04.1.4)

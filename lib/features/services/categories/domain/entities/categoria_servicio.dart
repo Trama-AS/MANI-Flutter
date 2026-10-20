@@ -35,6 +35,22 @@ class CategoriaServicio extends Equatable {
     return q.isEmpty || nombre.toLowerCase().contains(q);
   }
 
+  CategoriaServicio copyWith({
+    String? id,
+    String? nombre,
+    bool? activa,
+    FlujoOperativo? flujo,
+    DateTime? fechaCreacion,
+    int? aliadosAsociados,
+  }) => CategoriaServicio(
+    id: id ?? this.id,
+    nombre: nombre ?? this.nombre,
+    activa: activa ?? this.activa,
+    flujo: flujo ?? this.flujo,
+    fechaCreacion: fechaCreacion ?? this.fechaCreacion,
+    aliadosAsociados: aliadosAsociados ?? this.aliadosAsociados,
+  );
+
   @override
   List<Object?> get props => [
     id,

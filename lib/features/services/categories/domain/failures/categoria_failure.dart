@@ -1,8 +1,9 @@
-/// Errores de negocio de US-03.1.1. Los códigos `MANI-CAT-*` los emiten las
-/// RPC de la migración `003_categorias_servicio.sql`.
+/// Errores de negocio de US-03.1.1 y US-03.1.2. Los códigos `MANI-CAT-*` los
+/// emiten las RPC de la migración `003_categorias_servicio.sql` y Core Node.
 enum CategoriaErrorTipo {
   sinSesion, // MANI-CAT-401
   noAutorizado, // MANI-CAT-403
+  noEncontrada, // MANI-CAT-404 / HTTP 404
   nombreDuplicado, // MANI-CAT-409
   nombreInvalido, // MANI-CAT-422N
   flujoInvalido, // MANI-CAT-422F
@@ -21,6 +22,8 @@ class CategoriaFailure implements Exception {
       'Tu sesión expiró. Vuelve a iniciar sesión para continuar.',
     CategoriaErrorTipo.noAutorizado =>
       'Solo el administrador del tenant puede gestionar categorías.',
+    CategoriaErrorTipo.noEncontrada =>
+      'No encontramos esta categoría en tu catálogo.',
     CategoriaErrorTipo.nombreDuplicado =>
       'Ya tienes una categoría con ese nombre. Usa un nombre distinto.',
     CategoriaErrorTipo.nombreInvalido =>

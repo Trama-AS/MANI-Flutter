@@ -1,12 +1,17 @@
+import 'package:mani/core/network/gateway_client.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// Acceso crudo a Supabase. `tenant_id` NUNCA se envía: las RPC lo derivan
-/// de `auth.uid()` (migración 003_categorias_servicio.sql).
+/// Acceso al catálogo de categorías del tenant. `tenant_id` NUNCA se envía:
+/// las RPC y el API Gateway lo derivan del JWT de `auth.uid()`.
 abstract interface class CategoriasRemoteDataSource {
   Future<List<Map<String, dynamic>>> listar();
   Future<Map<String, dynamic>> crear({
     required String nombre,
     required String flujoOperativo,
+    required bool activa,
+  });
+  Future<Map<String, dynamic>> cambiarEstado({
+    required String categoriaId,
     required bool activa,
   });
 
@@ -15,9 +20,13 @@ abstract interface class CategoriasRemoteDataSource {
 }
 
 class SupabaseCategoriasDataSource implements CategoriasRemoteDataSource {
-  SupabaseCategoriasDataSource(this._client);
+  SupabaseCategoriasDataSource(this._client, {GatewayClient? gateway})
+    : _gateway = gateway;
+
+  static const _rutaCatalogo = '/api/v1/core/catalog/categories';
 
   final SupabaseClient _client;
+  final GatewayClient? _gateway;
 
   @override
   Future<List<Map<String, dynamic>>> listar() async {
@@ -43,6 +52,35 @@ class SupabaseCategoriasDataSource implements CategoriasRemoteDataSource {
         'p_flujo_operativo': flujoOperativo,
         'p_activa': activa,
       },
+    );
+    if (res is Map) {
+      return Map<String, dynamic>.from(res);
+    }
+    throw const PostgrestException(
+      message: 'Respuesta inesperada del servidor',
+    );
+  }
+
+  @override
+  Future<Map<String, dynamic>> cambiarEstado({
+    required String categoriaId,
+    required bool activa,
+  }) async {
+    final gw = _gateway;
+    if (gw != null) {
+      final accion = activa ? 'activate' : 'deactivate';
+      final res = await gw.patch(
+        '$_rutaCatalogo/${Uri.encodeComponent(categoriaId)}/$accion',
+        const {},
+      );
+      if (res['category'] is Map) {
+        return Map<String, dynamic>.from(res['category'] as Map);
+      }
+      return res;
+    }
+    final res = await _client.rpc(
+      'cambiar_estado_categoria_servicio',
+      params: {'p_categoria_id': categoriaId, 'p_activa': activa},
     );
     if (res is Map) {
       return Map<String, dynamic>.from(res);

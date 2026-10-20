@@ -9,17 +9,20 @@ import '../../domain/usecases/categoria_usecases.dart';
 
 part 'categorias_state.dart';
 
-/// Estado y acciones del catálogo de categorías del tenant (US-03.1.1).
+/// Estado y acciones del catálogo de categorías del tenant (US-03.1.1 / US-03.1.2).
 class CategoriasCubit extends Cubit<CategoriasState> {
   CategoriasCubit({
     required ListarCategorias listar,
     required CrearCategoria crear,
+    CambiarEstadoCategoria? cambiarEstado,
   }) : _listar = listar,
        _crear = crear,
+       _cambiarEstado = cambiarEstado,
        super(const CategoriasState());
 
   final ListarCategorias _listar;
   final CrearCategoria _crear;
+  final CambiarEstadoCategoria? _cambiarEstado;
   int _secuenciaAvisos = 0;
 
   /// Carga el catálogo. Con [silencioso] conserva la lista en pantalla
@@ -106,6 +109,69 @@ class CategoriasCubit extends Cubit<CategoriasState> {
       if (f.tipo == CategoriaErrorTipo.nombreDuplicado) {
         await cargar(silencioso: true);
       }
+      return f;
+    }
+  }
+
+  /// Oculta o vuelve a mostrar una categoría en el catálogo público del tenant
+  /// sin cancelar los servicios que ya están en ejecución (US-03.1.2).
+  Future<CategoriaFailure?> cambiarEstado(
+    CategoriaServicio categoria, {
+    required bool activa,
+  }) async {
+    final op = _cambiarEstado;
+    if (op == null ||
+        state.cambiandoEstadoDe(categoria.id) ||
+        categoria.activa == activa) {
+      return null;
+    }
+
+    emit(
+      state.copyWith(
+        cambiandoEstadoIds: {...state.cambiandoEstadoIds, categoria.id},
+      ),
+    );
+    try {
+      final respuesta = await op(categoriaId: categoria.id, activa: activa);
+      if (isClosed) {
+        return null;
+      }
+      final actualizada = categoria.copyWith(
+        nombre: respuesta.nombre.isNotEmpty
+            ? respuesta.nombre
+            : categoria.nombre,
+        activa: respuesta.activa,
+        flujo: respuesta.flujo ?? categoria.flujo,
+        fechaCreacion: respuesta.fechaCreacion ?? categoria.fechaCreacion,
+        aliadosAsociados: respuesta.aliadosAsociados > 0
+            ? respuesta.aliadosAsociados
+            : categoria.aliadosAsociados,
+      );
+      final restantes = {...state.cambiandoEstadoIds}..remove(categoria.id);
+      final lista = [
+        for (final c in state.categorias)
+          if (c.id == categoria.id) actualizada else c,
+      ]..sort((a, b) => a.claveNombre.compareTo(b.claveNombre));
+
+      emit(
+        state.copyWith(categorias: lista, cambiandoEstadoIds: restantes),
+      );
+      _avisar(
+        actualizada.activa
+            ? 'Categoría "${actualizada.nombre}" activada. Ya vuelve a aparecer en el catálogo de tus clientes.'
+            : 'Categoría "${actualizada.nombre}" ocultada. No recibirá nuevas solicitudes; los servicios en curso continúan sin cambios.',
+      );
+      return null;
+    } on CategoriaFailure catch (f) {
+      if (isClosed) {
+        return f;
+      }
+      final restantes = {...state.cambiandoEstadoIds}..remove(categoria.id);
+      emit(state.copyWith(cambiandoEstadoIds: restantes));
+      if (f.tipo == CategoriaErrorTipo.noEncontrada) {
+        await cargar(silencioso: true);
+      }
+      _avisar(f.mensajeUsuario, esError: true);
       return f;
     }
   }

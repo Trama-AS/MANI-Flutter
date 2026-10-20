@@ -51,15 +51,32 @@ void main() {
       expect(m.aliadosAsociados, 0);
       expect(m.fechaCreacion, isNull);
     });
+
+    test('mapea la respuesta de Core Node vía API Gateway', () {
+      final m = CategoriaServicioModel.fromJson({
+        'category': {
+          'id': 'cat-gw',
+          'name': 'Plomería',
+          'active': false,
+          'flujoOperativo': 'COTIZACION_PREVIA',
+        },
+      });
+      expect(m.id, 'cat-gw');
+      expect(m.nombre, 'Plomería');
+      expect(m.activa, isFalse);
+      expect(m.flujo, FlujoOperativo.cotizacionPrevia);
+    });
   });
 
   test('mapearMensaje traduce cada código MANI-CAT-*', () {
     const casos = {
       'MANI-CAT-401: x': CategoriaErrorTipo.sinSesion,
       'MANI-CAT-403: x': CategoriaErrorTipo.noAutorizado,
+      'MANI-CAT-404: x': CategoriaErrorTipo.noEncontrada,
       'MANI-CAT-409: x': CategoriaErrorTipo.nombreDuplicado,
       'MANI-CAT-422N: x': CategoriaErrorTipo.nombreInvalido,
       'MANI-CAT-422F: x': CategoriaErrorTipo.flujoInvalido,
+      'CATEGORY_NOT_FOUND': CategoriaErrorTipo.noEncontrada,
       'JWT expired': CategoriaErrorTipo.sinSesion,
       'algo raro': CategoriaErrorTipo.desconocido,
     };
@@ -79,8 +96,17 @@ void main() {
 
     setUp(() {
       servidor = ServidorCategoriasFake()
-        ..sembrar(tenantId: 'tenant-a', nombre: 'Plomería', aliados: 3)
-        ..sembrar(tenantId: 'tenant-b', nombre: 'Jardinería');
+        ..sembrar(
+          tenantId: 'tenant-a',
+          id: 'cat-plo',
+          nombre: 'Plomería',
+          aliados: 3,
+        )
+        ..sembrar(
+          tenantId: 'tenant-b',
+          id: 'cat-jar-b',
+          nombre: 'Jardinería',
+        );
       logs = [];
       repo = CategoriasRepositoryImpl(
         servidor,
@@ -168,5 +194,45 @@ void main() {
       servidor.errorDeRed = TimeoutException('lento');
       await expectLater(repo.listar(), _falla(CategoriaErrorTipo.sinConexion));
     });
+
+    test(
+      'cambiarEstado desactiva y reactiva la categoría con log US-03.1.2',
+      () async {
+        final oculta = await repo.cambiarEstado(
+          categoriaId: 'cat-plo',
+          activa: false,
+        );
+        expect(oculta.activa, isFalse);
+        expect(oculta.aliadosAsociados, 3);
+        expect(servidor.delTenant('tenant-a').single['estado'], 'INACTIVO');
+
+        final activa = await repo.cambiarEstado(
+          categoriaId: 'cat-plo',
+          activa: true,
+        );
+        expect(activa.activa, isTrue);
+        expect(servidor.delTenant('tenant-a').single['estado'], 'ACTIVO');
+
+        expect(logs, hasLength(2));
+        expect(logs[0]['event'], 'US-03.1.2.cambiar_estado_categoria');
+        expect(logs[0]['message'], 'categoria_desactivada');
+        expect(logs[0]['activa'], isFalse);
+        expect(logs[1]['message'], 'categoria_activada');
+        expect(logs[1]['activa'], isTrue);
+      },
+    );
+
+    test(
+      'cambiarEstado sobre una categoría de otro tenant lanza noEncontrada y no la altera',
+      () async {
+        await expectLater(
+          repo.cambiarEstado(categoriaId: 'cat-jar-b', activa: false),
+          _falla(CategoriaErrorTipo.noEncontrada),
+        );
+        expect(servidor.delTenant('tenant-b').single['estado'], 'ACTIVO');
+        expect(logs.single['level'], 'ERROR');
+        expect(logs.single['error'], 'noEncontrada');
+      },
+    );
   });
 }

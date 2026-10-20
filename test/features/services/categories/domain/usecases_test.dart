@@ -63,4 +63,37 @@ void main() {
       expect(repo.llamadasCrear, 0);
     });
   });
+
+  group('CambiarEstadoCategoria', () {
+    test('delega en el repositorio con el id limpio y el estado', () async {
+      final repo = FakeCategoriasRepository([
+        categoria('Plomería', id: 'cat-plo', activa: true, aliados: 3),
+      ]);
+
+      final actualizada = await CambiarEstadoCategoria(repo)(
+        categoriaId: '  cat-plo ',
+        activa: false,
+      );
+
+      expect(repo.ultimoCambioEstado, ('cat-plo', false));
+      expect(actualizada.activa, isFalse);
+      expect(actualizada.aliadosAsociados, 3);
+    });
+
+    test('con id vacío falla con noEncontrada sin llamar al repositorio', () {
+      final repo = FakeCategoriasRepository();
+
+      expect(
+        () => CambiarEstadoCategoria(repo)(categoriaId: '   ', activa: false),
+        throwsA(
+          isA<CategoriaFailure>().having(
+            (f) => f.tipo,
+            'tipo',
+            CategoriaErrorTipo.noEncontrada,
+          ),
+        ),
+      );
+      expect(repo.llamadasCambiarEstado, 0);
+    });
+  });
 }
