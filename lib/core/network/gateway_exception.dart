@@ -8,6 +8,7 @@ class GatewayException implements Exception {
     required this.message,
     this.statusCode,
     this.correlationId,
+    this.cuerpo,
   });
 
   /// Construye el error a partir del status HTTP. [detalle] es el mensaje que
@@ -17,6 +18,7 @@ class GatewayException implements Exception {
     int statusCode, {
     String? detalle,
     String? correlationId,
+    Map<String, dynamic>? cuerpo,
   }) {
     final String message;
     if (statusCode == 400 || statusCode == 422) {
@@ -42,6 +44,7 @@ class GatewayException implements Exception {
       message: message,
       statusCode: statusCode,
       correlationId: correlationId,
+      cuerpo: cuerpo,
     );
   }
 
@@ -51,6 +54,11 @@ class GatewayException implements Exception {
   /// `X-Correlation-ID` de la petición, para rastrearla en los logs del
   /// Gateway y de los servicios.
   final String? correlationId;
+
+  /// Cuerpo JSON de la respuesta de error, si lo hubo. Permite a cada feature
+  /// leer los códigos de negocio del servicio (`code`, `violations[].code`)
+  /// sin depender del texto de [message].
+  final Map<String, dynamic>? cuerpo;
 
   /// Indica si el error se debe a un conflicto de concurrencia o duplicado (HTTP 409).
   bool get isConflict => statusCode == 409;

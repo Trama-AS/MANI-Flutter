@@ -190,7 +190,7 @@ Future<void> init() async {
     () => CategoriasRepositoryImpl(sl()),
   );
   sl.registerLazySingleton<CategoriasRemoteDataSource>(
-    () => SupabaseCategoriasDataSource(sl(), gateway: sl()),
+    () => GatewayCategoriasDataSource(sl(), sesion: sl()),
   );
 
   // Features - Asignación / Aceptar-rechazar solicitud (US-04.1.4)

@@ -146,8 +146,21 @@ class CategoriasRepositoryImpl implements CategoriasRepository {
       403 => CategoriaFailure(CategoriaErrorTipo.noAutorizado, e.message),
       404 => CategoriaFailure(CategoriaErrorTipo.noEncontrada, e.message),
       409 => CategoriaFailure(CategoriaErrorTipo.nombreDuplicado, e.message),
-      _ => mapearMensaje(e.message),
+      _ => mapearMensaje(_codigos(e.cuerpo).followedBy([e.message]).join(' ')),
     };
+  }
+
+  /// Códigos de negocio del cuerpo de error de Core: `code` y, cuando Rules
+  /// rechaza la categoría, `violations[].code` (`MANI-CAT-422N`/`422F`).
+  static Iterable<String> _codigos(Map<String, dynamic>? cuerpo) sync* {
+    final code = cuerpo?['code'];
+    if (code is String) yield code;
+    final violaciones = cuerpo?['violations'];
+    if (violaciones is List) {
+      for (final v in violaciones) {
+        if (v is Map && v['code'] is String) yield v['code'] as String;
+      }
+    }
   }
 
   /// Traduce el prefijo `MANI-CAT-*` de las RPC y códigos de Core Node.

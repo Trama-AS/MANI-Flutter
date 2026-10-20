@@ -427,6 +427,7 @@ class GatewayClient {
         response.statusCode,
         detalle: _detalle(cuerpo),
         correlationId: correlationId,
+        cuerpo: cuerpo,
       );
     }
   }
