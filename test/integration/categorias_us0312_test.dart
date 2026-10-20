@@ -46,11 +46,7 @@ ServidorCategoriasFake _servidorCategorias() =>
         estado: 'INACTIVO',
         flujo: 'TARIFA_ESTANDAR',
       )
-      ..sembrar(
-        tenantId: _tenantB,
-        id: 'cat-pin-b',
-        nombre: 'Pintura',
-      );
+      ..sembrar(tenantId: _tenantB, id: 'cat-pin-b', nombre: 'Pintura');
 
 Future<List<Map<String, dynamic>>> _montarAdminApp(
   WidgetTester t,
@@ -137,10 +133,9 @@ void main() {
 
       // Estado inicial: Plomería está visible (1 visible · 1 oculta).
       expect(find.text('1 visible para clientes · 1 oculta'), findsOneWidget);
-      expect(
-        (await repoCliente.categoriasDisponibles()).map((c) => c.nombre),
-        ['Plomería'],
-      );
+      expect((await repoCliente.categoriasDisponibles()).map((c) => c.nombre), [
+        'Plomería',
+      ]);
 
       // CA-1: El Admin del Tenant oculta "Plomería".
       await _tocar(t, const ValueKey('toggle-estado-categoria-cat-plo'));
@@ -150,7 +145,11 @@ void main() {
           .firstWhere((f) => f['id'] == 'cat-plo');
       expect(filaPlomeria['estado'], 'INACTIVO');
       expect(find.text('0 visibles para clientes · 2 ocultas'), findsOneWidget);
-      expect(find.text('5 aliados'), findsOneWidget, reason: 'conserva aliados');
+      expect(
+        find.text('5 aliados'),
+        findsOneWidget,
+        reason: 'conserva aliados',
+      );
       expect(
         find.textContaining('los servicios en curso continúan sin cambios'),
         findsOneWidget,
@@ -208,10 +207,9 @@ void main() {
 
       servidorSol.categorias.firstWhere((c) => c['id'] == 'cat-plo')['estado'] =
           filaPlomeria['estado'];
-      expect(
-        (await repoCliente.categoriasDisponibles()).map((c) => c.nombre),
-        ['Plomería'],
-      );
+      expect((await repoCliente.categoriasDisponibles()).map((c) => c.nombre), [
+        'Plomería',
+      ]);
 
       // Trazabilidad: log estructurado por cada cambio de estado.
       final eventosEstado = logs
@@ -268,4 +266,3 @@ void main() {
     },
   );
 }
-

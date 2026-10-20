@@ -176,9 +176,7 @@ class _BotonVisibilidad extends StatelessWidget {
                   ),
                 const SizedBox(width: 4),
                 Text(
-                  cargando
-                      ? 'Guardando...'
-                      : (activa ? 'Ocultar' : 'Activar'),
+                  cargando ? 'Guardando...' : (activa ? 'Ocultar' : 'Activar'),
                   style: const TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
