@@ -102,11 +102,7 @@ void main() {
           nombre: 'Plomería',
           aliados: 3,
         )
-        ..sembrar(
-          tenantId: 'tenant-b',
-          id: 'cat-jar-b',
-          nombre: 'Jardinería',
-        );
+        ..sembrar(tenantId: 'tenant-b', id: 'cat-jar-b', nombre: 'Jardinería');
       logs = [];
       repo = CategoriasRepositoryImpl(
         servidor,
