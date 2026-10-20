@@ -153,9 +153,7 @@ class CategoriasCubit extends Cubit<CategoriasState> {
           if (c.id == categoria.id) actualizada else c,
       ]..sort((a, b) => a.claveNombre.compareTo(b.claveNombre));
 
-      emit(
-        state.copyWith(categorias: lista, cambiandoEstadoIds: restantes),
-      );
+      emit(state.copyWith(categorias: lista, cambiandoEstadoIds: restantes));
       _avisar(
         actualizada.activa
             ? 'Categoría "${actualizada.nombre}" activada. Ya vuelve a aparecer en el catálogo de tus clientes.'
