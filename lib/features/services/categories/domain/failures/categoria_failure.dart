@@ -1,5 +1,6 @@
 /// Errores de negocio de US-03.1.1 y US-03.1.2. Los códigos `MANI-CAT-*` los
-/// emiten las RPC de la migración `003_categorias_servicio.sql` y Core Node.
+/// emite el Rules Service (`violations[].code`) y Core Node los devuelve a
+/// través del API Gateway.
 enum CategoriaErrorTipo {
   sinSesion, // MANI-CAT-401
   noAutorizado, // MANI-CAT-403
