@@ -5,6 +5,10 @@ name: CI - Flutter (lint, pruebas, SonarQube Cloud y build)
 # Dart; por eso Flutter usa SonarQube Cloud (organización trama-as, proyecto
 # Trama-AS_MANI-Flutter), que sí analiza ramas y pull requests.
 #
+# El plan gratuito de SonarQube Cloud solo analiza la rama principal del proyecto,
+# configurada como develop; por eso el push solo dispara en develop. release y
+# main quedan cubiertas por el análisis de los PRs que llegan a ellas.
+#
 # Requisito: secreto SONAR_TOKEN del repositorio con un token de SonarQube Cloud.
 # Tiene prioridad sobre el SONAR_TOKEN de la organización, que es del servidor
 # self-hosted y no sirve aquí.
@@ -13,7 +17,7 @@ on:
   pull_request:
     branches: [ develop, release, main ]
   push:
-    branches: [ develop, main ]
+    branches: [ develop ]
   workflow_dispatch:
 
 # En PR se cancela la corrida anterior; en push cada commit conserva su análisis.
