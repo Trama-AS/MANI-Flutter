@@ -1,3 +1,8 @@
+import 'dart:convert';
+
+import 'package:mani/core/logging/structured_logger.dart';
+import 'package:mani/core/network/gateway_client.dart';
+import 'package:mani/core/network/gateway_exception.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 abstract class IAuthRemoteDataSource {
@@ -37,13 +42,116 @@ abstract class IAuthRemoteDataSource {
     required List<Map<String, String>> documentosKYC,
   });
 
+  Future<List<Map<String, dynamic>>> obtenerDocumentosLegalesActivos({
+    String? tenantSlug,
+  });
+
+  Future<void> registrarConsentimientoLegal({
+    List<String>? documentoLegalIds,
+    String? token,
+  });
+
   Future<void> signOut();
 }
 
 class AuthRemoteDataSource implements IAuthRemoteDataSource {
   final SupabaseClient client;
+  final GatewayClient gateway;
 
-  AuthRemoteDataSource({required this.client});
+  AuthRemoteDataSource({
+    required this.client,
+    required this.gateway,
+    StructuredLogger? logger,
+  }) : _log = logger ?? StructuredLogger(canal: 'mani.consentimiento');
+
+  final StructuredLogger _log;
+
+  /// Registro de aliado empresa en Core Node, a través del Gateway
+  /// (US-02.1.2-M2). Ruta y nombres de campo definidos por el contrato
+  /// OpenAPI de Core (`RegisterAllyCompanyRequest` en core.yaml).
+  static const rutaRegistroEmpresa = '/api/v1/core/auth/register/ally/company';
+
+  /// Registro de aliado persona natural en Core Node, a través del Gateway
+  /// (US-02.1.1-M2). Ruta y nombres de campo definidos por el contrato
+  /// OpenAPI de CFG-16 (MANI-APIGateway/docs/openapi/core.yaml).
+  static const rutaRegistroPersonaNatural = '/api/v1/core/auth/register/ally';
+
+  /// Registro de cliente persona natural en Core Node, a través del Gateway
+  /// (US-02.2.1-M2). Reutiliza el MISMO [GatewayClient] (sin crear un
+  /// segundo cliente HTTP) y el endpoint de identidad que Core ya expone
+  /// para Aliado (mismo authIdentityService del lado del servicio).
+  static const rutaRegistroClientePersonaNatural =
+      '/api/v1/core/auth/register/client';
+
+  /// Resuelve el tenant antes de autenticarse (ADR-0018). No autoriza nada:
+  /// Core toma el tenant definitivo del JWT que emite tras el registro.
+  static const headerTenantSlug = 'X-Tenant-Slug';
+
+  /// Documentos legales activos y registro de consentimientos (SCRUM-856 / Node#14).
+  static const rutaDocumentosLegalesActivos =
+      '/api/v1/core/legal/documents/active';
+  static const rutaConsentimientosLegales = '/api/v1/core/legal/consents';
+
+  @override
+  Future<List<Map<String, dynamic>>> obtenerDocumentosLegalesActivos({
+    String? tenantSlug,
+  }) async {
+    try {
+      final respuesta = await gateway.get(
+        rutaDocumentosLegalesActivos,
+        headers: {
+          if (tenantSlug != null && tenantSlug.trim().isNotEmpty)
+            headerTenantSlug: tenantSlug.trim(),
+        },
+      );
+      final raw = respuesta['data'];
+      if (raw is List) {
+        return raw.whereType<Map<String, dynamic>>().toList();
+      }
+    } catch (_) {}
+    return const [];
+  }
+
+  @override
+  Future<void> registrarConsentimientoLegal({
+    List<String>? documentoLegalIds,
+    String? token,
+  }) async {
+    final payload = <String, dynamic>{
+      if (documentoLegalIds != null && documentoLegalIds.isNotEmpty)
+        'documentoLegalIds': documentoLegalIds,
+    };
+    final headers = <String, String>{
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+    };
+    try {
+      await gateway.postJson(
+        rutaConsentimientosLegales,
+        payload,
+        headers: headers,
+      );
+    } catch (e) {
+      // La cuenta ya quedó creada: no se revierte el registro, pero el fallo no se oculta.
+      // Sin datos personales en el log (solo el tipo de error).
+      _log.error(
+        'No se pudo registrar el consentimiento legal tras el registro',
+        traceId: StructuredLogger.nuevoTraceId(),
+        extra: {'error_type': e.runtimeType.toString()},
+      );
+    }
+  }
+
+  Future<void> _registrarConsentimientoSeguro(
+    Map<String, dynamic> respuesta,
+  ) async {
+    final token = (respuesta['session'] is Map)
+        ? respuesta['session']['access_token']?.toString()
+        : (respuesta['access_token']?.toString() ??
+              client.auth.currentSession?.accessToken);
+    if (token != null && token.isNotEmpty) {
+      await registrarConsentimientoLegal(token: token);
+    }
+  }
 
   @override
   Future<User> signInWithEmail({
@@ -69,46 +177,38 @@ class AuthRemoteDataSource implements IAuthRemoteDataSource {
     String? telefono,
     String? direccionHogar,
   }) async {
-    final cleanEmail = email.trim();
-    final cleanNombre = nombreCompleto.trim();
+    // US-02.2.1-M2: migrado de Supabase directo (auth.signUp + .rpc()/.from()
+    // de respaldo) al camino Gateway -> Core Node, igual que el registro de
+    // Aliado (US-02.1.1-M2). Mismo GatewayClient (gateway), mismo endpoint
+    // de identidad del lado de Core (CA-2): no se crea un segundo cliente
+    // HTTP ni una segunda implementación de autenticación.
+    //
+    // direccionHogar queda sin enviar: la creación del `sitio` inicial
+    // (hogar) que hacía la función PL/pgSQL legacy todavía no tiene
+    // equivalente en Core Node (fuera del alcance de esta subtarea,
+    // enfocada en reutilizar identidad/HTTP, no en portar `sitio`/`zona`).
+    final campos = <String, dynamic>{
+      'email': email.trim(),
+      'password': password,
+      'fullName': nombreCompleto.trim(),
+      if (telefono != null && telefono.trim().isNotEmpty)
+        'phone': telefono.trim(),
+    };
 
-    final authRes = await client.auth.signUp(
-      email: cleanEmail,
-      password: password,
-      data: {
-        'nombre_completo': cleanNombre,
-        'rol': 'CLIENTE',
-        'tipo': 'PERSONA_NATURAL',
-        'tenant_id': tenantId,
-        'telefono': telefono?.trim(),
-        'direccion_hogar': direccionHogar?.trim(),
-        'estado': 'ACTIVO',
-      },
+    final respuesta = await gateway.postJson(
+      rutaRegistroClientePersonaNatural,
+      campos,
+      headers: {headerTenantSlug: tenantId},
     );
 
-    final user = authRes.user;
-    if (user == null) {
-      throw const AuthException(
-        'No se pudo crear el usuario en Supabase Auth.',
-      );
-    }
+    await _registrarConsentimientoSeguro(respuesta);
 
-    if (authRes.session == null) {
-      try {
-        await client.auth.signInWithPassword(
-          email: cleanEmail,
-          password: password,
-        );
-      } catch (_) {}
-    }
-
-    // ADR-0027: Se retira todo acceso directo a PostgREST (.from) y RPC (.rpc).
-    // La sesión y los metadatos de usuario son gestionados exclusivamente por Supabase Auth.
     return {
+      ...respuesta,
       'success': true,
-      'usuario_id': user.id,
-      'rol': 'CLIENTE',
-      'estado': 'ACTIVO',
+      'usuario_id': respuesta['profile']?['id'],
+      'rol': respuesta['profile']?['role'],
+      'estado': respuesta['profile']?['status'],
       'mensaje': 'Cuenta de cliente creada exitosamente.',
     };
   }
@@ -122,29 +222,29 @@ class AuthRemoteDataSource implements IAuthRemoteDataSource {
     required String categoriaId,
     required List<Map<String, String>> documentosKYC,
   }) async {
-    final cleanEmail = email.trim();
-    final authRes = await client.auth.signUp(
-      email: cleanEmail,
-      password: password,
-      data: {
-        'nombre_completo': nombreCompleto.trim(),
-        'rol': 'ALIADO',
-        'tipo': 'PERSONA_NATURAL',
-        'tenant_id': tenantId,
-        'categoria_id': categoriaId,
-        'documentos_kyc': documentosKYC,
-        'estado_verificacion': 'PENDIENTE',
-      },
+    // Tenant solo en X-Tenant-Slug y rutas de Storage construidas por Core
+    // (ADR-0013, ADR-0018). Nombres de campo en camelCase: así los define el contrato
+    // OpenAPI de CFG-16 (fullName/categoriaId), no snake_case español.
+    final campos = <String, String>{
+      'email': email.trim(),
+      'password': password,
+      'fullName': nombreCompleto.trim(),
+      'categoriaId': categoriaId.trim(),
+    };
+
+    final respuesta = await gateway.postMultipart(
+      rutaRegistroPersonaNatural,
+      campos: campos,
+      archivos: [for (final doc in documentosKYC) _archivo(doc)],
+      headers: {headerTenantSlug: tenantId},
     );
 
-    final user = authRes.user;
-    if (user == null) throw const AuthException('No user created.');
+    await _registrarConsentimientoSeguro(respuesta);
 
-    // Simplificado por brevedad (misma logica RPC que original)
     return {
+      ...respuesta,
       'success': true,
-      'usuario_id': user.id,
-      'estado_verificacion': 'PENDIENTE',
+      'estado_verificacion': respuesta['estado_verificacion'] ?? 'PENDIENTE',
     };
   }
 
@@ -161,28 +261,60 @@ class AuthRemoteDataSource implements IAuthRemoteDataSource {
     String? categoriaId,
     required List<Map<String, String>> documentosKYC,
   }) async {
-    final cleanEmail = email.trim();
-    final authRes = await client.auth.signUp(
-      email: cleanEmail,
-      password: password,
-      data: {
-        'razon_social': razonSocial.trim(),
-        'nit': nit.trim(),
-        'rol': 'ALIADO',
-        'tipo': 'PERSONA_JURIDICA',
-        'tenant_id': tenantId,
-        'estado_verificacion': 'PENDIENTE',
-      },
+    // El tenant va solo en X-Tenant-Slug (ADR-0018), nunca en el cuerpo, y la ruta del
+    // documento en Storage la construye Core (tenant_id/aliado_id/documento,
+    // ADR-0013): el cliente no envía rutas. Campos en camelCase, como los
+    // declara el contrato.
+    final campos = <String, String>{
+      'email': email.trim(),
+      'password': password,
+      'razonSocial': razonSocial.trim(),
+      'nit': nit.trim(),
+      'nombreRepresentante': nombreRepresentante.trim(),
+      'docRepresentante': ?_texto(docRepresentante),
+      'phone': ?_texto(telefonoContacto),
+      'categoriaId': ?_texto(categoriaId),
+    };
+
+    final respuesta = await gateway.postMultipart(
+      rutaRegistroEmpresa,
+      campos: campos,
+      archivos: [for (final doc in documentosKYC) _archivo(doc)],
+      headers: {headerTenantSlug: tenantId},
     );
 
-    final user = authRes.user;
-    if (user == null) throw const AuthException('No user created.');
+    await _registrarConsentimientoSeguro(respuesta);
 
     return {
+      ...respuesta,
       'success': true,
-      'usuario_id': user.id,
-      'estado_verificacion': 'PENDIENTE',
+      'estado_verificacion': respuesta['estado_verificacion'] ?? 'PENDIENTE',
     };
+  }
+
+  /// Convierte un documento KYC (`tipo_documento`, `nombre_archivo`,
+  /// `contenido_base64`) en una parte multipart cuyo campo es el tipo en
+  /// minúsculas, p. ej. `camara_comercio`.
+  ArchivoMultipart _archivo(Map<String, String> doc) {
+    final tipo = doc['tipo_documento'] ?? '';
+    final contenido = doc['contenido_base64'];
+    if (tipo.isEmpty || contenido == null || contenido.isEmpty) {
+      throw GatewayException(
+        message:
+            'No se pudo leer el documento ${tipo.isEmpty ? '' : '$tipo '}'
+            'adjunto. Vuelve a seleccionarlo.',
+      );
+    }
+    return ArchivoMultipart(
+      campo: tipo.toLowerCase(),
+      nombre: doc['nombre_archivo'] ?? tipo.toLowerCase(),
+      bytes: base64Decode(contenido),
+    );
+  }
+
+  String? _texto(String? valor) {
+    final limpio = valor?.trim();
+    return limpio == null || limpio.isEmpty ? null : limpio;
   }
 
   @override

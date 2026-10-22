@@ -4,8 +4,8 @@
 // Ticket: SCRUM-926 (CFG-09) · Subtareas: SCRUM-961, SCRUM-962
 // Ambiente: SOLO QA (proyecto Supabase hpsxdotaizzclkeufzct)
 // Requiere aplicados, en orden:
-//   supabase/poc-cfg09/10_seed_concurrencia.sql
-//   supabase/poc-cfg09/20_rpc_aceptar_solicitud.sql
+//   MANI-APIGateway/supabase/poc-cfg09/10_seed_concurrencia.sql
+//   MANI-APIGateway/supabase/poc-cfg09/20_rpc_aceptar_solicitud.sql
 //
 // PREGUNTA QUE RESPONDE
 //   ¿El UPDATE condicional garantiza exactamente 1 asignacion exitosa bajo
@@ -54,7 +54,7 @@ const MODO     = __ENV.MODO || 'exclusion';
 const ESPERA   = parseFloat(__ENV.ESPERA || '0.05');
 const CORRIDA  = __ENV.CORRIDA || `${MODO}-N${N}-${new Date().toISOString().slice(0, 19)}`;
 
-// UUIDs fijos del seed (supabase/poc-cfg09/10_seed_concurrencia.sql).
+// UUIDs fijos del seed (MANI-APIGateway/supabase/poc-cfg09/10_seed_concurrencia.sql).
 const SOLICITUD = 'a0000000-0000-4000-8000-900000000001';
 const aliadoId  = (i) => `50000000-0000-4000-8000-9${String(i).padStart(11, '0')}`;
 const email     = (i) => `aliado.poc.${i}@poc.mani.test`;

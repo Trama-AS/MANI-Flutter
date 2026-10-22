@@ -11,12 +11,20 @@ class CategoriaCard extends StatelessWidget {
     super.key,
     required this.categoria,
     this.recienCreada = false,
+    this.cambiandoEstado = false,
+    this.onCambiarEstado,
   });
 
   final CategoriaServicio categoria;
 
   /// Resalta la tarjeta justo después de crearla.
   final bool recienCreada;
+
+  /// Indica que se está enviando el cambio de estado (`ACTIVO` / `INACTIVO`).
+  final bool cambiandoEstado;
+
+  /// Callback para ocultar o activar la categoría sin cancelar servicios en curso.
+  final ValueChanged<bool>? onCambiarEstado;
 
   @override
   Widget build(BuildContext context) {
@@ -71,9 +79,9 @@ class CategoriaCard extends StatelessWidget {
               if (recienCreada) const _EtiquetaNueva(),
             ],
           ),
-          const SizedBox(height: 12),
-          FlujoOperativoBadge(flujo: c.flujo),
           const SizedBox(height: 10),
+          FlujoOperativoBadge(flujo: c.flujo),
+          const SizedBox(height: 8),
           Row(
             children: [
               const Icon(
@@ -82,7 +90,7 @@ class CategoriaCard extends StatelessWidget {
                 color: AppTheme.textTertiary,
               ),
               const SizedBox(width: 4),
-              Flexible(
+              Expanded(
                 child: Text(
                   switch (c.aliadosAsociados) {
                     0 => 'Aún sin aliados',
@@ -97,9 +105,88 @@ class CategoriaCard extends StatelessWidget {
                   ),
                 ),
               ),
+              if (onCambiarEstado != null) ...[
+                const SizedBox(width: 8),
+                _BotonVisibilidad(
+                  categoriaId: c.id,
+                  activa: c.activa,
+                  cargando: cambiandoEstado,
+                  onTap: () => onCambiarEstado!(!c.activa),
+                ),
+              ],
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _BotonVisibilidad extends StatelessWidget {
+  const _BotonVisibilidad({
+    required this.categoriaId,
+    required this.activa,
+    required this.cargando,
+    required this.onTap,
+  });
+
+  final String categoriaId;
+  final bool activa;
+  final bool cargando;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: activa
+          ? 'Ocultar del catálogo público sin afectar servicios en curso'
+          : 'Volver a mostrar en el catálogo público',
+      child: Material(
+        color: activa ? AppTheme.background : AppTheme.primary,
+        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+        child: InkWell(
+          key: ValueKey('toggle-estado-categoria-$categoriaId'),
+          borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+          onTap: cargando ? null : onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+              border: Border.all(color: AppTheme.dark, width: 1.5),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (cargando)
+                  const SizedBox(
+                    width: 12,
+                    height: 12,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppTheme.dark,
+                    ),
+                  )
+                else
+                  Icon(
+                    activa
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                    size: 13,
+                    color: AppTheme.dark,
+                  ),
+                const SizedBox(width: 4),
+                Text(
+                  cargando ? 'Guardando...' : (activa ? 'Ocultar' : 'Activar'),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.dark,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

@@ -1,7 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:mani/core/network/api_gateway_client.dart';
 
-/// Acceso a categorías del aliado a través del API Gateway (ADR-0019 / ADR-0027).
+/// Acceso crudo a Supabase. `tenant_id` y `aliado_id` NUNCA se envían: las
+/// RPC los toman de `auth.uid()` (migración 004_aliado_categorias.sql).
 abstract interface class CategoriesRemoteDataSource {
   Future<List<Map<String, dynamic>>> listarCategoriasTenant();
   Future<List<String>> obtenerMisCategorias();
@@ -9,45 +9,28 @@ abstract interface class CategoriesRemoteDataSource {
 }
 
 class SupabaseCategoriesDataSource implements CategoriesRemoteDataSource {
-  SupabaseCategoriesDataSource(
-    SupabaseClient _, {
-    ApiGatewayClient? gatewayClient,
-  }) : _gatewayClient = gatewayClient ?? ApiGatewayClient();
+  SupabaseCategoriesDataSource(this._client);
 
-  final ApiGatewayClient _gatewayClient;
+  final SupabaseClient _client;
+
+  Future<List<dynamic>> _rpc(String fn, [Map<String, dynamic>? params]) async {
+    final res = await _client.rpc(fn, params: params);
+    return res is List ? res : const [];
+  }
 
   @override
-  Future<List<Map<String, dynamic>>> listarCategoriasTenant() async {
-    final res = await _gatewayClient.get('/api/v1/core/catalog/categories');
-    final data = res['data'] ?? res['categories'] ?? res['categorias'];
-    if (data is List) {
-      return data
+  Future<List<Map<String, dynamic>>> listarCategoriasTenant() async =>
+      (await _rpc('listar_categorias_tenant'))
           .map((e) => Map<String, dynamic>.from(e as Map))
           .toList(growable: false);
-    }
-    return const [];
-  }
 
   @override
-  Future<List<String>> obtenerMisCategorias() async {
-    final res = await _gatewayClient.get('/api/v1/core/profiles/me/categories');
-    final data = res['data'] ?? res['categoryIds'] ?? res['categoria_ids'];
-    if (data is List) {
-      return data.map((e) => e.toString()).toList(growable: false);
-    }
-    return const [];
-  }
+  Future<List<String>> obtenerMisCategorias() async =>
+      (await _rpc('obtener_mis_categorias')).cast<String>();
 
   @override
-  Future<List<String>> guardarMisCategorias(List<String> categoriaIds) async {
-    final res = await _gatewayClient.post(
-      '/api/v1/core/profiles/me/categories',
-      body: {'categoria_ids': categoriaIds},
-    );
-    final data = res['data'] ?? res['categoryIds'] ?? categoriaIds;
-    if (data is List) {
-      return data.map((e) => e.toString()).toList(growable: false);
-    }
-    return categoriaIds;
-  }
+  Future<List<String>> guardarMisCategorias(List<String> categoriaIds) async =>
+      (await _rpc('guardar_mis_categorias', {
+        'p_categoria_ids': categoriaIds,
+      })).cast<String>();
 }

@@ -9,7 +9,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Usa rutas limpias sin '#' en web (coincide con go_router y con el
-  // fallback a index.html configurado en nginx.conf).
+  // fallback a index.html configurado en docker/nginx-web.conf).
   usePathUrlStrategy();
 
   // Cargar variables de entorno desde el archivo .env

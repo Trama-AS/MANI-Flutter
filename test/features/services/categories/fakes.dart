@@ -36,18 +36,27 @@ class FakeCategoriasRepository implements CategoriasRepository {
 
   CategoriaFailure? fallarAlListar;
   CategoriaFailure? fallarAlCrear;
+  CategoriaFailure? fallarAlCambiarEstado;
 
   /// Si se asigna, `crear` espera a que se complete (para ver "guardando").
   Completer<void>? pausaCrear;
 
+  /// Si se asigna, `cambiarEstado` espera a que se complete.
+  Completer<void>? pausaCambiarEstado;
+
   int llamadasCrear = 0;
+  int llamadasCambiarEstado = 0;
   NuevaCategoria? ultimaCreada;
+  (String, bool)? ultimoCambioEstado;
   int _secuencia = 0;
 
   List<CategoriaServicio> get guardadas => List.unmodifiable(_datos);
 
   /// Simula que otro administrador creó la categoría en paralelo.
   void creadaPorOtroAdmin(String nombre) => _datos.add(categoria(nombre));
+
+  /// Simula que otro administrador eliminó o movió la categoría.
+  void eliminarDeMemoria(String id) => _datos.removeWhere((c) => c.id == id);
 
   @override
   Future<List<CategoriaServicio>> listar() async {
@@ -80,17 +89,42 @@ class FakeCategoriasRepository implements CategoriasRepository {
     _datos.add(creada);
     return creada;
   }
+
+  @override
+  Future<CategoriaServicio> cambiarEstado({
+    required String categoriaId,
+    required bool activa,
+  }) async {
+    llamadasCambiarEstado++;
+    ultimoCambioEstado = (categoriaId, activa);
+    if (pausaCambiarEstado != null) {
+      await pausaCambiarEstado!.future;
+    }
+    if (fallarAlCambiarEstado != null) {
+      throw fallarAlCambiarEstado!;
+    }
+    final idx = _datos.indexWhere((c) => c.id == categoriaId);
+    if (idx < 0) {
+      throw const CategoriaFailure(CategoriaErrorTipo.noEncontrada);
+    }
+    final actualizada = _datos[idx].copyWith(activa: activa);
+    _datos[idx] = actualizada;
+    return actualizada;
+  }
 }
 
 CategoriasCubit crearCubit(CategoriasRepository repo) => CategoriasCubit(
   listar: ListarCategorias(repo),
   crear: CrearCategoria(repo),
+  cambiarEstado: CambiarEstadoCategoria(repo),
 );
 
 // -------------------------------------------- servidor Supabase simulado
-/// Simula, a nivel JSON, las RPC de `003_categorias_servicio.sql`: deriva
-/// tenant y rol de la sesión, exige ADMIN_TENANT, valida nombre y flujo (422)
-/// y aplica el índice único por tenant (409).
+/// Simula, a nivel JSON, las RPC de `003_categorias_servicio.sql` y los
+/// endpoints `/api/v1/core/catalog/categories/:id/activate|deactivate`: deriva
+/// tenant y rol de la sesión, exige ADMIN_TENANT, valida nombre y flujo (422),
+/// aplica el índice único por tenant (409) y aísla cambios de estado por
+/// tenant (404).
 class ServidorCategoriasFake implements CategoriasRemoteDataSource {
   ServidorCategoriasFake({
     this.tenantSesion = 'tenant-a',
@@ -110,13 +144,14 @@ class ServidorCategoriasFake implements CategoriasRemoteDataSource {
   void sembrar({
     required String tenantId,
     required String nombre,
+    String? id,
     String estado = 'ACTIVO',
     String flujo = 'COTIZACION_PREVIA',
     int aliados = 0,
   }) {
     filas.add({
       'tenant_id': tenantId,
-      'id': 'semilla-${++_secuencia}',
+      'id': id ?? 'semilla-${++_secuencia}',
       'nombre': nombre,
       'estado': estado,
       'flujo_operativo': flujo,
@@ -193,6 +228,25 @@ class ServidorCategoriasFake implements CategoriasRemoteDataSource {
       'aliados': 0,
     };
     filas.add(fila);
+    return _publica(fila);
+  }
+
+  @override
+  Future<Map<String, dynamic>> cambiarEstado({
+    required String categoriaId,
+    required bool activa,
+  }) async {
+    _exigirAdmin();
+    final propias = delTenant(
+      tenantSesion,
+    ).where((f) => f['id'] == categoriaId).toList();
+    if (propias.isEmpty) {
+      throw const PostgrestException(
+        message: 'MANI-CAT-404: categoría no encontrada en este tenant',
+      );
+    }
+    final fila = propias.single;
+    fila['estado'] = activa ? 'ACTIVO' : 'INACTIVO';
     return _publica(fila);
   }
 

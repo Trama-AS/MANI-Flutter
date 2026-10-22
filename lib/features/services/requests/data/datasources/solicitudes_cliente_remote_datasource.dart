@@ -1,127 +1,113 @@
-import 'dart:convert';
-import 'dart:typed_data';
-
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:mani/core/network/api_gateway_client.dart';
 
-/// Acceso a servicios de solicitudes a través del API Gateway (ADR-0019 / ADR-0027).
+import 'package:mani/core/network/gateway_client.dart';
+
+import '../../domain/entities/foto_adjunta.dart';
+
+/// Acceso remoto de US-04.1.1. Ni `tenant_id` ni `cliente_id` viajan desde la
+/// app: Core los toma del JWT.
+///
+/// La creación va por el API Gateway a Core (`POST /api/v1/core/solicitudes`,
+/// SCRUM-1072, ADR-0027): Core valida, sube las fotos al bucket `solicitudes` y
+/// crea la solicitud en una transacción. Los catálogos (categorías, sitios y
+/// zonas) siguen en las RPC de la migración 006 hasta que Core exponga sus
+/// endpoints.
 abstract interface class SolicitudesClienteRemoteDataSource {
   Future<List<Map<String, dynamic>>> listarCategorias();
   Future<List<Map<String, dynamic>>> listarSitios();
   Future<List<Map<String, dynamic>>> buscarZonas(String texto);
 
-  Future<void> subirFoto(String ruta, Uint8List bytes, String mime);
-  Future<void> eliminarFotos(List<String> rutas);
-
+  /// Publica la solicitud con sus fotos en una sola petición multipart.
+  /// Devuelve el objeto `solicitud` de la respuesta de Core.
   Future<Map<String, dynamic>> crear({
     required String categoriaId,
     required String descripcion,
-    required List<String> fotos,
+    required List<FotoAdjunta> fotos,
     required String claveIdempotencia,
     String? sitioId,
     String? direccion,
     String? zonaId,
   });
 
+  /// `null` sin sesión; evita enviar la petición sin JWT.
   String? get usuarioId;
+
+  /// Solo para trazas (log estructurado); nunca se usa para autorizar.
   String? get tenantIdSesion;
 }
 
-class SupabaseSolicitudesClienteDataSource
+class SolicitudesClienteRemoteDataSourceImpl
     implements SolicitudesClienteRemoteDataSource {
-  SupabaseSolicitudesClienteDataSource(
-    this._client, {
-    this.bucket = 'solicitudes',
-    ApiGatewayClient? gatewayClient,
-  }) : _gatewayClient = gatewayClient ?? ApiGatewayClient();
+  SolicitudesClienteRemoteDataSourceImpl(this._client, this._gateway);
+
+  static const rutaCrear = '/api/v1/core/solicitudes';
 
   final SupabaseClient _client;
-  final String bucket;
-  final ApiGatewayClient _gatewayClient;
+  final GatewayClient _gateway;
 
-  @override
-  Future<List<Map<String, dynamic>>> listarCategorias() async {
-    final res = await _gatewayClient.get('/api/v1/core/catalog/categories');
-    final data = res['data'] ?? res['categories'] ?? res['categorias'];
-    if (data is List) {
-      return data
-          .map((e) => Map<String, dynamic>.from(e as Map))
-          .toList(growable: false);
+  Future<List<Map<String, dynamic>>> _lista(
+    String fn, [
+    Map<String, dynamic>? params,
+  ]) async {
+    final res = await _client.rpc(fn, params: params);
+    if (res is! List) {
+      return const [];
     }
-    return const [];
+    return res
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList(growable: false);
   }
 
   @override
-  Future<List<Map<String, dynamic>>> listarSitios() async {
-    final res = await _gatewayClient.get('/api/v1/core/sites');
-    final data = res['data'] ?? res['sitios'];
-    if (data is List) {
-      return data
-          .map((e) => Map<String, dynamic>.from(e as Map))
-          .toList(growable: false);
-    }
-    return const [];
-  }
+  Future<List<Map<String, dynamic>>> listarCategorias() =>
+      _lista('listar_categorias_cliente');
 
   @override
-  Future<List<Map<String, dynamic>>> buscarZonas(String texto) async {
-    final res = await _gatewayClient.get('/api/v1/core/zones/search?q=$texto');
-    final data = res['data'] ?? res['zonas'];
-    if (data is List) {
-      return data
-          .map((e) => Map<String, dynamic>.from(e as Map))
-          .toList(growable: false);
-    }
-    return const [];
-  }
+  Future<List<Map<String, dynamic>>> listarSitios() =>
+      _lista('listar_mis_sitios');
 
   @override
-  Future<void> subirFoto(String ruta, Uint8List bytes, String mime) async {
-    await _gatewayClient.post(
-      '/api/v1/core/storage/upload',
-      body: {
-        'bucket': bucket,
-        'path': ruta,
-        'bytes': base64Encode(bytes),
-        'mime': mime,
-      },
-    );
-  }
-
-  @override
-  Future<void> eliminarFotos(List<String> rutas) async {
-    await _gatewayClient.post(
-      '/api/v1/core/storage/remove',
-      body: {'bucket': bucket, 'paths': rutas},
-    );
-  }
+  Future<List<Map<String, dynamic>>> buscarZonas(String texto) =>
+      _lista('buscar_zonas_cliente', {'p_texto': texto});
 
   @override
   Future<Map<String, dynamic>> crear({
     required String categoriaId,
     required String descripcion,
-    required List<String> fotos,
+    required List<FotoAdjunta> fotos,
     required String claveIdempotencia,
     String? sitioId,
     String? direccion,
     String? zonaId,
   }) async {
-    final res = await _gatewayClient.post(
-      '/api/v1/core/requests',
-      body: {
-        'categoria_id': categoriaId,
+    final respuesta = await _gateway.postMultipart(
+      rutaCrear,
+      campos: {
+        'categoriaId': categoriaId,
         'descripcion': descripcion,
-        'fotos': fotos,
-        'clave_idempotencia': claveIdempotencia,
-        'sitio_id': ?sitioId,
+        'claveIdempotencia': claveIdempotencia,
+        'sitioId': ?sitioId,
         'direccion': ?direccion,
-        'zona_id': ?zonaId,
+        'zonaId': ?zonaId,
       },
+      archivos: [
+        for (var i = 0; i < fotos.length; i++)
+          ArchivoMultipart(
+            campo: 'fotos',
+            nombre: '${i + 1}.${fotos[i].extension}',
+            bytes: fotos[i].bytes,
+            tipoContenido: fotos[i].mime,
+          ),
+      ],
+      // Core es idempotente por claveIdempotencia: el GatewayClient puede
+      // reintentar ante red caída o 502/503/504 sin duplicar la solicitud.
+      headers: {GatewayClient.headerIdempotencyKey: claveIdempotencia},
     );
-    if (res['data'] is Map) {
-      return Map<String, dynamic>.from(res['data'] as Map);
+    final solicitud = respuesta['solicitud'];
+    if (solicitud is Map) {
+      return Map<String, dynamic>.from(solicitud);
     }
-    return res;
+    throw const FormatException('Respuesta inesperada de Core');
   }
 
   @override

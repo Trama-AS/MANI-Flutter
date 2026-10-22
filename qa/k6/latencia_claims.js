@@ -3,7 +3,7 @@
 // =====================================================================
 // Ticket: SCRUM-929 (CFG-12) · Subtarea: SCRUM-974
 // Ambiente: SOLO QA (proyecto Supabase hpsxdotaizzclkeufzct)
-// Requiere aplicados: supabase/poc-cfg12/10_hook_claims_tenant.sql (con el
+// Requiere aplicados: MANI-APIGateway/supabase/poc-cfg12/10_hook_claims_tenant.sql (con el
 //   hook registrado en Authentication > Hooks) y 20_seed_identidad.sql
 //
 // QUE MIDE, Y QUE NO

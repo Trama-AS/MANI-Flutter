@@ -287,4 +287,30 @@ void main() {
     expect(find.text('Aire acondicionado'), findsOneWidget);
     expect(repo.guardadas, hasLength(3));
   });
+
+  testWidgets(
+    'US-03.1.2: permite ocultar y reactivar una categoría desde su tarjeta',
+    (t) async {
+      final repo = _repoBase();
+      await _montar(t, repo);
+
+      expect(find.text('1 visible para clientes · 1 oculta'), findsOneWidget);
+
+      await _tocar(t, const ValueKey('toggle-estado-categoria-cat-plomería'));
+
+      expect(find.text('0 visibles para clientes · 2 ocultas'), findsOneWidget);
+      expect(
+        find.textContaining('los servicios en curso continúan sin cambios'),
+        findsOneWidget,
+      );
+
+      await _tocar(t, const ValueKey('toggle-estado-categoria-cat-plomería'));
+
+      expect(find.text('1 visible para clientes · 1 oculta'), findsOneWidget);
+      expect(
+        find.textContaining('Ya vuelve a aparecer en el catálogo'),
+        findsOneWidget,
+      );
+    },
+  );
 }

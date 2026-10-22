@@ -1,5 +1,7 @@
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:get_it/get_it.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:mani/core/network/gateway_client.dart';
 import 'package:mani/core/platform/url_opener.dart';
 import 'package:mani/features/auth/data/datasources/auth_remote_data_source.dart';
 import 'package:mani/features/auth/data/repositories/auth_repository_impl.dart';
@@ -9,6 +11,10 @@ import 'package:mani/features/auth/domain/usecases/register_cliente_usecase.dart
 import 'package:mani/features/auth/domain/usecases/register_aliado_usecase.dart';
 import 'package:mani/features/auth/domain/usecases/register_empresa_usecase.dart';
 import 'package:mani/features/auth/presentation/bloc/auth_cubit.dart';
+import 'package:mani/features/availability/data/datasources/disponibilidad_remote_datasource.dart';
+import 'package:mani/features/availability/data/repositories/disponibilidad_repository_impl.dart';
+import 'package:mani/features/availability/domain/repositories/i_disponibilidad_repository.dart';
+import 'package:mani/features/availability/presentation/bloc/disponibilidad_cubit.dart';
 import 'package:mani/features/profile_categories/data/datasources/categories_remote_datasource.dart';
 import 'package:mani/features/profile_categories/data/repositories/categories_repository_impl.dart';
 import 'package:mani/features/profile_categories/domain/repositories/i_categories_repository.dart';
@@ -41,6 +47,16 @@ import 'package:mani/features/services/requests/data/repositories/solicitudes_cl
 import 'package:mani/features/services/requests/domain/repositories/solicitudes_cliente_repository.dart';
 import 'package:mani/features/services/requests/domain/usecases/solicitud_usecases.dart';
 import 'package:mani/features/services/requests/presentation/bloc/crear_solicitud_cubit.dart';
+import 'package:mani/features/profiles/site_rules/data/reglas_sitio_remote_datasource.dart';
+import 'package:mani/features/profiles/site_rules/domain/usecases/reglas_sitio_usecases.dart';
+import 'package:mani/features/profiles/site_rules/presentation/bloc/reglas_sitio_cubit.dart';
+import 'package:mani/features/profiles/company_sites/data/sedes_empresa_remote_datasource.dart';
+import 'package:mani/features/profiles/company_sites/domain/usecases/sedes_empresa_usecases.dart';
+import 'package:mani/features/profiles/company_sites/presentation/bloc/sedes_empresa_cubit.dart';
+import 'package:mani/features/profiles/direct_employees/data/empleados_directos_remote_datasource.dart';
+import 'package:mani/features/profiles/own_profile/data/datasources/perfil_propio_remote_datasource.dart';
+import 'package:mani/features/profiles/direct_employees/domain/usecases/registrar_empleado_directo_usecase.dart';
+import 'package:mani/features/profiles/direct_employees/presentation/bloc/empleado_directo_cubit.dart';
 
 final sl = GetIt.instance; // sl = service locator
 
@@ -49,7 +65,23 @@ Future<void> init() async {
   sl.registerLazySingleton(() => Supabase.instance.client);
 
   // Core
-  // TODO: Network info, etc.
+  // Cliente del API Gateway (ADR-0019). El JWT lo sigue emitiendo
+  // Supabase Auth; aquí solo se lee de la sesión local.
+  sl.registerLazySingleton(
+    () => GatewayClient(
+      baseUrl: dotenv.maybeGet('API_GATEWAY_URL') ?? 'http://localhost:80',
+      tokenProvider: () async =>
+          sl<SupabaseClient>().auth.currentSession?.accessToken,
+      onTokenExpired: () async {
+        try {
+          final res = await sl<SupabaseClient>().auth.refreshSession();
+          return res.session != null;
+        } catch (_) {
+          return false;
+        }
+      },
+    ),
+  );
   sl.registerLazySingleton<UrlOpener>(() => const UrlLauncherOpener());
   sl.registerLazySingleton<SelectorFotos>(
     () => const FilePickerSelectorFotos(),
@@ -79,7 +111,7 @@ Future<void> init() async {
 
   // Data sources
   sl.registerLazySingleton<IAuthRemoteDataSource>(
-    () => AuthRemoteDataSource(client: sl()),
+    () => AuthRemoteDataSource(client: sl(), gateway: sl()),
   );
 
   // Features - Profile Categories
@@ -105,6 +137,16 @@ Future<void> init() async {
   // Data sources
   sl.registerLazySingleton<CategoriesRemoteDataSource>(
     () => SupabaseCategoriesDataSource(sl()),
+  );
+
+  // Features - Availability (US-02.1.6). Va por el Gateway: Core Node expone
+  // /profiles/me/unavailability y resuelve tenant y aliado desde el JWT.
+  sl.registerFactory(() => DisponibilidadCubit(repository: sl()));
+  sl.registerLazySingleton<IDisponibilidadRepository>(
+    () => DisponibilidadRepositoryImpl(remoteDataSource: sl()),
+  );
+  sl.registerLazySingleton<DisponibilidadRemoteDataSource>(
+    () => GatewayDisponibilidadDataSource(sl()),
   );
 
   // Features - Profiles / Coverage (US-02.1.4)
@@ -137,15 +179,18 @@ Future<void> init() async {
     () => SupabaseVerificacionDataSource(sl()),
   );
 
-  // Features - Services / Categories (US-03.1.1)
-  sl.registerFactory(() => CategoriasCubit(listar: sl(), crear: sl()));
+  // Features - Services / Categories (US-03.1.1 / US-03.1.2)
+  sl.registerFactory(
+    () => CategoriasCubit(listar: sl(), crear: sl(), cambiarEstado: sl()),
+  );
   sl.registerLazySingleton(() => ListarCategorias(sl()));
   sl.registerLazySingleton(() => CrearCategoria(sl()));
+  sl.registerLazySingleton(() => CambiarEstadoCategoria(sl()));
   sl.registerLazySingleton<CategoriasRepository>(
     () => CategoriasRepositoryImpl(sl()),
   );
   sl.registerLazySingleton<CategoriasRemoteDataSource>(
-    () => SupabaseCategoriasDataSource(sl()),
+    () => GatewayCategoriasDataSource(sl(), sesion: sl()),
   );
 
   // Features - Asignación / Aceptar-rechazar solicitud (US-04.1.4)
@@ -177,6 +222,47 @@ Future<void> init() async {
     () => SolicitudesClienteRepositoryImpl(sl()),
   );
   sl.registerLazySingleton<SolicitudesClienteRemoteDataSource>(
-    () => SupabaseSolicitudesClienteDataSource(sl()),
+    () => SolicitudesClienteRemoteDataSourceImpl(sl(), sl()),
+  );
+
+  // Features - Profiles / Reglas de Sitio (US-02.2.3 / SCRUM-853)
+  sl.registerFactory(
+    () => ReglasSitioCubit(obtenerUseCase: sl(), configurarUseCase: sl()),
+  );
+  sl.registerLazySingleton(() => ObtenerReglasSitioUseCase(sl()));
+  sl.registerLazySingleton(() => ConfigurarReglasSitioUseCase(sl()));
+  sl.registerLazySingleton<IReglasSitioRepository>(
+    () => ReglasSitioRepositoryImpl(remoteDataSource: sl()),
+  );
+  sl.registerLazySingleton<IReglasSitioRemoteDataSource>(
+    () => ReglasSitioRemoteDataSource(gateway: sl()),
+  );
+
+  // Features - Profiles / Perfil propio (US-02.3.1 / SCRUM-854): habla con Core por el Gateway.
+  sl.registerLazySingleton<PerfilPropioRemoteDataSource>(
+    () => GatewayPerfilPropioDataSource(sl()),
+  );
+
+  // Features - Profiles / Sedes Empresa (US-02.2.2 / SCRUM-852)
+  sl.registerFactory(
+    () => SedesEmpresaCubit(listarUseCase: sl(), agregarUseCase: sl()),
+  );
+  sl.registerLazySingleton(() => ListarSedesEmpresaUseCase(sl()));
+  sl.registerLazySingleton(() => AgregarSedeEmpresaUseCase(sl()));
+  sl.registerLazySingleton<ISedesEmpresaRepository>(
+    () => SedesEmpresaRepositoryImpl(remoteDataSource: sl()),
+  );
+  sl.registerLazySingleton<ISedesEmpresaRemoteDataSource>(
+    () => SedesEmpresaRemoteDataSource(gateway: sl()),
+  );
+
+  // Features - Profiles / Empleados Directos (US-02.1.5 / SCRUM-850)
+  sl.registerFactory(() => EmpleadoDirectoCubit(registrarUseCase: sl()));
+  sl.registerLazySingleton(() => RegistrarEmpleadoDirectoUseCase(sl()));
+  sl.registerLazySingleton<IEmpleadosDirectosRepository>(
+    () => EmpleadosDirectosRepositoryImpl(remoteDataSource: sl()),
+  );
+  sl.registerLazySingleton<IEmpleadosDirectosRemoteDataSource>(
+    () => EmpleadosDirectosRemoteDataSource(gateway: sl()),
   );
 }

@@ -10,9 +10,9 @@ política `kyc_isolation` sobre `storage.objects`. El informe va a `Trama-AS/MAN
 
 | # | Qué | Dónde |
 | --- | --- | --- |
-| 1 | Terreno (solo lectura) | `supabase/poc-cfg13/00_verificar_terreno.sql`, SQL Editor |
-| 2 | Bucket y política (SCRUM-977) | `supabase/poc-cfg13/10_bucket_kyc.sql`, SQL Editor |
-| 3 | Rutas de `documento_kyc` alineadas con ADR-0013 | `supabase/poc-cfg13/20_seed_storage.sql`, SQL Editor |
+| 1 | Terreno (solo lectura) | `MANI-APIGateway/supabase/poc-cfg13/00_verificar_terreno.sql`, SQL Editor |
+| 2 | Bucket y política (SCRUM-977) | `MANI-APIGateway/supabase/poc-cfg13/10_bucket_kyc.sql`, SQL Editor |
+| 3 | Rutas de `documento_kyc` alineadas con ADR-0013 | `MANI-APIGateway/supabase/poc-cfg13/20_seed_storage.sql`, SQL Editor |
 | 4 | Fixtures: cada aliado sube su cédula (SCRUM-978) | `node qa/storage/cargar_kyc.mjs` |
 | 5 | Tiempo de carga (SCRUM-979) | `node qa/storage/bench_carga.mjs` |
 | 6 | Acceso cruzado (SCRUM-980) | carpeta `06 caso 6` de `qa/newman/mani-aislamiento.postman_collection.json` |

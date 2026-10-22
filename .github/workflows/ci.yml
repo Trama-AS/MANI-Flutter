@@ -1,11 +1,29 @@
-name: CI - Production Validation (main)
+name: CI - Flutter (lint, pruebas, SonarQube Cloud y build)
+
+# Lint, pruebas con cobertura, análisis de SonarQube Cloud con espera del Quality
+# Gate (ADR-0005) y build web. SonarQube Community de la VM de Calidad no analiza
+# Dart; por eso Flutter usa SonarQube Cloud (organización trama-as, proyecto
+# Trama-AS_MANI-Flutter), que sí analiza ramas y pull requests.
+#
+# El plan gratuito de SonarQube Cloud solo analiza la rama principal del proyecto,
+# configurada como develop; por eso el push solo dispara en develop. release y
+# main quedan cubiertas por el análisis de los PRs que llegan a ellas.
+#
+# Requisito: secreto SONAR_TOKEN del repositorio con un token de SonarQube Cloud.
+# Tiene prioridad sobre el SONAR_TOKEN de la organización, que es del servidor
+# self-hosted y no sirve aquí.
 
 on:
   pull_request:
-    branches: [ main ]
+    branches: [ develop, release, main ]
   push:
-    branches: [ main ]
+    branches: [ develop ]
   workflow_dispatch:
+
+# En PR se cancela la corrida anterior; en push cada commit conserva su análisis.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   validate:
@@ -39,18 +57,28 @@ jobs:
       - name: Run widget & unit tests with coverage
         run: flutter test --coverage
 
-      # - name: SonarQube Scan
-      #   uses: sonarsource/sonarqube-scan-action@v4
-      #   env:
-      #     SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-      #     SONAR_HOST_URL: https://sonarcloud.io
+      # Los PRs desde forks no reciben secretos: el job falla aquí en vez de
+      # pasar sin análisis.
+      - name: Verificar token de SonarQube Cloud
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          if [ -z "$SONAR_TOKEN" ]; then
+            echo "::error::SONAR_TOKEN no está disponible (secreto faltante o PR desde un fork)."
+            exit 1
+          fi
 
-      # - name: SonarQube Quality Gate Check
-      #   uses: sonarsource/sonarqube-quality-gate-action@v1
-      #   timeout-minutes: 5
-      #   env:
-      #     SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-      #     SONAR_HOST_URL: https://sonarcloud.io
+      # v8.2.2 fijada por SHA del tag (ba9859e). Espera el Quality Gate: si falla,
+      # falla el job y el check requerido del ruleset.
+      - name: Análisis de SonarQube Cloud y espera del Quality Gate
+        uses: sonarsource/sonarqube-scan-action@ba9859eae8dd6bd29e412f25ddbbef3d032000f4
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: https://sonarcloud.io
+        with:
+          args: >
+            -Dsonar.qualitygate.wait=true
+            -Dsonar.qualitygate.timeout=300
 
       - name: Verify Web Build
         run: flutter build web --release

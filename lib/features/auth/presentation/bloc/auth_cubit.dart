@@ -39,6 +39,9 @@ class AuthCubit extends Cubit<AuthState> {
     }
   }
 
+  static const String mensajeTerminosObligatorios =
+      'Debes aceptar los Términos y Condiciones y la Política de Datos Personales para registrarte.';
+
   Future<void> registerCliente({
     required String email,
     required String password,
@@ -46,7 +49,12 @@ class AuthCubit extends Cubit<AuthState> {
     required String tenantId,
     String? telefono,
     String? direccionHogar,
+    required bool aceptaTerminos,
   }) async {
+    if (!aceptaTerminos) {
+      emit(const AuthError(message: mensajeTerminosObligatorios));
+      return;
+    }
     emit(AuthLoading());
     try {
       final result = await registerClienteUseCase(
@@ -72,7 +80,12 @@ class AuthCubit extends Cubit<AuthState> {
     required String tenantId,
     required String categoriaId,
     required List<Map<String, String>> documentosKYC,
+    required bool aceptaTerminos,
   }) async {
+    if (!aceptaTerminos) {
+      emit(const AuthError(message: mensajeTerminosObligatorios));
+      return;
+    }
     emit(AuthLoading());
     try {
       final result = await registerAliadoUseCase(
@@ -102,7 +115,12 @@ class AuthCubit extends Cubit<AuthState> {
     String? telefonoContacto,
     String? categoriaId,
     required List<Map<String, String>> documentosKYC,
+    required bool aceptaTerminos,
   }) async {
+    if (!aceptaTerminos) {
+      emit(const AuthError(message: mensajeTerminosObligatorios));
+      return;
+    }
     emit(AuthLoading());
     try {
       final result = await registerEmpresaUseCase(
