@@ -20,6 +20,16 @@ abstract class IAuthRemoteDataSource {
     String? direccionHogar,
   });
 
+  Future<Map<String, dynamic>> registrarClienteEmpresa({
+    required String email,
+    required String password,
+    required String razonSocial,
+    required String nit,
+    required String nombreRepresentante,
+    required String tenantId,
+    String? telefono,
+  });
+
   Future<Map<String, dynamic>> registrarAliadoPersonaNatural({
     required String email,
     required String password,
@@ -82,6 +92,11 @@ class AuthRemoteDataSource implements IAuthRemoteDataSource {
   /// para Aliado (mismo authIdentityService del lado del servicio).
   static const rutaRegistroClientePersonaNatural =
       '/api/v1/core/auth/register/client';
+
+  /// Registro de cliente empresa en Core Node (HU-M02-07): NIT y representante
+  /// legal, sin sitios; las sedes se administran después, ya con sesión (M-03).
+  static const rutaRegistroClienteEmpresa =
+      '/api/v1/core/auth/register/client/company';
 
   /// Resuelve el tenant antes de autenticarse (ADR-0018). No autoriza nada:
   /// Core toma el tenant definitivo del JWT que emite tras el registro.
@@ -210,6 +225,46 @@ class AuthRemoteDataSource implements IAuthRemoteDataSource {
       'rol': respuesta['profile']?['role'],
       'estado': respuesta['profile']?['status'],
       'mensaje': 'Cuenta de cliente creada exitosamente.',
+    };
+  }
+
+  @override
+  Future<Map<String, dynamic>> registrarClienteEmpresa({
+    required String email,
+    required String password,
+    required String razonSocial,
+    required String nit,
+    required String nombreRepresentante,
+    required String tenantId,
+    String? telefono,
+  }) async {
+    // El tenant va solo en X-Tenant-Slug (ADR-0018). Core registra la
+    // aceptación de términos en la misma operación, por eso se envía
+    // acceptsTerms (el cubit ya exige la casilla) y no se llama después a
+    // /legal/consents, que la duplicaría.
+    final campos = <String, dynamic>{
+      'email': email.trim(),
+      'password': password,
+      'razonSocial': razonSocial.trim(),
+      'nit': nit.trim(),
+      'nombreRepresentante': nombreRepresentante.trim(),
+      'phone': ?_texto(telefono),
+      'acceptsTerms': true,
+    };
+
+    final respuesta = await gateway.postJson(
+      rutaRegistroClienteEmpresa,
+      campos,
+      headers: {headerTenantSlug: tenantId},
+    );
+
+    return {
+      ...respuesta,
+      'success': true,
+      'usuario_id': respuesta['profile']?['id'],
+      'rol': respuesta['profile']?['role'],
+      'estado': respuesta['profile']?['status'],
+      'mensaje': 'Cuenta de cliente empresa creada exitosamente.',
     };
   }
 

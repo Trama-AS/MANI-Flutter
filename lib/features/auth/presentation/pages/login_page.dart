@@ -540,6 +540,41 @@ class _LoginViewState extends State<_LoginView> {
         ),
         const SizedBox(height: 10),
 
+        // Botón 1b: Registrar mi empresa como cliente (HU-M02-07)
+        GestureDetector(
+          onTap: () => context.go('/register-cliente-empresa'),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+            decoration: BoxDecoration(
+              color: AppTheme.surface,
+              borderRadius: BorderRadius.circular(AppTheme.radiusXl),
+              border: Border.all(color: AppTheme.dark, width: 1.5),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.apartment_outlined,
+                  color: AppTheme.dark,
+                  size: 18,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'REGISTRAR MI EMPRESA COMO CLIENTE',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.4,
+                    color: AppTheme.dark,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+
         // Botón 2: Registrarme como Aliado Técnico
         GestureDetector(
           onTap: () => context.go('/register-aliado'),

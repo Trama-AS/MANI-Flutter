@@ -6,6 +6,7 @@ import 'package:mani/features/auth/domain/usecases/login_usecase.dart';
 import 'package:mani/features/auth/domain/usecases/register_aliado_usecase.dart';
 import 'package:mani/features/auth/domain/usecases/register_cliente_usecase.dart';
 import 'package:mani/features/auth/domain/usecases/register_empresa_usecase.dart';
+import 'package:mani/features/auth/domain/usecases/register_cliente_empresa_usecase.dart';
 import 'package:mani/features/auth/presentation/bloc/auth_cubit.dart';
 import 'package:mani/features/auth/presentation/widgets/documento_legal_modal.dart';
 import 'package:mani/features/auth/presentation/widgets/terminos_condiciones_section.dart';
@@ -32,6 +33,20 @@ class _FakeAuthRepository implements IAuthRepository {
   }) async {
     llamadasRegistro++;
     return {'success': true, 'usuario_id': 'u-1'};
+  }
+
+  @override
+  Future<Map<String, dynamic>> registrarClienteEmpresa({
+    required String email,
+    required String password,
+    required String razonSocial,
+    required String nit,
+    required String nombreRepresentante,
+    required String tenantId,
+    String? telefono,
+  }) async {
+    llamadasRegistro++;
+    return {'success': true, 'usuario_id': 'u-2'};
   }
 
   @override
@@ -173,6 +188,7 @@ void main() {
             registerClienteUseCase: RegisterClienteUseCase(repo),
             registerAliadoUseCase: RegisterAliadoUseCase(repo),
             registerEmpresaUseCase: RegisterEmpresaUseCase(repo),
+            registerClienteEmpresaUseCase: RegisterClienteEmpresaUseCase(repo),
           );
 
           await cubit.registerCliente(
