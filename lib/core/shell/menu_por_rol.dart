@@ -14,6 +14,12 @@ class EntradaMenu {
   final String ruta;
 }
 
+const _inicio = EntradaMenu(
+  etiqueta: 'Inicio',
+  icono: Icons.home_outlined,
+  ruta: '/inicio',
+);
+
 const _miPerfil = EntradaMenu(
   etiqueta: 'Mi perfil',
   icono: Icons.person_outline,
@@ -29,6 +35,7 @@ List<EntradaMenu> entradasMenuPara(RolUsuario rol) {
   switch (rol) {
     case RolUsuario.cliente:
       return const [
+        _inicio,
         EntradaMenu(
           etiqueta: 'Nueva solicitud',
           icono: Icons.add_circle_outline,
@@ -43,6 +50,7 @@ List<EntradaMenu> entradasMenuPara(RolUsuario rol) {
       ];
     case RolUsuario.aliado:
       return const [
+        _inicio,
         EntradaMenu(
           etiqueta: 'Solicitudes',
           icono: Icons.inbox_outlined,
@@ -72,6 +80,7 @@ List<EntradaMenu> entradasMenuPara(RolUsuario rol) {
       ];
     case RolUsuario.adminTenant:
       return const [
+        _inicio,
         EntradaMenu(
           etiqueta: 'Verificación de aliados',
           icono: Icons.verified_user_outlined,
@@ -85,7 +94,7 @@ List<EntradaMenu> entradasMenuPara(RolUsuario rol) {
         _miPerfil,
       ];
     case RolUsuario.desconocido:
-      return const [_miPerfil];
+      return const [_inicio, _miPerfil];
   }
 }
 

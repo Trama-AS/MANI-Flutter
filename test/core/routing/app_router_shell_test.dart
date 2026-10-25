@@ -14,6 +14,8 @@ import 'package:mani/core/shell/app_shell.dart';
 import 'package:mani/core/shell/datos_sesion.dart';
 import 'package:mani/core/shell/menu_por_rol.dart';
 import 'package:mani/features/auth/domain/repositories/i_auth_repository.dart';
+import 'package:mani/features/home/data/resumen_inicio.dart';
+import 'package:mani/features/home/presentation/pages/inicio_page.dart';
 import 'package:mani/features/profiles/coverage/presentation/controllers/cobertura_controller.dart';
 import 'package:mani/features/profiles/own_profile/data/datasources/perfil_propio_remote_datasource.dart';
 import 'package:mani/features/profiles/own_profile/domain/entities/perfil_propio.dart';
@@ -40,6 +42,11 @@ class _FuenteFija implements FuenteDatosSesion {
   @override
   Future<DatosSesion> cargar() async =>
       const DatosSesion(nombreUsuario: 'Ana Pérez', nombreTenant: 'Tenant A');
+}
+
+class _ResumenFijo implements FuenteResumenInicio {
+  @override
+  Future<List<IndicadorResumen>> cargar(RolUsuario rol) async => const [];
 }
 
 class _AuthFalso implements IAuthRepository {
@@ -110,6 +117,7 @@ String _sesionJson(String rol) {
 
 /// Rutas con sesión que deben quedar dentro del menú superior.
 const _rutasConSesion = {
+  '/inicio',
   '/categories',
   '/aliado/cobertura',
   '/sitios/:id/reglas',
@@ -143,6 +151,7 @@ void main() {
     sl.registerSingleton<IAuthRepository>(auth);
     sl.registerSingleton<PerfilPropioRemoteDataSource>(_PerfilFalso());
     sl.registerSingleton<SelectorFotos>(_SelectorSinFotos());
+    sl.registerSingleton<FuenteResumenInicio>(_ResumenFijo());
     sl.registerFactory(() => CoberturaController(FakeCoberturaRepository()));
   });
 
@@ -264,7 +273,7 @@ void main() {
       tester.view.physicalSize = const Size(1280, 900);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
-      // Sin rol reconocible el inicio es el perfil, que se puede pintar con
+      // Sin rol reconocible el inicio solo muestra el perfil; se pinta con
       // los fakes registrados arriba.
       await tester.runAsync(
         () => Supabase.instance.client.auth.recoverSession(
@@ -276,11 +285,10 @@ void main() {
       await tester.pumpWidget(MaterialApp.router(routerConfig: appRouter));
       await tester.pumpAndSettle();
 
-      expect(
-        appRouter.routeInformationProvider.value.uri.path,
-        '/perfil/editar',
-      );
+      expect(appRouter.routeInformationProvider.value.uri.path, '/inicio');
       expect(find.byType(AppShell), findsOneWidget);
+      expect(find.byType(InicioPage), findsOneWidget);
+      expect(find.byKey(const Key('inicio-sin-rol')), findsOneWidget);
     });
 
     test('un 401 sin refresco posible cierra la sesión local', () async {

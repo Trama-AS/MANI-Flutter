@@ -23,47 +23,60 @@ void main() {
       expect(_redirigir('/perfil/editar', haySesion: false), rutaLogin);
     });
 
-    test('las rutas públicas no se redirigen, haya o no sesión', () {
+    test('los registros no se redirigen, haya o no sesión', () {
       expect(_redirigir('/login', esPublica: true, haySesion: false), isNull);
       expect(_redirigir('/register-cliente', esPublica: true), isNull);
+      expect(
+        _redirigir('/register-cliente', esPublica: true, haySesion: false),
+        isNull,
+      );
+    });
+
+    test('con sesión, el login lleva al inicio (SCRUM-1446)', () {
+      for (final rol in RolUsuario.values) {
+        expect(
+          _redirigir(rutaLogin, esPublica: true, rol: rol),
+          rutaInicio,
+          reason: '$rol',
+        );
+      }
     });
   });
 
   group('US-11.2.2 (SCRUM-1445) — guardas por rol', () {
     test('un cliente que abre una ruta de admin vuelve a su inicio', () {
+      expect(rutaInicioPara(RolUsuario.cliente), rutaInicio);
       expect(
         _redirigir('/admin/categorias', rol: RolUsuario.cliente),
-        '/cliente/solicitudes/nueva',
+        rutaInicio,
       );
     });
 
     test('un aliado no abre rutas de admin ni de cliente', () {
       expect(
         _redirigir('/admin/verificacion-aliados', rol: RolUsuario.aliado),
-        '/aliado/solicitudes',
+        rutaInicio,
       );
-      expect(
-        _redirigir('/cliente/sedes', rol: RolUsuario.aliado),
-        '/aliado/solicitudes',
-      );
+      expect(_redirigir('/cliente/sedes', rol: RolUsuario.aliado), rutaInicio);
     });
 
     test('un admin no abre rutas de aliado ni de cliente', () {
       expect(
         _redirigir('/aliado/cobertura', rol: RolUsuario.adminTenant),
-        '/admin/verificacion-aliados',
+        rutaInicio,
       );
       expect(
         _redirigir('/categories', rol: RolUsuario.adminTenant),
-        '/admin/verificacion-aliados',
+        rutaInicio,
       );
     });
 
-    test('sin rol reconocible solo se llega al perfil', () {
+    test('sin rol reconocible solo se llega al inicio y al perfil', () {
       expect(
         _redirigir('/admin/categorias', rol: RolUsuario.desconocido),
-        '/perfil/editar',
+        rutaInicio,
       );
+      expect(_redirigir(rutaInicio, rol: RolUsuario.desconocido), isNull);
       expect(_redirigir('/perfil/editar', rol: RolUsuario.desconocido), isNull);
     });
 
@@ -77,16 +90,13 @@ void main() {
       }
       expect(
         _redirigir('/sitios/s-1/reglas', rol: RolUsuario.desconocido),
-        '/perfil/editar',
+        rutaInicio,
       );
     });
 
     test('una ruta con sesión que no está en la tabla se niega', () {
       expect(rolPuedeAbrir(RolUsuario.adminTenant, '/nueva-pantalla'), isFalse);
-      expect(
-        _redirigir('/nueva-pantalla', rol: RolUsuario.aliado),
-        '/aliado/solicitudes',
-      );
+      expect(_redirigir('/nueva-pantalla', rol: RolUsuario.aliado), rutaInicio);
     });
 
     test('cada rol puede abrir todas las entradas de su propio menú', () {

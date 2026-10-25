@@ -78,6 +78,7 @@ void main() {
       expect(rolDesdeClaim(null), RolUsuario.desconocido);
       expect(rolDesdeClaim('superusuario'), RolUsuario.desconocido);
       expect(entradasMenuPara(RolUsuario.desconocido).map((e) => e.ruta), [
+        '/inicio',
         '/perfil/editar',
       ]);
     });
@@ -143,8 +144,9 @@ void main() {
       expect(r.any((x) => x.startsWith('/aliado')), isFalse);
     });
 
-    test('todos los roles conocidos tienen acceso a su perfil', () {
+    test('todos los roles tienen inicio primero y acceso a su perfil', () {
       for (final rol in RolUsuario.values) {
+        expect(entradasMenuPara(rol).first.ruta, '/inicio', reason: '$rol');
         expect(rutas(rol), contains('/perfil/editar'), reason: '$rol');
       }
     });
