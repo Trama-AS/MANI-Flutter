@@ -41,4 +41,19 @@ void main() {
     }
     expect(conUuid, isEmpty);
   });
+
+  test('ninguna pantalla fija UUID de la semilla (tenants o categorías)', () {
+    final uuid = RegExp(
+      r"'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'",
+    );
+    final conUuid = <String>[];
+    for (final f in Directory('lib/features').listSync(recursive: true)) {
+      if (f is! File || !f.path.contains('/presentation/')) continue;
+      final lineas = f.readAsLinesSync();
+      for (var i = 0; i < lineas.length; i++) {
+        if (uuid.hasMatch(lineas[i])) conUuid.add('${f.path}:${i + 1}');
+      }
+    }
+    expect(conUuid, isEmpty);
+  });
 }
