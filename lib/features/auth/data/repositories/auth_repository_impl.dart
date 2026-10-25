@@ -5,6 +5,7 @@ import 'package:mani/features/auth/domain/entities/user_entity.dart';
 import 'package:mani/features/auth/domain/repositories/i_auth_repository.dart';
 import 'package:mani/features/auth/data/datasources/auth_remote_data_source.dart';
 import 'package:mani/features/auth/data/models/user_model.dart';
+import 'package:mani/features/auth/domain/entities/registro_cliente_empresa.dart';
 
 /// Implementación del repositorio de autenticación.
 ///
@@ -64,25 +65,11 @@ class AuthRepositoryImpl implements IAuthRepository {
   }
 
   @override
-  Future<Map<String, dynamic>> registrarClienteEmpresa({
-    required String email,
-    required String password,
-    required String razonSocial,
-    required String nit,
-    required String nombreRepresentante,
-    required String tenantId,
-    String? telefono,
-  }) async {
+  Future<Map<String, dynamic>> registrarClienteEmpresa(
+    RegistroClienteEmpresa datos,
+  ) async {
     try {
-      return await remoteDataSource.registrarClienteEmpresa(
-        email: email,
-        password: password,
-        razonSocial: razonSocial,
-        nit: nit,
-        nombreRepresentante: nombreRepresentante,
-        tenantId: tenantId,
-        telefono: telefono,
-      );
+      return await remoteDataSource.registrarClienteEmpresa(datos);
     } on GatewayException catch (e) {
       throw AuthFailure(e.message);
     } catch (e) {

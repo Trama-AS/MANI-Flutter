@@ -11,26 +11,21 @@ import 'package:mani/features/auth/domain/usecases/register_empresa_usecase.dart
 import 'package:mani/features/auth/presentation/bloc/auth_cubit.dart';
 import 'package:mani/features/auth/presentation/pages/registro_cliente_empresa_page.dart';
 import 'package:mani/features/auth/presentation/validators/cliente_empresa_validators.dart';
+import 'package:mani/features/auth/domain/entities/registro_cliente_empresa.dart';
 
 class _FakeAuthRepository implements IAuthRepository {
   final List<Map<String, dynamic>> registrosEmpresa = [];
 
   @override
-  Future<Map<String, dynamic>> registrarClienteEmpresa({
-    required String email,
-    required String password,
-    required String razonSocial,
-    required String nit,
-    required String nombreRepresentante,
-    required String tenantId,
-    String? telefono,
-  }) async {
+  Future<Map<String, dynamic>> registrarClienteEmpresa(
+    RegistroClienteEmpresa datos,
+  ) async {
     registrosEmpresa.add({
-      'email': email,
-      'razonSocial': razonSocial,
-      'nit': nit,
-      'nombreRepresentante': nombreRepresentante,
-      'tenantId': tenantId,
+      'email': datos.email,
+      'razonSocial': datos.razonSocial,
+      'nit': datos.nit,
+      'nombreRepresentante': datos.nombreRepresentante,
+      'tenantId': datos.tenantId,
     });
     return {'success': true, 'usuario_id': 'u-1'};
   }
@@ -44,6 +39,15 @@ class _FakeAuthRepository implements IAuthRepository {
     required String password,
   }) => throw UnimplementedError();
 }
+
+const _datos = RegistroClienteEmpresa(
+  email: 'a@b.co',
+  password: 'Password123',
+  razonSocial: 'Andina',
+  nit: '900123456',
+  nombreRepresentante: 'Laura',
+  tenantId: 't',
+);
 
 AuthCubit _cubit(_FakeAuthRepository repo) => AuthCubit(
   loginUseCase: LoginUseCase(repo),
@@ -107,15 +111,7 @@ void main() {
       final repo = _FakeAuthRepository();
       final cubit = _cubit(repo);
 
-      await cubit.registerClienteEmpresa(
-        email: 'a@b.co',
-        password: 'Password123',
-        razonSocial: 'Andina',
-        nit: '900123456',
-        nombreRepresentante: 'Laura',
-        tenantId: 't',
-        aceptaTerminos: false,
-      );
+      await cubit.registerClienteEmpresa(_datos, aceptaTerminos: false);
 
       expect(cubit.state, isA<AuthError>());
       expect(repo.registrosEmpresa, isEmpty);
@@ -125,15 +121,7 @@ void main() {
       final repo = _FakeAuthRepository();
       final cubit = _cubit(repo);
 
-      await cubit.registerClienteEmpresa(
-        email: 'a@b.co',
-        password: 'Password123',
-        razonSocial: 'Andina',
-        nit: '900123456',
-        nombreRepresentante: 'Laura',
-        tenantId: 't',
-        aceptaTerminos: true,
-      );
+      await cubit.registerClienteEmpresa(_datos, aceptaTerminos: true);
 
       expect(cubit.state, isA<AuthRegistrationSuccess>());
       expect(repo.registrosEmpresa, hasLength(1));

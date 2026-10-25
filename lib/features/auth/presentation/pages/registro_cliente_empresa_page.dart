@@ -7,6 +7,7 @@ import 'package:mani/core/theme/app_theme.dart';
 import 'package:mani/features/auth/presentation/bloc/auth_cubit.dart';
 import 'package:mani/features/auth/presentation/validators/cliente_empresa_validators.dart';
 import 'package:mani/features/auth/presentation/widgets/terminos_condiciones_section.dart';
+import 'package:mani/features/auth/domain/entities/registro_cliente_empresa.dart';
 
 /// Registro de cliente empresa (HU-M02-07, RF-08): la empresa que contrata
 /// servicios crea su cuenta con NIT y representante legal. Las sedes no se
@@ -71,13 +72,15 @@ class _RegistroClienteEmpresaViewState
     }
 
     context.read<AuthCubit>().registerClienteEmpresa(
-      email: _emailController.text,
-      password: _passwordController.text,
-      razonSocial: _razonSocialController.text,
-      nit: ClienteEmpresaValidators.normalizarNit(_nitController.text),
-      nombreRepresentante: _representanteController.text,
-      tenantId: RegistroClienteEmpresaView.defaultTenantId,
-      telefono: _telefonoController.text,
+      RegistroClienteEmpresa(
+        email: _emailController.text,
+        password: _passwordController.text,
+        razonSocial: _razonSocialController.text,
+        nit: ClienteEmpresaValidators.normalizarNit(_nitController.text),
+        nombreRepresentante: _representanteController.text,
+        tenantId: RegistroClienteEmpresaView.defaultTenantId,
+        telefono: _telefonoController.text,
+      ),
       aceptaTerminos: _aceptaTerminos,
     );
   }

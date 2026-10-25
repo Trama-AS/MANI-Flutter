@@ -4,6 +4,7 @@ import 'package:mani/core/logging/structured_logger.dart';
 import 'package:mani/core/network/gateway_client.dart';
 import 'package:mani/core/network/gateway_exception.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:mani/features/auth/domain/entities/registro_cliente_empresa.dart';
 
 abstract class IAuthRemoteDataSource {
   Future<User> signInWithEmail({
@@ -20,15 +21,9 @@ abstract class IAuthRemoteDataSource {
     String? direccionHogar,
   });
 
-  Future<Map<String, dynamic>> registrarClienteEmpresa({
-    required String email,
-    required String password,
-    required String razonSocial,
-    required String nit,
-    required String nombreRepresentante,
-    required String tenantId,
-    String? telefono,
-  });
+  Future<Map<String, dynamic>> registrarClienteEmpresa(
+    RegistroClienteEmpresa datos,
+  );
 
   Future<Map<String, dynamic>> registrarAliadoPersonaNatural({
     required String email,
@@ -229,33 +224,27 @@ class AuthRemoteDataSource implements IAuthRemoteDataSource {
   }
 
   @override
-  Future<Map<String, dynamic>> registrarClienteEmpresa({
-    required String email,
-    required String password,
-    required String razonSocial,
-    required String nit,
-    required String nombreRepresentante,
-    required String tenantId,
-    String? telefono,
-  }) async {
+  Future<Map<String, dynamic>> registrarClienteEmpresa(
+    RegistroClienteEmpresa datos,
+  ) async {
     // El tenant va solo en X-Tenant-Slug (ADR-0018). Core registra la
     // aceptación de términos en la misma operación, por eso se envía
     // acceptsTerms (el cubit ya exige la casilla) y no se llama después a
     // /legal/consents, que la duplicaría.
     final campos = <String, dynamic>{
-      'email': email.trim(),
-      'password': password,
-      'razonSocial': razonSocial.trim(),
-      'nit': nit.trim(),
-      'nombreRepresentante': nombreRepresentante.trim(),
-      'phone': ?_texto(telefono),
+      'email': datos.email.trim(),
+      'password': datos.password,
+      'razonSocial': datos.razonSocial.trim(),
+      'nit': datos.nit.trim(),
+      'nombreRepresentante': datos.nombreRepresentante.trim(),
+      'phone': ?_texto(datos.telefono),
       'acceptsTerms': true,
     };
 
     final respuesta = await gateway.postJson(
       rutaRegistroClienteEmpresa,
       campos,
-      headers: {headerTenantSlug: tenantId},
+      headers: {headerTenantSlug: datos.tenantId},
     );
 
     return {

@@ -1,4 +1,5 @@
 import 'package:mani/features/auth/domain/entities/user_entity.dart';
+import 'package:mani/features/auth/domain/entities/registro_cliente_empresa.dart';
 
 abstract class IAuthRepository {
   Future<UserEntity> signInWithEmail({
@@ -15,15 +16,9 @@ abstract class IAuthRepository {
     String? direccionHogar,
   });
 
-  Future<Map<String, dynamic>> registrarClienteEmpresa({
-    required String email,
-    required String password,
-    required String razonSocial,
-    required String nit,
-    required String nombreRepresentante,
-    required String tenantId,
-    String? telefono,
-  });
+  Future<Map<String, dynamic>> registrarClienteEmpresa(
+    RegistroClienteEmpresa datos,
+  );
 
   Future<Map<String, dynamic>> registrarAliadoPersonaNatural({
     required String email,

@@ -10,6 +10,7 @@ import 'package:mani/features/auth/domain/usecases/register_cliente_empresa_usec
 import 'package:mani/features/auth/presentation/bloc/auth_cubit.dart';
 import 'package:mani/features/auth/presentation/widgets/documento_legal_modal.dart';
 import 'package:mani/features/auth/presentation/widgets/terminos_condiciones_section.dart';
+import 'package:mani/features/auth/domain/entities/registro_cliente_empresa.dart';
 
 class _FakeAuthRepository implements IAuthRepository {
   int llamadasRegistro = 0;
@@ -36,15 +37,9 @@ class _FakeAuthRepository implements IAuthRepository {
   }
 
   @override
-  Future<Map<String, dynamic>> registrarClienteEmpresa({
-    required String email,
-    required String password,
-    required String razonSocial,
-    required String nit,
-    required String nombreRepresentante,
-    required String tenantId,
-    String? telefono,
-  }) async {
+  Future<Map<String, dynamic>> registrarClienteEmpresa(
+    RegistroClienteEmpresa datos,
+  ) async {
     llamadasRegistro++;
     return {'success': true, 'usuario_id': 'u-2'};
   }

@@ -7,6 +7,7 @@ import 'package:mani/features/auth/domain/usecases/register_cliente_usecase.dart
 import 'package:mani/features/auth/domain/usecases/register_cliente_empresa_usecase.dart';
 import 'package:mani/features/auth/domain/usecases/register_aliado_usecase.dart';
 import 'package:mani/features/auth/domain/usecases/register_empresa_usecase.dart';
+import 'package:mani/features/auth/domain/entities/registro_cliente_empresa.dart';
 
 part 'auth_state.dart';
 
@@ -148,14 +149,8 @@ class AuthCubit extends Cubit<AuthState> {
 
   /// Registro de cliente empresa (HU-M02-07). Core registra la aceptación de
   /// términos en la misma operación, así que sin la casilla no se llama.
-  Future<void> registerClienteEmpresa({
-    required String email,
-    required String password,
-    required String razonSocial,
-    required String nit,
-    required String nombreRepresentante,
-    required String tenantId,
-    String? telefono,
+  Future<void> registerClienteEmpresa(
+    RegistroClienteEmpresa datos, {
     required bool aceptaTerminos,
   }) async {
     if (!aceptaTerminos) {
@@ -164,15 +159,7 @@ class AuthCubit extends Cubit<AuthState> {
     }
     emit(AuthLoading());
     try {
-      final result = await registerClienteEmpresaUseCase(
-        email: email,
-        password: password,
-        razonSocial: razonSocial,
-        nit: nit,
-        nombreRepresentante: nombreRepresentante,
-        tenantId: tenantId,
-        telefono: telefono,
-      );
+      final result = await registerClienteEmpresaUseCase(datos);
       emit(AuthRegistrationSuccess(result: result));
     } on AuthFailure catch (e) {
       emit(AuthError(message: e.message));

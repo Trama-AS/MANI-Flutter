@@ -8,6 +8,7 @@ import 'package:mani/features/auth/data/datasources/auth_remote_data_source.dart
 import 'package:mani/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:mani/features/auth/domain/entities/auth_failure.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:mani/features/auth/domain/entities/registro_cliente_empresa.dart';
 
 /// HU-M02-07: el registro de cliente empresa sale por el Gateway hacia Core
 /// (`/auth/register/client/company`), sin tocar Supabase y sin sitios.
@@ -41,13 +42,15 @@ void main() {
     IAuthRemoteDataSource ds, {
     String? telefono,
   }) => ds.registrarClienteEmpresa(
-    email: ' compras@andina.co ',
-    password: 'Secreta123!',
-    razonSocial: ' Constructora Andina SAS ',
-    nit: '900123456-7',
-    nombreRepresentante: ' Laura Gómez ',
-    tenantId: 'tenant-a',
-    telefono: telefono,
+    RegistroClienteEmpresa(
+      email: ' compras@andina.co ',
+      password: 'Secreta123!',
+      razonSocial: ' Constructora Andina SAS ',
+      nit: '900123456-7',
+      nombreRepresentante: ' Laura Gómez ',
+      tenantId: 'tenant-a',
+      telefono: telefono,
+    ),
   );
 
   Map<String, dynamic> cuerpo() =>
@@ -153,12 +156,14 @@ void main() {
       final repo = AuthRepositoryImpl(remoteDataSource: datasource());
       try {
         await repo.registrarClienteEmpresa(
-          email: 'a@b.co',
-          password: 'x',
-          razonSocial: 'R',
-          nit: '900123456',
-          nombreRepresentante: 'N',
-          tenantId: 't',
+          const RegistroClienteEmpresa(
+            email: 'a@b.co',
+            password: 'x',
+            razonSocial: 'R',
+            nit: '900123456',
+            nombreRepresentante: 'N',
+            tenantId: 't',
+          ),
         );
       } on AuthFailure catch (e) {
         return e;
