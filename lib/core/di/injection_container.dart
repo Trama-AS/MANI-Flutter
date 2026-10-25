@@ -31,6 +31,7 @@ import 'package:mani/features/profiles/verification/data/repositories/verificaci
 import 'package:mani/features/profiles/verification/domain/repositories/verificacion_aliados_repository.dart';
 import 'package:mani/features/profiles/verification/domain/usecases/verificacion_usecases.dart';
 import 'package:mani/features/profiles/verification/presentation/bloc/bandeja_verificacion_cubit.dart';
+import 'package:mani/features/services/categories/data/datasources/catalogo_publico_datasource.dart';
 import 'package:mani/features/services/categories/data/datasources/categorias_remote_datasource.dart';
 import 'package:mani/features/services/categories/data/repositories/categorias_repository_impl.dart';
 import 'package:mani/features/services/categories/domain/repositories/categorias_repository.dart';
@@ -192,6 +193,8 @@ Future<void> init() async {
   sl.registerLazySingleton<CategoriasRemoteDataSource>(
     () => GatewayCategoriasDataSource(sl(), sesion: sl()),
   );
+  // Catálogo público del tenant para los registros sin sesión (aliado y empresa).
+  sl.registerLazySingleton(() => CatalogoPublicoDataSource(sl()));
 
   // Features - Asignación / Aceptar-rechazar solicitud (US-04.1.4)
   sl.registerFactory(
