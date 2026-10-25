@@ -9,6 +9,7 @@ import 'package:mani/core/di/injection_container.dart';
 import 'package:mani/core/platform/selector_fotos.dart';
 import 'package:mani/core/routing/app_router.dart';
 import 'package:mani/core/session/rol_usuario.dart';
+import 'package:mani/core/session/sesion_expirada.dart';
 import 'package:mani/core/shell/app_shell.dart';
 import 'package:mani/core/shell/datos_sesion.dart';
 import 'package:mani/core/shell/menu_por_rol.dart';
@@ -254,5 +255,45 @@ void main() {
         );
       },
     );
+  });
+
+  group('US-11.2.2 (SCRUM-1445) — guardas sobre el router real', () {
+    testWidgets('con sesión, una ruta de otro rol redirige al inicio propio', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1280, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      // Sin rol reconocible el inicio es el perfil, que se puede pintar con
+      // los fakes registrados arriba.
+      await tester.runAsync(
+        () => Supabase.instance.client.auth.recoverSession(
+          _sesionJson('rol_inexistente'),
+        ),
+      );
+
+      appRouter.go('/admin/categorias');
+      await tester.pumpWidget(MaterialApp.router(routerConfig: appRouter));
+      await tester.pumpAndSettle();
+
+      expect(
+        appRouter.routeInformationProvider.value.uri.path,
+        '/perfil/editar',
+      );
+      expect(find.byType(AppShell), findsOneWidget);
+    });
+
+    test('un 401 sin refresco posible cierra la sesión local', () async {
+      final auth = Supabase.instance.client.auth;
+      await auth.recoverSession(_sesionJson('aliado'));
+      expect(auth.currentSession, isNotNull);
+
+      // El refresh token de prueba no existe en ningún servidor: el refresco
+      // falla y la sesión tiene que quedar cerrada.
+      final reintentar = await refrescarOCerrarSesion(auth);
+
+      expect(reintentar, isFalse);
+      expect(auth.currentSession, isNull);
+    });
   });
 }
