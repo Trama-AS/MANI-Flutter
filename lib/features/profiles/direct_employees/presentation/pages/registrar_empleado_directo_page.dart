@@ -1,22 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:mani/core/di/injection_container.dart';
 import 'package:mani/core/theme/app_theme.dart';
 import 'package:mani/features/profiles/direct_employees/presentation/bloc/empleado_directo_cubit.dart';
+import 'package:mani/features/services/categories/data/datasources/categorias_remote_datasource.dart';
 
 /// Pantalla de administración del Tenant para registrar empleados directos
 /// que quedan con estado `VERIFICADO` inmediato sin pasar por cola KYC (US-02.1.5 / SCRUM-850).
 class RegistrarEmpleadoDirectoPage extends StatefulWidget {
-  const RegistrarEmpleadoDirectoPage({
-    super.key,
-    this.categoriasDisponibles = const {
-      'd0eebc99-9c0b-4ef8-bb6d-6bb9bd380a18': 'Plomería y Redes Hidráulicas',
-      'd0eebc99-9c0b-4ef8-bb6d-6bb9bd380a19': 'Electricidad Residencial',
-      'd0eebc99-9c0b-4ef8-bb6d-6bb9bd380a20': 'Cerrajería y Seguridad',
-    },
-  });
+  const RegistrarEmpleadoDirectoPage({super.key, this.categoriasDisponibles});
 
-  final Map<String, String> categoriasDisponibles;
+  /// Categorías a mostrar (id -> nombre). Si es `null`, se cargan las
+  /// categorías activas del catálogo del tenant de la sesión
+  /// (`/api/v1/core/catalog/categories`); antes eran UUID fijos de la semilla
+  /// de desarrollo, que no existen en QA ni en otros tenants.
+  final Map<String, String>? categoriasDisponibles;
 
   @override
   State<RegistrarEmpleadoDirectoPage> createState() =>
@@ -32,6 +31,18 @@ class _RegistrarEmpleadoDirectoPageState
   final _telefonoController = TextEditingController();
 
   final Set<String> _categoriasSeleccionadas = {};
+  late Future<Map<String, String>> _categorias = _cargarCategorias();
+
+  Future<Map<String, String>> _cargarCategorias() async {
+    final dadas = widget.categoriasDisponibles;
+    if (dadas != null) return dadas;
+    final lista = await sl<CategoriasRemoteDataSource>().listar();
+    return {
+      for (final c in lista)
+        if (c['active'] != false && c['id'] is String && c['name'] is String)
+          c['id'] as String: c['name'] as String,
+    };
+  }
 
   @override
   void dispose() {
@@ -253,27 +264,75 @@ class _RegistrarEmpleadoDirectoPageState
             ),
           ),
           const SizedBox(height: 8),
-          ...widget.categoriasDisponibles.entries.map((entry) {
-            final seleccionado = _categoriasSeleccionadas.contains(entry.key);
-            return Material(
-              type: MaterialType.transparency,
-              child: CheckboxListTile(
-                key: Key('chk_categoria_${entry.key}'),
-                value: seleccionado,
-                title: Text(entry.value),
-                controlAffinity: ListTileControlAffinity.leading,
-                onChanged: (val) {
-                  setState(() {
-                    if (val == true) {
-                      _categoriasSeleccionadas.add(entry.key);
-                    } else {
-                      _categoriasSeleccionadas.remove(entry.key);
-                    }
-                  });
-                },
-              ),
-            );
-          }),
+          FutureBuilder<Map<String, String>>(
+            future: _categorias,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                  child: LinearProgressIndicator(
+                    key: Key('categorias_empleado_cargando'),
+                  ),
+                );
+              }
+              if (snapshot.hasError) {
+                return Row(
+                  key: const Key('categorias_empleado_error'),
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'No pudimos cargar las categorías del tenant.',
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        final nuevo = _cargarCategorias();
+                        setState(() {
+                          _categorias = nuevo;
+                        });
+                      },
+                      child: const Text('Reintentar'),
+                    ),
+                  ],
+                );
+              }
+              final categorias = snapshot.data ?? const <String, String>{};
+              if (categorias.isEmpty) {
+                return const Text(
+                  'El tenant aún no tiene categorías activas.',
+                  key: Key('categorias_empleado_vacias'),
+                );
+              }
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ...categorias.entries.map((entry) {
+                    final seleccionado = _categoriasSeleccionadas.contains(
+                      entry.key,
+                    );
+                    return Material(
+                      type: MaterialType.transparency,
+                      child: CheckboxListTile(
+                        key: Key('chk_categoria_${entry.key}'),
+                        value: seleccionado,
+                        title: Text(entry.value),
+                        controlAffinity: ListTileControlAffinity.leading,
+                        onChanged: (val) {
+                          setState(() {
+                            if (val == true) {
+                              _categoriasSeleccionadas.add(entry.key);
+                            } else {
+                              _categoriasSeleccionadas.remove(entry.key);
+                            }
+                          });
+                        },
+                      ),
+                    );
+                  }),
+                ],
+              );
+            },
+          ),
           const SizedBox(height: 20),
           ElevatedButton(
             key: const Key('btn_registrar_empleado_directo'),
