@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:mani/core/di/injection_container.dart';
+import 'package:mani/core/session/guardas_ruta.dart';
 import 'package:mani/core/session/rol_usuario.dart';
 import 'package:mani/core/shell/app_shell.dart';
 import 'package:mani/core/shell/datos_sesion.dart';
@@ -82,20 +83,22 @@ bool _isPublicPath(String path) {
 /// - `/admin/verificacion-aliados`: Bandeja de verificación del admin del tenant (US-02.1.3)
 /// - `/admin/categorias`: Catálogo de categorías de servicio del tenant (US-03.1.1)
 ///
-/// El `redirect` protege cualquier ruta que no esté en `_publicPaths`: si no
-/// hay sesión activa en Supabase, el usuario es enviado a `/login`. Las rutas
-/// de categorías, cobertura y verificación son privadas a propósito: solo un aliado o un
-/// administrador autenticados deben llegar a ellas; la autorización por rol
-/// la aplican, de todos modos, las RPC del servidor.
+/// El `redirect` protege cualquier ruta que no esté en `_publicPaths`: sin
+/// sesión activa en Supabase el usuario va a `/login`, y con sesión una ruta
+/// de otro rol lo devuelve al inicio del suyo (US-11.2.2 / SCRUM-1445,
+/// `guardas_ruta.dart`). La autorización por rol la aplica, de todos modos,
+/// el servidor con el token verificado.
 final appRouter = GoRouter(
   initialLocation: '/login',
   refreshListenable: _AuthChangeNotifier(),
   redirect: (context, state) {
-    final isLoggedIn = Supabase.instance.client.auth.currentSession != null;
-    if (!isLoggedIn && !_isPublicPath(state.matchedLocation)) {
-      return '/login';
-    }
-    return null;
+    final session = Supabase.instance.client.auth.currentSession;
+    return resolverRedireccion(
+      ubicacion: state.matchedLocation,
+      esPublica: _isPublicPath(state.matchedLocation),
+      haySesion: session != null,
+      rol: rolDesdeAccessToken(session?.accessToken),
+    );
   },
   routes: [
     GoRoute(path: '/', redirect: (context, state) => '/login'),

@@ -8,7 +8,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:mani/core/di/injection_container.dart';
 import 'package:mani/core/platform/selector_fotos.dart';
 import 'package:mani/core/routing/app_router.dart';
+import 'package:mani/core/session/guardas_ruta.dart';
 import 'package:mani/core/session/rol_usuario.dart';
+import 'package:mani/core/session/sesion_expirada.dart';
 import 'package:mani/core/shell/app_shell.dart';
 import 'package:mani/core/shell/datos_sesion.dart';
 import 'package:mani/core/shell/menu_por_rol.dart';
@@ -171,6 +173,7 @@ void main() {
           '/register-cliente',
           '/register-aliado',
           '/register-empresa',
+          '/register-cliente-empresa',
         ]),
       );
       expect(fuera.intersection(_rutasConSesion), isEmpty);
@@ -254,5 +257,85 @@ void main() {
         );
       },
     );
+  });
+
+  group('US-11.2.2 (SCRUM-1445) — guardas sobre el router real', () {
+    testWidgets('con sesión, una ruta de otro rol redirige al inicio propio', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1280, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      // Sin rol reconocible el inicio es el perfil, que se puede pintar con
+      // los fakes registrados arriba.
+      await tester.runAsync(
+        () => Supabase.instance.client.auth.recoverSession(
+          _sesionJson('rol_inexistente'),
+        ),
+      );
+
+      appRouter.go('/admin/categorias');
+      await tester.pumpWidget(MaterialApp.router(routerConfig: appRouter));
+      await tester.pumpAndSettle();
+
+      expect(
+        appRouter.routeInformationProvider.value.uri.path,
+        '/perfil/editar',
+      );
+      expect(find.byType(AppShell), findsOneWidget);
+    });
+
+    testWidgets(
+      'el registro de cliente empresa (#57) queda fuera de la tabla de roles',
+      (tester) async {
+        late BuildContext contexto;
+        await tester.pumpWidget(
+          Builder(
+            builder: (c) {
+              contexto = c;
+              return const SizedBox();
+            },
+          ),
+        );
+        const ubicacion = '/register-cliente-empresa';
+        final estado = GoRouterState(
+          appRouter.configuration,
+          uri: Uri.parse(ubicacion),
+          matchedLocation: ubicacion,
+          fullPath: ubicacion,
+          pathParameters: const {},
+          pageKey: const ValueKey(ubicacion),
+        );
+        Future<String?> redirigir() async =>
+            appRouter.configuration.topRedirect(contexto, estado);
+
+        // Con sesión de cualquier rol no redirige; como la tabla de roles no
+        // conoce la ruta, eso solo pasa si el router la trata como pública
+        // (y sin sesión las públicas nunca se redirigen: guardas_ruta_test).
+        for (final rol in ['cliente', 'aliado', 'admin_tenant']) {
+          await tester.runAsync(
+            () =>
+                Supabase.instance.client.auth.recoverSession(_sesionJson(rol)),
+          );
+          expect(await redirigir(), isNull, reason: 'con sesión de $rol');
+        }
+        for (final rol in RolUsuario.values) {
+          expect(rolPuedeAbrir(rol, ubicacion), isFalse, reason: '$rol');
+        }
+      },
+    );
+
+    test('un 401 sin refresco posible cierra la sesión local', () async {
+      final auth = Supabase.instance.client.auth;
+      await auth.recoverSession(_sesionJson('aliado'));
+      expect(auth.currentSession, isNotNull);
+
+      // El refresh token de prueba no existe en ningún servidor: el refresco
+      // falla y la sesión tiene que quedar cerrada.
+      final reintentar = await refrescarOCerrarSesion(auth);
+
+      expect(reintentar, isFalse);
+      expect(auth.currentSession, isNull);
+    });
   });
 }

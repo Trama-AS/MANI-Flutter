@@ -2,6 +2,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:get_it/get_it.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:mani/core/network/gateway_client.dart';
+import 'package:mani/core/session/sesion_expirada.dart';
 import 'package:mani/core/shell/datos_sesion.dart';
 import 'package:mani/core/platform/url_opener.dart';
 import 'package:mani/features/auth/data/datasources/auth_remote_data_source.dart';
@@ -75,14 +76,11 @@ Future<void> init() async {
       baseUrl: dotenv.maybeGet('API_GATEWAY_URL') ?? 'http://localhost:80',
       tokenProvider: () async =>
           sl<SupabaseClient>().auth.currentSession?.accessToken,
-      onTokenExpired: () async {
-        try {
-          final res = await sl<SupabaseClient>().auth.refreshSession();
-          return res.session != null;
-        } catch (_) {
-          return false;
-        }
-      },
+      // Ante un 401 se intenta refrescar una vez. Si no se puede, la sesión
+      // local se cierra y el `redirect` del router lleva al login
+      // (US-11.2.2 / SCRUM-1445): no se deja al usuario en una pantalla que
+      // ya no puede cargar nada.
+      onTokenExpired: () => refrescarOCerrarSesion(sl<SupabaseClient>().auth),
     ),
   );
   sl.registerLazySingleton<UrlOpener>(() => const UrlLauncherOpener());
