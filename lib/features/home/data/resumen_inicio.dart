@@ -28,11 +28,9 @@ abstract interface class FuenteResumenInicio {
 /// un fallo deja ese valor en `null`, así que un endpoint caído no tumba
 /// la pantalla de inicio.
 class GatewayResumenInicio implements FuenteResumenInicio {
-  GatewayResumenInicio(this._gateway, {required String? Function() usuarioId})
-    : _usuarioId = usuarioId;
+  GatewayResumenInicio(this._gateway);
 
   final GatewayClient _gateway;
-  final String? Function() _usuarioId;
 
   @override
   Future<List<IndicadorResumen>> cargar(RolUsuario rol) {
@@ -48,14 +46,14 @@ class GatewayResumenInicio implements FuenteResumenInicio {
     }
   }
 
+  /// Las sedes se piden con el alias `me` (MANI-Node#60): Core resuelve el
+  /// cliente empresa por el usuario del token. El id del usuario no sirve
+  /// aquí porque no es el id del cliente en Core (daba 404).
   Future<List<IndicadorResumen>> _cliente() async {
-    final id = _usuarioId();
-    final sedes = id == null
-        ? null
-        : await _leer(
-            '/api/v1/core/clients/$id/sites',
-            (r) => '${r['totalSitios'] ?? _largo(r['sitios']) ?? 0}',
-          );
+    final sedes = await _leer(
+      '/api/v1/core/clients/me/sites',
+      (r) => '${r['totalSitios'] ?? _largo(r['sitios']) ?? 0}',
+    );
     return [
       IndicadorResumen(
         etiqueta: 'Sedes registradas',

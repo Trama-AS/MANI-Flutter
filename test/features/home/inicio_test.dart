@@ -51,35 +51,46 @@ class _ResumenFijo implements FuenteResumenInicio {
 
 void main() {
   group('US-11.2.3 (SCRUM-1446) — resumen de inicio por el Gateway', () {
-    test('cliente: sedes registradas del propio cliente', () async {
+    test('cliente: sedes del cliente de la sesión con el alias me', () async {
       final rutas = <String>[];
       final fuente = GatewayResumenInicio(
         _gateway({
-          '/api/v1/core/clients/u-1/sites': {'totalSitios': 3, 'sitios': []},
+          '/api/v1/core/clients/me/sites': {'totalSitios': 3, 'sitios': []},
         }, consultadas: rutas),
-        usuarioId: () => 'u-1',
       );
 
       final r = await fuente.cargar(RolUsuario.cliente);
 
       expect(_valores(r), {'Sedes registradas': '3'});
       expect(r.single.ruta, '/cliente/sedes');
-      expect(rutas, ['/api/v1/core/clients/u-1/sites']);
+      expect(rutas, ['/api/v1/core/clients/me/sites']);
+    });
+
+    test('cliente sin totalSitios cuenta la lista de sitios', () async {
+      final fuente = GatewayResumenInicio(
+        _gateway({
+          '/api/v1/core/clients/me/sites': {
+            'sitios': [
+              {'id': 's-1'},
+              {'id': 's-2'},
+            ],
+          },
+        }),
+      );
+
+      final r = await fuente.cargar(RolUsuario.cliente);
+
+      expect(_valores(r), {'Sedes registradas': '2'});
     });
 
     test(
-      'cliente sin usuario en sesión no consulta y deja el valor vacío',
+      'cliente: si Core no devuelve las sedes, el valor queda vacío',
       () async {
-        final rutas = <String>[];
-        final fuente = GatewayResumenInicio(
-          _gateway({}, consultadas: rutas),
-          usuarioId: () => null,
-        );
+        final fuente = GatewayResumenInicio(_gateway({}));
 
         final r = await fuente.cargar(RolUsuario.cliente);
 
         expect(_valores(r), {'Sedes registradas': null});
-        expect(rutas, isEmpty);
       },
     );
 
@@ -99,7 +110,6 @@ void main() {
             ],
           },
         }),
-        usuarioId: () => 'u-1',
       );
 
       final r = await fuente.cargar(RolUsuario.aliado);
@@ -119,7 +129,6 @@ void main() {
             'data': <Object>[],
           },
         }),
-        usuarioId: () => 'u-1',
       );
 
       final r = await fuente.cargar(RolUsuario.aliado);
@@ -138,7 +147,6 @@ void main() {
           _gateway({
             '/api/v1/core/profiles/me/categories': {'data': <Object>[]},
           }),
-          usuarioId: () => 'u-1',
         );
 
         final r = await fuente.cargar(RolUsuario.aliado);
@@ -167,7 +175,6 @@ void main() {
               ],
             },
           }),
-          usuarioId: () => 'u-1',
         );
 
         final r = await fuente.cargar(RolUsuario.adminTenant);
@@ -184,7 +191,6 @@ void main() {
         _gateway({
           '/api/v1/core/aliados/verificacion': {'data': 'inesperado'},
         }),
-        usuarioId: () => 'u-1',
       );
 
       final r = await fuente.cargar(RolUsuario.adminTenant);
@@ -197,10 +203,7 @@ void main() {
 
     test('sin rol reconocible no se consulta nada', () async {
       final rutas = <String>[];
-      final fuente = GatewayResumenInicio(
-        _gateway({}, consultadas: rutas),
-        usuarioId: () => 'u-1',
-      );
+      final fuente = GatewayResumenInicio(_gateway({}, consultadas: rutas));
 
       expect(await fuente.cargar(RolUsuario.desconocido), isEmpty);
       expect(rutas, isEmpty);

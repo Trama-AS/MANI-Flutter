@@ -256,10 +256,7 @@ Future<void> init() async {
 
   // Inicio por tipo de usuario (US-11.2.3 / SCRUM-1446).
   sl.registerLazySingleton<FuenteResumenInicio>(
-    () => GatewayResumenInicio(
-      sl(),
-      usuarioId: () => sl<SupabaseClient>().auth.currentUser?.id,
-    ),
+    () => GatewayResumenInicio(sl()),
   );
 
   // Features - Profiles / Sedes Empresa (US-02.2.2 / SCRUM-852)
