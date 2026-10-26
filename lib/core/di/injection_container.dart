@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:mani/core/network/gateway_client.dart';
 import 'package:mani/core/session/sesion_expirada.dart';
 import 'package:mani/core/shell/datos_sesion.dart';
+import 'package:mani/features/home/data/resumen_inicio.dart';
 import 'package:mani/core/platform/url_opener.dart';
 import 'package:mani/features/auth/data/datasources/auth_remote_data_source.dart';
 import 'package:mani/features/auth/data/repositories/auth_repository_impl.dart';
@@ -251,6 +252,11 @@ Future<void> init() async {
   // Shell de aplicación (US-11.2.1 / SCRUM-1444): cabecera del menú superior.
   sl.registerLazySingleton<FuenteDatosSesion>(
     () => GatewayFuenteDatosSesion(sl()),
+  );
+
+  // Inicio por tipo de usuario (US-11.2.3 / SCRUM-1446).
+  sl.registerLazySingleton<FuenteResumenInicio>(
+    () => GatewayResumenInicio(sl()),
   );
 
   // Features - Profiles / Sedes Empresa (US-02.2.2 / SCRUM-852)

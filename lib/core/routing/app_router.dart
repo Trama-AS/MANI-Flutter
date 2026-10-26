@@ -13,6 +13,8 @@ import 'package:mani/features/asignacion/presentation/bloc/solicitudes_aliado_cu
 import 'package:mani/features/asignacion/presentation/pages/solicitudes_aliado_page.dart';
 import 'package:mani/features/auth/domain/repositories/i_auth_repository.dart';
 import 'package:mani/features/auth/presentation/pages/login_page.dart';
+import 'package:mani/features/home/data/resumen_inicio.dart';
+import 'package:mani/features/home/presentation/pages/inicio_page.dart';
 import 'package:mani/features/auth/presentation/pages/registro_cliente_page.dart';
 import 'package:mani/features/auth/presentation/pages/registro_cliente_empresa_page.dart';
 import 'package:mani/features/auth/presentation/pages/registro_aliado_page.dart';
@@ -171,6 +173,19 @@ final appRouter = GoRouter(
         child: child,
       ),
       routes: [
+        // Inicio por tipo de usuario (US-11.2.3 / SCRUM-1446).
+        GoRoute(
+          path: rutaInicio,
+          name: 'inicio',
+          builder: (context, state) => InicioPage(
+            rol: rolDesdeAccessToken(
+              Supabase.instance.client.auth.currentSession?.accessToken,
+            ),
+            fuenteSesion: sl<FuenteDatosSesion>(),
+            fuenteResumen: sl<FuenteResumenInicio>(),
+            onNavegar: (ruta) => context.go(ruta),
+          ),
+        ),
         // Ruta independiente: Selección de categorías del aliado (US-03.1.3)
         GoRoute(
           path: '/categories',

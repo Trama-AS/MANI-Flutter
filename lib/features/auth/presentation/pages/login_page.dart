@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mani/core/session/guardas_ruta.dart';
 import 'package:mani/core/theme/app_theme.dart';
 import 'package:mani/core/di/injection_container.dart';
 import 'package:mani/features/auth/presentation/bloc/auth_cubit.dart';
@@ -92,19 +93,10 @@ class _LoginViewState extends State<_LoginView> {
       listener: (context, state) {
         if (state is AuthAuthenticated) {
           _showNotification('¡Bienvenido a MANI!', isError: false);
-          // US-02.1.3: el admin del tenant entra directo a su bandeja de
-          // verificación. Si la cuenta no es ADMIN_TENANT, el servidor
-          // responde 403 y la bandeja lo informa; la pestaña no otorga
-          // permisos por sí sola.
-          if (_selectedRole == 'admin') {
-            context.go('/admin/verificacion-aliados');
-          } else if (_selectedRole == 'aliado') {
-            // US-04.1.4: el aliado entra a su bandeja de solicitudes.
-            context.go('/aliado/solicitudes');
-          } else if (_selectedRole == 'cliente') {
-            // US-04.1.1: el cliente entra a publicar su solicitud.
-            context.go('/cliente/solicitudes/nueva');
-          }
+          // US-11.2.3 (SCRUM-1446): todos entran a su inicio. El inicio
+          // depende del rol del token, no de la pestaña elegida, que no
+          // otorga permisos por sí sola.
+          context.go(rutaInicio);
         } else if (state is AuthError) {
           _showNotification(state.message);
         }
