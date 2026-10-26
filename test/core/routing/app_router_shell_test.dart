@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:mani/core/di/injection_container.dart';
 import 'package:mani/core/platform/selector_fotos.dart';
 import 'package:mani/core/routing/app_router.dart';
+import 'package:mani/core/session/guardas_ruta.dart';
 import 'package:mani/core/session/rol_usuario.dart';
 import 'package:mani/core/session/sesion_expirada.dart';
 import 'package:mani/core/shell/app_shell.dart';
@@ -172,6 +173,7 @@ void main() {
           '/register-cliente',
           '/register-aliado',
           '/register-empresa',
+          '/register-cliente-empresa',
         ]),
       );
       expect(fuera.intersection(_rutasConSesion), isEmpty);
@@ -282,6 +284,46 @@ void main() {
       );
       expect(find.byType(AppShell), findsOneWidget);
     });
+
+    testWidgets(
+      'el registro de cliente empresa (#57) queda fuera de la tabla de roles',
+      (tester) async {
+        late BuildContext contexto;
+        await tester.pumpWidget(
+          Builder(
+            builder: (c) {
+              contexto = c;
+              return const SizedBox();
+            },
+          ),
+        );
+        const ubicacion = '/register-cliente-empresa';
+        final estado = GoRouterState(
+          appRouter.configuration,
+          uri: Uri.parse(ubicacion),
+          matchedLocation: ubicacion,
+          fullPath: ubicacion,
+          pathParameters: const {},
+          pageKey: const ValueKey(ubicacion),
+        );
+        Future<String?> redirigir() async =>
+            appRouter.configuration.topRedirect(contexto, estado);
+
+        // Con sesión de cualquier rol no redirige; como la tabla de roles no
+        // conoce la ruta, eso solo pasa si el router la trata como pública
+        // (y sin sesión las públicas nunca se redirigen: guardas_ruta_test).
+        for (final rol in ['cliente', 'aliado', 'admin_tenant']) {
+          await tester.runAsync(
+            () =>
+                Supabase.instance.client.auth.recoverSession(_sesionJson(rol)),
+          );
+          expect(await redirigir(), isNull, reason: 'con sesión de $rol');
+        }
+        for (final rol in RolUsuario.values) {
+          expect(rolPuedeAbrir(rol, ubicacion), isFalse, reason: '$rol');
+        }
+      },
+    );
 
     test('un 401 sin refresco posible cierra la sesión local', () async {
       final auth = Supabase.instance.client.auth;
