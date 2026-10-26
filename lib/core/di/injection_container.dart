@@ -2,6 +2,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:get_it/get_it.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:mani/core/network/gateway_client.dart';
+import 'package:mani/core/shell/datos_sesion.dart';
 import 'package:mani/core/platform/url_opener.dart';
 import 'package:mani/features/auth/data/datasources/auth_remote_data_source.dart';
 import 'package:mani/features/auth/data/repositories/auth_repository_impl.dart';
@@ -247,6 +248,11 @@ Future<void> init() async {
   // Features - Profiles / Perfil propio (US-02.3.1 / SCRUM-854): habla con Core por el Gateway.
   sl.registerLazySingleton<PerfilPropioRemoteDataSource>(
     () => GatewayPerfilPropioDataSource(sl()),
+  );
+
+  // Shell de aplicación (US-11.2.1 / SCRUM-1444): cabecera del menú superior.
+  sl.registerLazySingleton<FuenteDatosSesion>(
+    () => GatewayFuenteDatosSesion(sl()),
   );
 
   // Features - Profiles / Sedes Empresa (US-02.2.2 / SCRUM-852)
