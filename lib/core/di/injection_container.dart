@@ -210,7 +210,10 @@ Future<void> init() async {
     () => AsignacionRepositoryImpl(sl()),
   );
   sl.registerLazySingleton<AsignacionRemoteDataSource>(
-    () => SupabaseAsignacionDataSource(sl()),
+    () => GatewayAsignacionDataSource(
+      sl(),
+      rpc: SupabaseAsignacionDataSource(sl()),
+    ),
   );
 
   // Features - Services / Requests: crear solicitud (US-04.1.1)

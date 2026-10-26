@@ -1,5 +1,6 @@
 /// Errores de negocio de US-04.1.4. Los códigos `MANI-SOL-*` los emiten las
-/// RPC de la migración `005_aceptar_rechazar_solicitud.sql`.
+/// RPC de la migración `005_aceptar_rechazar_solicitud.sql` y, para aceptar y
+/// rechazar, Dispatch en el campo `error` (TEC-18 / SCRUM-1465).
 enum AsignacionErrorTipo {
   sinSesion, // MANI-SOL-401
   noEsAliado, // MANI-SOL-403
@@ -10,6 +11,7 @@ enum AsignacionErrorTipo {
   yaEsTuya, // MANI-SOL-409A
   motivoInvalido, // MANI-SOL-422M
   sinConexion,
+  servicioNoDisponible, // 5xx del Gateway o de Dispatch (T2)
   desconocido,
 }
 
@@ -37,6 +39,8 @@ class AsignacionFailure implements Exception {
       'Elige un motivo válido para rechazar la solicitud.',
     AsignacionErrorTipo.sinConexion =>
       'Sin conexión. Revisa tu internet e inténtalo de nuevo.',
+    AsignacionErrorTipo.servicioNoDisponible =>
+      'No pudimos confirmar la operación porque el servicio no está disponible. Inténtalo en unos minutos.',
     AsignacionErrorTipo.desconocido => 'Algo salió mal. Inténtalo de nuevo.',
   };
 
