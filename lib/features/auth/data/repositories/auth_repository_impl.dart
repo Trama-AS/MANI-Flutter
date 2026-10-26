@@ -5,6 +5,7 @@ import 'package:mani/features/auth/domain/entities/user_entity.dart';
 import 'package:mani/features/auth/domain/repositories/i_auth_repository.dart';
 import 'package:mani/features/auth/data/datasources/auth_remote_data_source.dart';
 import 'package:mani/features/auth/data/models/user_model.dart';
+import 'package:mani/features/auth/domain/entities/registro_cliente_empresa.dart';
 
 /// Implementación del repositorio de autenticación.
 ///
@@ -60,6 +61,19 @@ class AuthRepositoryImpl implements IAuthRepository {
       throw AuthFailure(_mapAuthError(e.message));
     } catch (e) {
       throw AuthFailure('Error en registro de cliente: $e');
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>> registrarClienteEmpresa(
+    RegistroClienteEmpresa datos,
+  ) async {
+    try {
+      return await remoteDataSource.registrarClienteEmpresa(datos);
+    } on GatewayException catch (e) {
+      throw AuthFailure(e.message);
+    } catch (e) {
+      throw AuthFailure('Error en registro de cliente empresa: $e');
     }
   }
 
