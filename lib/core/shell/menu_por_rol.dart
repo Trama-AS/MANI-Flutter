@@ -42,6 +42,11 @@ List<EntradaMenu> entradasMenuPara(RolUsuario rol) {
           ruta: '/cliente/solicitudes/nueva',
         ),
         EntradaMenu(
+          etiqueta: 'Mis solicitudes',
+          icono: Icons.list_alt_outlined,
+          ruta: '/cliente/solicitudes',
+        ),
+        EntradaMenu(
           etiqueta: 'Mis sedes',
           icono: Icons.apartment_outlined,
           ruta: '/cliente/sedes',
