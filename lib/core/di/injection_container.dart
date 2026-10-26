@@ -12,6 +12,7 @@ import 'package:mani/features/auth/domain/usecases/login_usecase.dart';
 import 'package:mani/features/auth/domain/usecases/register_cliente_usecase.dart';
 import 'package:mani/features/auth/domain/usecases/register_aliado_usecase.dart';
 import 'package:mani/features/auth/domain/usecases/register_empresa_usecase.dart';
+import 'package:mani/features/auth/domain/usecases/register_cliente_empresa_usecase.dart';
 import 'package:mani/features/auth/presentation/bloc/auth_cubit.dart';
 import 'package:mani/features/availability/data/datasources/disponibilidad_remote_datasource.dart';
 import 'package:mani/features/availability/data/repositories/disponibilidad_repository_impl.dart';
@@ -95,6 +96,7 @@ Future<void> init() async {
       registerClienteUseCase: sl(),
       registerAliadoUseCase: sl(),
       registerEmpresaUseCase: sl(),
+      registerClienteEmpresaUseCase: sl(),
     ),
   );
 
@@ -103,6 +105,7 @@ Future<void> init() async {
   sl.registerLazySingleton(() => RegisterClienteUseCase(sl()));
   sl.registerLazySingleton(() => RegisterAliadoUseCase(sl()));
   sl.registerLazySingleton(() => RegisterEmpresaUseCase(sl()));
+  sl.registerLazySingleton(() => RegisterClienteEmpresaUseCase(sl()));
 
   // Repository
   sl.registerLazySingleton<IAuthRepository>(
