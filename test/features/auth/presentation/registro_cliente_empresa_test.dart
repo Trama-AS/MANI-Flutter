@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mani/features/auth/domain/entities/user_entity.dart';
 import 'package:mani/features/auth/domain/repositories/i_auth_repository.dart';
@@ -58,6 +59,9 @@ AuthCubit _cubit(_FakeAuthRepository repo) => AuthCubit(
 );
 
 void main() {
+  // El tenant sale de TENANT_SLUG (tenantSlugRegistro), no de un UUID fijo.
+  setUp(() => dotenv.testLoad(fileInput: 'TENANT_SLUG=acme-servicios'));
+
   group('HU-M02-07 validadores', () {
     test('NIT: acepta 9 o 10 dígitos con DV opcional y con puntos', () {
       for (final nit in [
@@ -213,10 +217,7 @@ void main() {
 
       expect(repo.registrosEmpresa, hasLength(1));
       expect(repo.registrosEmpresa.single['nit'], '900123456-7');
-      expect(
-        repo.registrosEmpresa.single['tenantId'],
-        RegistroClienteEmpresaView.defaultTenantId,
-      );
+      expect(repo.registrosEmpresa.single['tenantId'], 'acme-servicios');
       expect(find.text('¡Cuenta de Empresa Creada!'), findsOneWidget);
     });
   });

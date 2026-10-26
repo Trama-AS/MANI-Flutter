@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mani/core/config/tenant_config.dart';
 import 'package:mani/core/di/injection_container.dart';
 import 'package:mani/core/theme/app_theme.dart';
 import 'package:mani/features/auth/presentation/bloc/auth_cubit.dart';
@@ -28,9 +29,6 @@ class RegistroClienteEmpresaPage extends StatelessWidget {
 /// inyectan uno propio).
 class RegistroClienteEmpresaView extends StatefulWidget {
   const RegistroClienteEmpresaView({super.key});
-
-  /// Mismo tenant por defecto que el registro de cliente persona natural.
-  static const String defaultTenantId = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11';
 
   @override
   State<RegistroClienteEmpresaView> createState() =>
@@ -78,7 +76,7 @@ class _RegistroClienteEmpresaViewState
         razonSocial: _razonSocialController.text,
         nit: ClienteEmpresaValidators.normalizarNit(_nitController.text),
         nombreRepresentante: _representanteController.text,
-        tenantId: RegistroClienteEmpresaView.defaultTenantId,
+        tenantId: tenantSlugRegistro(),
         telefono: _telefonoController.text,
       ),
       aceptaTerminos: _aceptaTerminos,
