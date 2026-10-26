@@ -161,92 +161,64 @@ void main() {
           maxRetries: 0,
         );
 
-    test('toma el nombre del perfil y el tenant del listado', () async {
+    Future<DatosSesion> cargarCon(Map<String, dynamic> perfil) {
       final rutas = <String>[];
-      final fuente = GatewayFuenteDatosSesion(
+      return GatewayFuenteDatosSesion(
         gateway((req) async {
           rutas.add(req.url.path);
-          if (req.url.path == '/api/v1/core/profiles/me') {
-            return http.Response(
-              jsonEncode({
-                'profile': {'fullName': 'Ana Pérez', 'tenantId': 't-2'},
-              }),
-              200,
-              headers: jsonHeaders,
-            );
-          }
+          expect(
+            req.url.path,
+            '/api/v1/core/profiles/me',
+            reason: 'la cabecera no debe consultar otra ruta (ni /tenants)',
+          );
           return http.Response(
-            jsonEncode({
-              'data': [
-                {'id': 't-1', 'name': 'Otro tenant'},
-                {'id': 't-2', 'name': 'Plomería Express'},
-              ],
-            }),
+            jsonEncode({'profile': perfil}),
             200,
             headers: jsonHeaders,
           );
         }),
-      );
+      ).cargar().whenComplete(() => expect(rutas, hasLength(1)));
+    }
 
-      final datos = await fuente.cargar();
+    test('toma nombre y tenant del perfil sin pedir /tenants', () async {
+      final datos = await cargarCon({
+        'fullName': 'Ana Pérez',
+        'tenantId': 't-2',
+        'tenantName': 'Plomería Express',
+      });
 
       expect(datos.nombreUsuario, 'Ana Pérez');
       expect(datos.nombreTenant, 'Plomería Express');
-      expect(rutas, ['/api/v1/core/profiles/me', '/api/v1/core/tenants']);
     });
 
-    test(
-      'si el listado de tenants falla, la cabecera sale sin tenant',
-      () async {
-        final fuente = GatewayFuenteDatosSesion(
-          gateway((req) async {
-            if (req.url.path == '/api/v1/core/profiles/me') {
-              return http.Response(
-                jsonEncode({
-                  'profile': {'fullName': 'Ana', 'tenantId': 't-2'},
-                }),
-                200,
-                headers: jsonHeaders,
-              );
-            }
-            return http.Response('{"error":"x"}', 500, headers: jsonHeaders);
-          }),
-        );
+    test('acepta tenant_name y el objeto tenant del perfil', () async {
+      final snake = await cargarCon({
+        'nombre': 'Ana',
+        'tenant_name': ' Acme Servicios ',
+      });
+      final objeto = await cargarCon({
+        'fullName': 'Ana',
+        'tenant': {'nombre': 'Nova Mantenimiento'},
+      });
 
-        final datos = await fuente.cargar();
+      expect(snake.nombreUsuario, 'Ana');
+      expect(snake.nombreTenant, 'Acme Servicios');
+      expect(objeto.nombreTenant, 'Nova Mantenimiento');
+    });
 
-        expect(datos.nombreUsuario, 'Ana');
-        expect(datos.nombreTenant, isNull);
-      },
-    );
-
-    test('un tenant que no está en el listado no se inventa', () async {
-      final fuente = GatewayFuenteDatosSesion(
-        gateway((req) async {
-          if (req.url.path == '/api/v1/core/profiles/me') {
-            return http.Response(
-              jsonEncode({
-                'profile': {'fullName': '', 'tenantId': 't-9'},
-              }),
-              200,
-              headers: jsonHeaders,
-            );
-          }
-          return http.Response(
-            jsonEncode({
-              'data': [
-                {'id': 't-1', 'name': 'Otro tenant'},
-              ],
-            }),
-            200,
-            headers: jsonHeaders,
-          );
-        }),
-      );
-
-      final datos = await fuente.cargar();
+    test('si el perfil solo trae el id del tenant, no se inventa', () async {
+      final datos = await cargarCon({'fullName': '', 'tenantId': 't-9'});
 
       expect(datos.nombreUsuario, 'Usuario');
+      expect(datos.nombreTenant, isNull);
+    });
+
+    test('un nombre de tenant vacío también queda sin tenant', () async {
+      final datos = await cargarCon({
+        'fullName': 'Ana',
+        'tenant': {'name': '  '},
+      });
+
       expect(datos.nombreTenant, isNull);
     });
   });

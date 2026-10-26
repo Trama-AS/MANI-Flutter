@@ -1,5 +1,4 @@
 import 'package:mani/core/network/gateway_client.dart';
-import 'package:mani/core/network/gateway_exception.dart';
 
 /// Lo que la cabecera muestra de la sesión: quién entró y en qué tenant.
 class DatosSesion {
@@ -18,10 +17,13 @@ abstract interface class FuenteDatosSesion {
 
 /// Resuelve la cabecera contra Core por el Gateway (US-11.2.1 / SCRUM-1444).
 ///
-/// - El nombre sale de `GET /api/v1/core/profiles/me` (SCRUM-854).
-/// - El tenant sale de `GET /api/v1/core/tenants` buscando el `tenantId` del
-///   perfil, porque el perfil solo trae el id. Si esa consulta falla, la
-///   cabecera se muestra sin tenant: no es motivo para tumbar el menú.
+/// Todo sale de una sola consulta, `GET /api/v1/core/profiles/me` (SCRUM-854):
+/// el nombre del usuario y, si el perfil lo trae, el nombre del tenant.
+///
+/// No se usa `GET /api/v1/core/tenants` para buscar el tenant: ese endpoint
+/// devuelve todos los tenants del sistema y la respuesta completa llegaría al
+/// navegador de cualquier usuario (hallazgo de QA en el PR #62). Mientras el
+/// perfil no traiga el nombre del tenant, la cabecera lo omite.
 class GatewayFuenteDatosSesion implements FuenteDatosSesion {
   GatewayFuenteDatosSesion(this._gateway);
 
@@ -36,28 +38,22 @@ class GatewayFuenteDatosSesion implements FuenteDatosSesion {
     final nombre = (perfil['fullName'] ?? perfil['nombre'] ?? '')
         .toString()
         .trim();
-    final tenantId = (perfil['tenantId'] ?? perfil['tenant_id'])?.toString();
 
     return DatosSesion(
       nombreUsuario: nombre.isEmpty ? 'Usuario' : nombre,
-      nombreTenant: tenantId == null ? null : await _nombreTenant(tenantId),
+      nombreTenant: _nombreTenant(perfil),
     );
   }
 
-  Future<String?> _nombreTenant(String tenantId) async {
-    try {
-      final res = await _gateway.get('/api/v1/core/tenants');
-      final data = res['data'];
-      if (data is! List) return null;
-      for (final t in data) {
-        if (t is Map && t['id']?.toString() == tenantId) {
-          final nombre = (t['name'] ?? t['nombre'])?.toString().trim();
-          return (nombre == null || nombre.isEmpty) ? null : nombre;
-        }
-      }
-      return null;
-    } on GatewayException {
-      return null;
-    }
+  /// Acepta `tenantName`, `tenant_name` o un objeto `tenant` con `name` o
+  /// `nombre`. Cualquier otra forma, o un texto vacío, deja `null`.
+  String? _nombreTenant(Map<String, dynamic> perfil) {
+    final tenant = perfil['tenant'];
+    final valor =
+        perfil['tenantName'] ??
+        perfil['tenant_name'] ??
+        (tenant is Map ? (tenant['name'] ?? tenant['nombre']) : null);
+    final texto = valor?.toString().trim();
+    return (texto == null || texto.isEmpty) ? null : texto;
   }
 }
