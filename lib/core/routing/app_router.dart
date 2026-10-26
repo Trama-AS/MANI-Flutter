@@ -13,6 +13,7 @@ import 'package:mani/features/asignacion/presentation/pages/solicitudes_aliado_p
 import 'package:mani/features/auth/domain/repositories/i_auth_repository.dart';
 import 'package:mani/features/auth/presentation/pages/login_page.dart';
 import 'package:mani/features/auth/presentation/pages/registro_cliente_page.dart';
+import 'package:mani/features/auth/presentation/pages/registro_cliente_empresa_page.dart';
 import 'package:mani/features/auth/presentation/pages/registro_aliado_page.dart';
 import 'package:mani/features/auth/presentation/pages/registro_aliado_empresa_page.dart';
 import 'package:mani/features/availability/presentation/pages/disponibilidad_page.dart';
@@ -57,6 +58,7 @@ const _publicPaths = {
   '/register-cliente',
   '/register-aliado',
   '/register-empresa',
+  '/register-cliente-empresa',
 };
 
 bool _isPublicPath(String path) {
@@ -71,6 +73,7 @@ bool _isPublicPath(String path) {
 /// - `/register-cliente`: Pantalla independiente de registro para clientes (US-02.2.1)
 /// - `/register-aliado`: Pantalla independiente de registro para aliados técnicos (US-02.1.1)
 /// - `/register-empresa`: Pantalla independiente de registro para aliados empresas (US-02.1.2)
+/// - `/register-cliente-empresa`: Registro de cliente empresa con NIT y representante (HU-M02-07)
 /// - `/categories`: Pantalla de selección de categorías del aliado (US-03.1.3)
 /// - `/aliado/cobertura`: Zona de cobertura del aliado (US-02.1.4)
 /// - `/aliado/disponibilidad`: Ausencias del aliado, "No disponible" (US-02.1.6)
@@ -110,6 +113,12 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/registro-cliente',
       redirect: (context, state) => '/register-cliente',
+    ),
+    // Ruta independiente: Registro de Cliente Empresa (HU-M02-07)
+    GoRoute(
+      path: '/register-cliente-empresa',
+      name: 'register-cliente-empresa',
+      builder: (context, state) => const RegistroClienteEmpresaPage(),
     ),
     // Ruta independiente: Registro de Aliado Técnico (US-02.1.1)
     GoRoute(
