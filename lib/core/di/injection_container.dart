@@ -59,6 +59,7 @@ import 'package:mani/features/services/requests/data/repositories/solicitudes_cl
 import 'package:mani/features/services/requests/domain/repositories/solicitudes_cliente_repository.dart';
 import 'package:mani/features/services/requests/domain/usecases/solicitud_usecases.dart';
 import 'package:mani/features/services/requests/presentation/bloc/crear_solicitud_cubit.dart';
+import 'package:mani/features/services/eligible_allies/data/elegibles_datasource.dart';
 import 'package:mani/features/services/tracking/data/seguimiento_datasource.dart';
 import 'package:mani/features/services/tracking/presentation/mis_solicitudes_cubit.dart';
 import 'package:mani/features/profiles/site_rules/data/reglas_sitio_remote_datasource.dart';
@@ -250,6 +251,10 @@ Future<void> init() async {
       },
     ),
   );
+
+  // Aliados elegibles de la solicitud por el Gateway a Dispatch (SCRUM-1398,
+  // 1400 y 1401). El Cubit se crea por solicitud en la ruta.
+  sl.registerLazySingleton<FuenteElegibles>(() => GatewayFuenteElegibles(sl()));
 
   // Seguimiento del cliente (HU-M07-04 / SCRUM-871).
   sl.registerFactory(() => MisSolicitudesCubit(sl()));
