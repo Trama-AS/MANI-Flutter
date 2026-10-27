@@ -43,6 +43,10 @@ class _FuenteFija implements FuenteSeguimiento {
     if (r is Exception) throw r;
     return r as List<SolicitudSeguimiento>;
   }
+
+  @override
+  Future<SolicitudSeguimiento> cancelar(String solicitudId, {String? motivo}) =>
+      throw UnimplementedError();
 }
 
 void main() {

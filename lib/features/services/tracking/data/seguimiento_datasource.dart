@@ -6,6 +6,10 @@ import '../domain/solicitud_seguimiento.dart';
 /// Fuente del seguimiento, separada para probar la pantalla sin red.
 abstract interface class FuenteSeguimiento {
   Future<List<SolicitudSeguimiento>> listar();
+
+  /// Cancela la solicitud propia antes de la ejecución (US-04.5.1 /
+  /// SCRUM-877) y devuelve su estado nuevo.
+  Future<SolicitudSeguimiento> cancelar(String solicitudId, {String? motivo});
 }
 
 /// Solicitudes del cliente por el Gateway a Core (HU-M07-04 / SCRUM-871):
@@ -15,6 +19,9 @@ class GatewayFuenteSeguimiento implements FuenteSeguimiento {
   GatewayFuenteSeguimiento(this._gateway);
 
   static const ruta = '/api/v1/core/solicitudes/me';
+
+  static String rutaCancelar(String solicitudId) =>
+      '$ruta/${Uri.encodeComponent(solicitudId)}/cancelar';
 
   final GatewayClient _gateway;
 
@@ -41,6 +48,31 @@ class GatewayFuenteSeguimiento implements FuenteSeguimiento {
         .toList(growable: false);
   }
 
+  /// `PATCH /api/v1/core/solicitudes/me/{id}/cancelar`. Core toma el cliente
+  /// y el tenant del JWT; el cuerpo solo lleva el motivo, si lo hay.
+  @override
+  Future<SolicitudSeguimiento> cancelar(
+    String solicitudId, {
+    String? motivo,
+  }) async {
+    final Map<String, dynamic> res;
+    try {
+      res = await _gateway.patch(rutaCancelar(solicitudId), {
+        if (motivo != null && motivo.trim().isNotEmpty) 'motivo': motivo.trim(),
+      });
+    } on GatewayException catch (e) {
+      throw mapearGateway(e);
+    }
+    final solicitud = res['solicitud'];
+    if (solicitud is! Map) {
+      throw const SeguimientoFailure(
+        SeguimientoErrorTipo.desconocido,
+        'Respuesta de Core sin "solicitud"',
+      );
+    }
+    return SolicitudSeguimiento.fromJson(Map<String, dynamic>.from(solicitud));
+  }
+
   /// Un 5xx no se disfraza de lista vacía (T2): se informa que no se pudo
   /// consultar.
   static SeguimientoFailure mapearGateway(GatewayException e) {
@@ -54,6 +86,15 @@ class GatewayFuenteSeguimiento implements FuenteSeguimiento {
     }
     if (status == 403 || codigo == 'MANI-SOL-403C') {
       return SeguimientoFailure(SeguimientoErrorTipo.noEsCliente, e.message);
+    }
+    if (status == 404 || codigo == 'MANI-SOL-404') {
+      return SeguimientoFailure(SeguimientoErrorTipo.noEncontrada, e.message);
+    }
+    if (status == 409 || codigo == 'MANI-SOL-409C') {
+      return SeguimientoFailure(SeguimientoErrorTipo.noCancelable, e.message);
+    }
+    if (codigo == 'MANI-SOL-422M') {
+      return SeguimientoFailure(SeguimientoErrorTipo.motivoInvalido, e.message);
     }
     if (status >= 500) {
       return SeguimientoFailure(

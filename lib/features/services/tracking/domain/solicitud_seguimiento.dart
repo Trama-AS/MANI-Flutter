@@ -87,6 +87,18 @@ class SolicitudSeguimiento extends Equatable {
     _ => false,
   };
 
+  /// Se puede cancelar mientras no haya empezado la ejecución (US-04.5.1 /
+  /// SCRUM-877). Core aplica la misma regla; esto solo decide si se ofrece
+  /// el botón.
+  bool get puedeCancelar => switch (estado) {
+    EstadoSeguimiento.pendiente ||
+    EstadoSeguimiento.asignada ||
+    EstadoSeguimiento.cotizando ||
+    EstadoSeguimiento.aceptada ||
+    EstadoSeguimiento.rechazada => true,
+    _ => false,
+  };
+
   /// Texto del estado; si la app no lo conoce, el valor que envió Core.
   String get etiquetaEstado =>
       estado == EstadoSeguimiento.otro ? estadoCrudo : estado.etiqueta;
@@ -112,11 +124,14 @@ class SolicitudSeguimiento extends Equatable {
 DateTime? _fecha(Object? valor) =>
     valor is String ? DateTime.tryParse(valor)?.toLocal() : null;
 
-/// Errores al consultar el seguimiento. Los códigos `MANI-SOL-*` los emite
-/// Core en `/solicitudes/me` (contrato core.yaml del Gateway).
+/// Errores al consultar o cancelar el seguimiento. Los códigos `MANI-SOL-*`
+/// los emite Core en `/solicitudes/me` (contrato core.yaml del Gateway).
 enum SeguimientoErrorTipo {
   sinSesion, // 401 / MANI-SOL-401
   noEsCliente, // MANI-SOL-403C
+  noEncontrada, // 404 / MANI-SOL-404
+  noCancelable, // 409 / MANI-SOL-409C
+  motivoInvalido, // 422 / MANI-SOL-422M
   sinConexion,
   servicioNoDisponible, // 5xx (T2)
   desconocido,
@@ -133,6 +148,12 @@ class SeguimientoFailure implements Exception {
       'Tu sesión expiró. Vuelve a iniciar sesión para ver tus solicitudes.',
     SeguimientoErrorTipo.noEsCliente =>
       'Solo los clientes pueden consultar sus solicitudes.',
+    SeguimientoErrorTipo.noEncontrada =>
+      'No encontramos esa solicitud entre las tuyas.',
+    SeguimientoErrorTipo.noCancelable =>
+      'Esta solicitud ya está en ejecución o finalizada y no se puede cancelar.',
+    SeguimientoErrorTipo.motivoInvalido =>
+      'El motivo no puede superar 200 caracteres.',
     SeguimientoErrorTipo.sinConexion =>
       'Sin conexión. Revisa tu internet e inténtalo de nuevo.',
     SeguimientoErrorTipo.servicioNoDisponible =>

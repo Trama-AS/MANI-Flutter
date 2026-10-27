@@ -113,7 +113,13 @@ class SolicitudCard extends StatelessWidget {
                   ],
                 ),
               ),
-              if (recienAsignada) const _Etiqueta('NUEVA'),
+              if (s.cancelada)
+                const _Etiqueta(
+                  'CANCELADA',
+                  key: ValueKey('etiqueta-cancelada'),
+                )
+              else if (recienAsignada)
+                const _Etiqueta('NUEVA'),
             ],
           ),
           if ((s.descripcion ?? '').trim().isNotEmpty) ...[
@@ -127,7 +133,17 @@ class SolicitudCard extends StatelessWidget {
           if (s.esMia) ...[
             const SizedBox(height: 12),
             _Direccion(direccion: s.direccion),
-            if (onCotizar != null) ...[
+            if (s.cancelada) ...[
+              const SizedBox(height: 12),
+              const Text(
+                'El cliente canceló esta solicitud antes de la ejecución.',
+                key: ValueKey('aviso-cancelada'),
+                style: TextStyle(
+                  color: AppTheme.error,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ] else if (onCotizar != null) ...[
               const SizedBox(height: 12),
               ManiButton(
                 key: ValueKey('btn-cotizar-${s.id}'),
@@ -462,7 +478,7 @@ class _Acciones extends StatelessWidget {
 }
 
 class _Etiqueta extends StatelessWidget {
-  const _Etiqueta(this.texto);
+  const _Etiqueta(this.texto, {super.key});
 
   final String texto;
 
