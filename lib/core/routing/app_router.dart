@@ -37,6 +37,8 @@ import 'package:mani/features/services/categories/presentation/bloc/categorias_c
 import 'package:mani/features/services/categories/presentation/pages/gestion_categorias_page.dart';
 import 'package:mani/features/services/requests/presentation/bloc/crear_solicitud_cubit.dart';
 import 'package:mani/features/services/requests/presentation/pages/crear_solicitud_page.dart';
+import 'package:mani/features/services/eligible_allies/presentation/aliados_elegibles_cubit.dart';
+import 'package:mani/features/services/eligible_allies/presentation/aliados_elegibles_page.dart';
 import 'package:mani/features/services/tracking/presentation/mis_solicitudes_cubit.dart';
 import 'package:mani/features/services/tracking/presentation/mis_solicitudes_page.dart';
 import 'package:mani/features/services/quotes/presentation/cotizacion_cubit.dart';
@@ -172,6 +174,7 @@ Widget _pantallaServicio(
 /// - `/aliado/disponibilidad`: Ausencias del aliado, "No disponible" (US-02.1.6)
 /// - `/cliente/solicitudes/nueva`: El cliente publica su solicitud con fotos (US-04.1.1)
 /// - `/cliente/solicitudes`: Estado y zona declarada de las solicitudes del cliente (HU-M07-04)
+/// - `/cliente/solicitudes/:id/aliados`: Aliados elegibles, por tipo y en el orden de Dispatch (SCRUM-1401)
 /// - `/aliado/solicitudes`: Bandeja del aliado para aceptar/rechazar solicitudes (US-04.1.4)
 /// - `/cliente/solicitudes/:id/cotizacion` y `/aliado/solicitudes/:id/cotizacion`: Pantalla del servicio:
 ///   cotización, ejecución y bitácora (US-04.2.1 a US-04.3.3)
@@ -368,7 +371,21 @@ final appRouter = GoRouter(
               onNuevaSolicitud: () => context.go('/cliente/solicitudes/nueva'),
               onVerCotizacion: (id) =>
                   context.push('/cliente/solicitudes/$id/cotizacion'),
+              onVerAliados: (id) =>
+                  context.push('/cliente/solicitudes/$id/aliados'),
             ),
+          ),
+        ),
+        // Aliados elegibles de la solicitud (SCRUM-1398, 1400 y 1401): filtro
+        // por tipo y el orden exacto de Dispatch. Solo el cliente (`/cliente/`).
+        GoRoute(
+          path: '/cliente/solicitudes/:id/aliados',
+          name: 'aliados-elegibles',
+          builder: (context, state) => BlocProvider(
+            create: (_) =>
+                AliadosElegiblesCubit(sl(), state.pathParameters['id']!)
+                  ..cargar(),
+            child: const AliadosElegiblesPage(),
           ),
         ),
         // Cotización del cliente (US-04.2.3 / SCRUM-867): acepta, rechaza o

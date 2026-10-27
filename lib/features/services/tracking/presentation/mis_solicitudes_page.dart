@@ -12,12 +12,16 @@ class MisSolicitudesPage extends StatelessWidget {
     super.key,
     this.onNuevaSolicitud,
     this.onVerCotizacion,
+    this.onVerAliados,
   });
 
   final VoidCallback? onNuevaSolicitud;
 
   /// Abre la cotización de la solicitud (SCRUM-867).
   final void Function(String solicitudId)? onVerCotizacion;
+
+  /// Abre los aliados elegibles de una solicitud pendiente (SCRUM-1401).
+  final void Function(String solicitudId)? onVerAliados;
 
   @override
   Widget build(BuildContext context) {
@@ -53,6 +57,11 @@ class MisSolicitudesPage extends StatelessWidget {
                             onVerCotizacion == null || !s.tieneCotizacion
                             ? null
                             : () => onVerCotizacion!(s.id),
+                        onVerAliados:
+                            onVerAliados == null ||
+                                s.estado != EstadoSeguimiento.pendiente
+                            ? null
+                            : () => onVerAliados!(s.id),
                         cancelando: state.cancelandoId == s.id,
                         onCancelar:
                             !s.puedeCancelar || state.cancelandoId != null
@@ -220,12 +229,16 @@ class _TarjetaSolicitud extends StatelessWidget {
   const _TarjetaSolicitud(
     this.solicitud, {
     this.onVerCotizacion,
+    this.onVerAliados,
     this.onCancelar,
     this.cancelando = false,
   });
 
   final SolicitudSeguimiento solicitud;
   final VoidCallback? onVerCotizacion;
+
+  /// Solo para solicitudes pendientes (SCRUM-1401).
+  final VoidCallback? onVerAliados;
 
   /// Cancela antes de la ejecución (SCRUM-877); `null` si no se puede.
   final VoidCallback? onCancelar;
@@ -260,7 +273,10 @@ class _TarjetaSolicitud extends StatelessWidget {
               'Estado actualizado: ${formatearFecha(solicitud.actualizadaEn)}',
               style: tema.bodySmall,
             ),
-            if (onVerCotizacion != null || onCancelar != null || cancelando)
+            if (onVerCotizacion != null ||
+                onVerAliados != null ||
+                onCancelar != null ||
+                cancelando)
               Wrap(
                 alignment: WrapAlignment.end,
                 spacing: 8,
@@ -283,6 +299,13 @@ class _TarjetaSolicitud extends StatelessWidget {
                       icon: const Icon(Icons.cancel_outlined),
                       label: const Text('Cancelar solicitud'),
                       onPressed: onCancelar,
+                    ),
+                  if (onVerAliados != null)
+                    TextButton.icon(
+                      key: Key('ver-aliados-${solicitud.id}'),
+                      icon: const Icon(Icons.groups_outlined),
+                      label: const Text('Ver aliados'),
+                      onPressed: onVerAliados,
                     ),
                   if (onVerCotizacion != null)
                     TextButton.icon(
