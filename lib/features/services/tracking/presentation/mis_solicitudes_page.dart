@@ -53,6 +53,11 @@ class MisSolicitudesPage extends StatelessWidget {
                             onVerCotizacion == null || !s.tieneCotizacion
                             ? null
                             : () => onVerCotizacion!(s.id),
+                        cancelando: state.cancelandoId == s.id,
+                        onCancelar:
+                            !s.puedeCancelar || state.cancelandoId != null
+                            ? null
+                            : () => _confirmarCancelacion(context, cubit, s),
                       ),
                 ],
               ),
@@ -60,6 +65,94 @@ class MisSolicitudesPage extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// QAS-08: cancelar es irreversible, así que se confirma antes y se ofrece
+/// dejar un motivo opcional (queda en la línea de tiempo del servicio).
+Future<void> _confirmarCancelacion(
+  BuildContext context,
+  MisSolicitudesCubit cubit,
+  SolicitudSeguimiento solicitud,
+) async {
+  final motivo = await showDialog<String>(
+    context: context,
+    builder: (_) => _DialogoCancelar(solicitud: solicitud),
+  );
+  if (motivo == null) return;
+  final ok = await cubit.cancelar(solicitud.id, motivo: motivo);
+  if (ok && context.mounted) {
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      const SnackBar(
+        key: Key('cancelacion-ok'),
+        content: Text('Cancelaste la solicitud.'),
+      ),
+    );
+  }
+}
+
+class _DialogoCancelar extends StatefulWidget {
+  const _DialogoCancelar({required this.solicitud});
+
+  final SolicitudSeguimiento solicitud;
+
+  @override
+  State<_DialogoCancelar> createState() => _DialogoCancelarState();
+}
+
+class _DialogoCancelarState extends State<_DialogoCancelar> {
+  final _motivo = TextEditingController();
+
+  @override
+  void dispose() {
+    _motivo.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final asignada = widget.solicitud.estado != EstadoSeguimiento.pendiente;
+    return AlertDialog(
+      key: const Key('dialogo-cancelar'),
+      title: const Text('¿Cancelar la solicitud?'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Vas a cancelar «${widget.solicitud.categoria}». '
+            'Esta acción no se puede deshacer.'
+            '${asignada ? ' Le avisaremos al aliado asignado.' : ''}',
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            key: const Key('cancelar-motivo'),
+            controller: _motivo,
+            maxLength: 200,
+            maxLines: 2,
+            decoration: const InputDecoration(
+              labelText: 'Motivo (opcional)',
+              border: OutlineInputBorder(),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          key: const Key('cancelar-volver'),
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Volver'),
+        ),
+        FilledButton(
+          key: const Key('cancelar-confirmar'),
+          style: FilledButton.styleFrom(
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+          onPressed: () => Navigator.of(context).pop(_motivo.text.trim()),
+          child: const Text('Sí, cancelar'),
+        ),
+      ],
     );
   }
 }
@@ -124,10 +217,19 @@ class _AvisoZona extends StatelessWidget {
 }
 
 class _TarjetaSolicitud extends StatelessWidget {
-  const _TarjetaSolicitud(this.solicitud, {this.onVerCotizacion});
+  const _TarjetaSolicitud(
+    this.solicitud, {
+    this.onVerCotizacion,
+    this.onCancelar,
+    this.cancelando = false,
+  });
 
   final SolicitudSeguimiento solicitud;
   final VoidCallback? onVerCotizacion;
+
+  /// Cancela antes de la ejecución (SCRUM-877); `null` si no se puede.
+  final VoidCallback? onCancelar;
+  final bool cancelando;
 
   @override
   Widget build(BuildContext context) {
@@ -158,15 +260,38 @@ class _TarjetaSolicitud extends StatelessWidget {
               'Estado actualizado: ${formatearFecha(solicitud.actualizadaEn)}',
               style: tema.bodySmall,
             ),
-            if (onVerCotizacion != null)
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton.icon(
-                  key: Key('ver-cotizacion-${solicitud.id}'),
-                  icon: const Icon(Icons.request_quote_outlined),
-                  label: const Text('Ver cotización'),
-                  onPressed: onVerCotizacion,
-                ),
+            if (onVerCotizacion != null || onCancelar != null || cancelando)
+              Wrap(
+                alignment: WrapAlignment.end,
+                spacing: 8,
+                children: [
+                  if (cancelando)
+                    const Padding(
+                      padding: EdgeInsets.all(12),
+                      child: SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    )
+                  else if (onCancelar != null)
+                    TextButton.icon(
+                      key: Key('cancelar-solicitud-${solicitud.id}'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Theme.of(context).colorScheme.error,
+                      ),
+                      icon: const Icon(Icons.cancel_outlined),
+                      label: const Text('Cancelar solicitud'),
+                      onPressed: onCancelar,
+                    ),
+                  if (onVerCotizacion != null)
+                    TextButton.icon(
+                      key: Key('ver-cotizacion-${solicitud.id}'),
+                      icon: const Icon(Icons.request_quote_outlined),
+                      label: const Text('Ver cotización'),
+                      onPressed: onVerCotizacion,
+                    ),
+                ],
               ),
           ],
         ),

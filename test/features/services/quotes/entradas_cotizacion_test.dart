@@ -16,6 +16,10 @@ class _FuenteFija implements FuenteSeguimiento {
 
   @override
   Future<List<SolicitudSeguimiento>> listar() async => lista;
+
+  @override
+  Future<SolicitudSeguimiento> cancelar(String solicitudId, {String? motivo}) =>
+      throw UnimplementedError();
 }
 
 SolicitudSeguimiento _seguimiento(String id, String estado) =>

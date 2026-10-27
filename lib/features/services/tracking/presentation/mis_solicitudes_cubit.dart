@@ -10,6 +10,7 @@ class MisSolicitudesState extends Equatable {
     this.solicitudes = const [],
     this.error,
     this.consultadoEn,
+    this.cancelandoId,
   });
 
   final bool cargando;
@@ -21,8 +22,17 @@ class MisSolicitudesState extends Equatable {
   /// Cuándo se consultó por última vez con éxito.
   final DateTime? consultadoEn;
 
+  /// Solicitud cuya cancelación está en curso (SCRUM-877); bloquea el botón.
+  final String? cancelandoId;
+
   @override
-  List<Object?> get props => [cargando, solicitudes, error, consultadoEn];
+  List<Object?> get props => [
+    cargando,
+    solicitudes,
+    error,
+    consultadoEn,
+    cancelandoId,
+  ];
 }
 
 /// Estado de las solicitudes del cliente (HU-M07-04 / SCRUM-871). No hay
@@ -55,6 +65,66 @@ class MisSolicitudesCubit extends Cubit<MisSolicitudesState> {
           SeguimientoErrorTipo.desconocido,
         ).mensajeUsuario,
       );
+    }
+  }
+
+  /// Cancela la solicitud antes de la ejecución (US-04.5.1 / SCRUM-877) y
+  /// reemplaza la tarjeta por el estado que devuelve Core. Devuelve `true` si
+  /// quedó cancelada. Si Core la rechaza porque ya empezó la ejecución, se
+  /// vuelve a consultar para mostrar el estado real.
+  Future<bool> cancelar(String solicitudId, {String? motivo}) async {
+    if (state.cancelandoId != null) return false;
+    emit(
+      MisSolicitudesState(
+        solicitudes: state.solicitudes,
+        consultadoEn: state.consultadoEn,
+        cancelandoId: solicitudId,
+      ),
+    );
+    try {
+      final cancelada = await _fuente.cancelar(solicitudId, motivo: motivo);
+      if (isClosed) return true;
+      emit(
+        MisSolicitudesState(
+          solicitudes: [
+            for (final s in state.solicitudes)
+              s.id == cancelada.id ? cancelada : s,
+          ],
+          consultadoEn: state.consultadoEn,
+        ),
+      );
+      return true;
+    } on SeguimientoFailure catch (f) {
+      _fallo(f.mensajeUsuario);
+      if (f.tipo == SeguimientoErrorTipo.noCancelable ||
+          f.tipo == SeguimientoErrorTipo.noEncontrada) {
+        await _refrescarConservandoError(f.mensajeUsuario);
+      }
+      return false;
+    } catch (_) {
+      _fallo(
+        const SeguimientoFailure(
+          SeguimientoErrorTipo.desconocido,
+        ).mensajeUsuario,
+      );
+      return false;
+    }
+  }
+
+  /// Vuelve a consultar sin borrar el aviso de por qué no se canceló.
+  Future<void> _refrescarConservandoError(String mensaje) async {
+    try {
+      final lista = await _fuente.listar();
+      if (isClosed) return;
+      emit(
+        MisSolicitudesState(
+          solicitudes: lista,
+          consultadoEn: _reloj(),
+          error: mensaje,
+        ),
+      );
+    } catch (_) {
+      // Ya se muestra el error de la cancelación; la lista se conserva.
     }
   }
 
