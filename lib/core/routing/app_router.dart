@@ -1,10 +1,11 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:mani/core/di/injection_container.dart';
+import 'package:mani/features/catalog/data/zonas_catalogo_remote_datasource.dart';
 import 'package:mani/features/asignacion/presentation/bloc/solicitudes_aliado_cubit.dart';
 import 'package:mani/features/asignacion/presentation/pages/solicitudes_aliado_page.dart';
 import 'package:mani/features/auth/presentation/pages/login_page.dart';
@@ -183,7 +184,10 @@ final appRouter = GoRouter(
             '';
         return BlocProvider(
           create: (_) => sl<SedesEmpresaCubit>(),
-          child: GestionSedesEmpresaPage(clienteId: clienteId),
+          // Las zonas del desplegable salen del catálogo de Core
+          // (HU-M04-04), no de una lista fija: un id inventado haría que el
+          // alta de la sede se rechazara por zona inexistente.
+          child: _SedesEmpresaConZonasReales(clienteId: clienteId),
         );
       },
     ),
@@ -250,3 +254,50 @@ final appRouter = GoRouter(
     ),
   ],
 );
+
+/// Carga el catálogo geográfico antes de abrir la gestión de sedes
+/// (HU-M04-04, C1: las zonas activas se pueden seleccionar en las interfaces
+/// que consumen el catálogo).
+///
+/// Mientras responde el Gateway se muestra un indicador; si el catálogo falla
+/// o llega vacío se muestra el error en lugar de caer a una lista fija, porque
+/// una zona inventada se rechaza al crear la sede.
+class _SedesEmpresaConZonasReales extends StatelessWidget {
+  const _SedesEmpresaConZonasReales({required this.clienteId});
+
+  final String clienteId;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<Map<String, String>>(
+      future: sl<IZonasCatalogoRemoteDataSource>().opcionesSeleccionables(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        final zonas = snapshot.data;
+        if (snapshot.hasError || zonas == null || zonas.isEmpty) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Sedes de la empresa')),
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(
+                  'No se pudo cargar el catálogo de zonas. '
+                  'Sin zonas no es posible registrar una sede.',
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+          );
+        }
+        return GestionSedesEmpresaPage(
+          clienteId: clienteId,
+          zonasDisponibles: zonas,
+        );
+      },
+    );
+  }
+}

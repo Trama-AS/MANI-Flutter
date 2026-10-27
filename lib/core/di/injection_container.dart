@@ -2,6 +2,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:get_it/get_it.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:mani/core/network/gateway_client.dart';
+import 'package:mani/features/catalog/data/zonas_catalogo_remote_datasource.dart';
 import 'package:mani/core/platform/url_opener.dart';
 import 'package:mani/features/auth/data/datasources/auth_remote_data_source.dart';
 import 'package:mani/features/auth/data/repositories/auth_repository_impl.dart';
@@ -254,6 +255,12 @@ Future<void> init() async {
   );
   sl.registerLazySingleton<ISedesEmpresaRemoteDataSource>(
     () => SedesEmpresaRemoteDataSource(gateway: sl()),
+  );
+
+  // Features - Catálogo geográfico (HU-M04-04). Lo consume la pantalla de
+  // sedes para ofrecer zonas reales en vez de una lista fija en el código.
+  sl.registerLazySingleton<IZonasCatalogoRemoteDataSource>(
+    () => ZonasCatalogoRemoteDataSource(gateway: sl()),
   );
 
   // Features - Profiles / Empleados Directos (US-02.1.5 / SCRUM-850)
