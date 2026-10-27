@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -32,6 +32,8 @@ import 'package:mani/features/services/tracking/presentation/mis_solicitudes_cub
 import 'package:mani/features/services/tracking/presentation/mis_solicitudes_page.dart';
 import 'package:mani/features/services/quotes/presentation/cotizacion_cubit.dart';
 import 'package:mani/features/services/quotes/presentation/cotizacion_page.dart';
+import 'package:mani/features/services/execution/presentation/ejecucion_cubit.dart';
+import 'package:mani/features/services/execution/presentation/ejecucion_seccion.dart';
 import 'package:mani/features/profiles/site_rules/presentation/bloc/reglas_sitio_cubit.dart';
 import 'package:mani/features/profiles/site_rules/presentation/pages/reglas_sitio_page.dart';
 import 'package:mani/features/profiles/company_sites/presentation/bloc/sedes_empresa_cubit.dart';
@@ -95,6 +97,26 @@ bool _isPublicPath(String path) {
 /// de otro rol lo devuelve al inicio del suyo (US-11.2.2 / SCRUM-1445,
 /// `guardas_ruta.dart`). La autorización por rol la aplica, de todos modos,
 /// el servidor con el token verificado.
+/// Pantalla del servicio de una solicitud: la cotización (SCRUM-865 y 867) y,
+/// al final, la ejecución (SCRUM-868). Cada parte tiene su Cubit y consulta a
+/// Core por su lado.
+Widget _pantallaServicio(
+  String solicitudId, {
+  required bool esAliado,
+}) => MultiBlocProvider(
+  providers: [
+    BlocProvider(create: (_) => CotizacionCubit(sl(), solicitudId)..cargar()),
+    BlocProvider(create: (_) => EjecucionCubit(sl(), solicitudId)..cargar()),
+  ],
+  child: Builder(
+    builder: (context) => CotizacionPage(
+      esAliado: esAliado,
+      pie: EjecucionSeccion(esAliado: esAliado),
+      alRefrescar: context.read<EjecucionCubit>().cargar,
+    ),
+  ),
+);
+
 final appRouter = GoRouter(
   initialLocation: '/login',
   refreshListenable: _AuthChangeNotifier(),
@@ -275,22 +297,16 @@ final appRouter = GoRouter(
         GoRoute(
           path: '/cliente/solicitudes/:id/cotizacion',
           name: 'cotizacion-cliente',
-          builder: (context, state) => BlocProvider(
-            create: (_) =>
-                CotizacionCubit(sl(), state.pathParameters['id']!)..cargar(),
-            child: const CotizacionPage(esAliado: false),
-          ),
+          builder: (context, state) =>
+              _pantallaServicio(state.pathParameters['id']!, esAliado: false),
         ),
         // Cotización del aliado (US-04.2.1 / SCRUM-865): solo el aliado
         // asignado emite; lo valida Core.
         GoRoute(
           path: '/aliado/solicitudes/:id/cotizacion',
           name: 'cotizacion-aliado',
-          builder: (context, state) => BlocProvider(
-            create: (_) =>
-                CotizacionCubit(sl(), state.pathParameters['id']!)..cargar(),
-            child: const CotizacionPage(esAliado: true),
-          ),
+          builder: (context, state) =>
+              _pantallaServicio(state.pathParameters['id']!, esAliado: true),
         ),
         // Bandeja del aliado (US-04.1.4). La asignación sin doble aliado la
         // garantiza el servidor (UPDATE condicional atómico, DD-MANI §7.1).
