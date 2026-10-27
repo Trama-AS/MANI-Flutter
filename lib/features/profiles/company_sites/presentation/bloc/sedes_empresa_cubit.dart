@@ -80,10 +80,7 @@ class SedesEmpresaCubit extends Cubit<SedesEmpresaState> {
       // Column con "Duplicate keys found".
       emit(
         SedesEmpresaState(
-          sedes: [
-            ...state.sedes.where((s) => s.id != creada.id),
-            creada,
-          ],
+          sedes: [...state.sedes.where((s) => s.id != creada.id), creada],
         ),
       );
     } on SedeEmpresaFailure catch (e) {

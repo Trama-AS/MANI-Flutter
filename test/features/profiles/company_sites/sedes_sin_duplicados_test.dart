@@ -40,7 +40,10 @@ void main() {
       httpClient: MockClient((req) async {
         // Core ya tiene la sede: es el caso en que la recarga se adelanta al
         // emit del alta.
-        if (req.method == 'GET') return json({'sitios': const [sedeNueva]});
+        if (req.method == 'GET')
+          return json({
+            'sitios': const [sedeNueva],
+          });
         return json({'sitio': sedeNueva}, 201);
       }),
     );
@@ -53,23 +56,26 @@ void main() {
     );
   }
 
-  test('agregar una sede que la recarga ya trajo no la duplica en el estado', () async {
-    final cubit = cubitQueYaTieneLaSede();
-    addTearDown(cubit.close);
+  test(
+    'agregar una sede que la recarga ya trajo no la duplica en el estado',
+    () async {
+      final cubit = cubitQueYaTieneLaSede();
+      addTearDown(cubit.close);
 
-    await cubit.cargarSedes('cli-1');
-    expect(cubit.state.sedes, hasLength(1));
+      await cubit.cargarSedes('cli-1');
+      expect(cubit.state.sedes, hasLength(1));
 
-    await cubit.agregarNuevaSede(
-      clienteId: 'cli-1',
-      nombre: 'Sede Chapinero',
-      direccion: 'Calle 72 # 10-07',
-      zonaId: zona,
-    );
+      await cubit.agregarNuevaSede(
+        clienteId: 'cli-1',
+        nombre: 'Sede Chapinero',
+        direccion: 'Calle 72 # 10-07',
+        zonaId: zona,
+      );
 
-    expect(cubit.state.sedes, hasLength(1), reason: 'la sede no se repite');
-    expect(cubit.state.sedes.single.id, 'sede-nueva');
-  });
+      expect(cubit.state.sedes, hasLength(1), reason: 'la sede no se repite');
+      expect(cubit.state.sedes.single.id, 'sede-nueva');
+    },
+  );
 
   testWidgets('la pantalla no lanza "Duplicate keys found" en ese caso', (
     tester,

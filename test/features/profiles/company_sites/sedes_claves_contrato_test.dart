@@ -77,7 +77,11 @@ void main() {
   });
 
   test('se conserva `data` como respaldo de respuestas anteriores', () async {
-    final ds = datasourceQueResponde((_) => json({'data': const [sitio]}));
+    final ds = datasourceQueResponde(
+      (_) => json({
+        'data': const [sitio],
+      }),
+    );
 
     expect(await ds.listarSedes('cli-1'), hasLength(1));
   });

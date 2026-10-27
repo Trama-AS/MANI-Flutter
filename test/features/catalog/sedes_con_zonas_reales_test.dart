@@ -147,7 +147,8 @@ void main() {
       expect(
         enviado['zonaId'],
         '22222222-2222-4222-8222-222222222222',
-        reason: 'se envía el id del catálogo, no un id inventado como z-chapinero',
+        reason:
+            'se envía el id del catálogo, no un id inventado como z-chapinero',
       );
     },
   );

@@ -27,7 +27,10 @@ class SedesEmpresaRemoteDataSource implements ISedesEmpresaRemoteDataSource {
     // sigue usándolas; sin `sitios` la lista llegaba siempre vacía aunque el
     // cliente tuviera sedes.
     final raw =
-        respuesta['sitios'] ?? respuesta['data'] ?? respuesta['sites'] ?? const [];
+        respuesta['sitios'] ??
+        respuesta['data'] ??
+        respuesta['sites'] ??
+        const [];
     if (raw is List) {
       return raw
           .whereType<Map<String, dynamic>>()

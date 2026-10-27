@@ -16,10 +16,11 @@ void main() {
 
   // El Gateway responde siempre con content-type JSON; el doble debe hacer
   // lo mismo o el cliente no decodifica el cuerpo.
-  http.Response json(String body, [int status = 200]) =>
-      http.Response(body, status, headers: const {
-        'content-type': 'application/json; charset=utf-8',
-      });
+  http.Response json(String body, [int status = 200]) => http.Response(
+    body,
+    status,
+    headers: const {'content-type': 'application/json; charset=utf-8'},
+  );
 
   ZonasCatalogoRemoteDataSource datasource({String? token}) {
     final gateway = GatewayClient(
@@ -87,15 +88,18 @@ void main() {
     responder = (_) => json(arbolDeEjemplo());
   });
 
-  test('la consulta sale por el Gateway, no contra el puerto interno de Core', () async {
-    await datasource().consultarJerarquia();
+  test(
+    'la consulta sale por el Gateway, no contra el puerto interno de Core',
+    () async {
+      await datasource().consultarJerarquia();
 
-    expect(alGateway, hasLength(1));
-    final uri = alGateway.single.url;
-    expect(uri.host, 'gateway.local');
-    expect(uri.path, '/api/v1/core/catalog/zones');
-    expect(uri.queryParameters['onlyActive'], 'true');
-  });
+      expect(alGateway, hasLength(1));
+      final uri = alGateway.single.url;
+      expect(uri.host, 'gateway.local');
+      expect(uri.path, '/api/v1/core/catalog/zones');
+      expect(uri.queryParameters['onlyActive'], 'true');
+    },
+  );
 
   test('propaga el JWT de la sesión y un X-Correlation-ID', () async {
     await datasource(token: 'jwt-de-la-sesion').consultarJerarquia();
@@ -118,13 +122,16 @@ void main() {
     expect(localidad.hijos.single.nombre, 'Chicó Norte');
   });
 
-  test('las opciones del desplegable llevan la etiqueta jerárquica completa', () async {
-    final opciones = await datasource().opcionesSeleccionables();
+  test(
+    'las opciones del desplegable llevan la etiqueta jerárquica completa',
+    () async {
+      final opciones = await datasource().opcionesSeleccionables();
 
-    expect(opciones['zona-ciudad'], 'Bogotá D.C.');
-    expect(opciones['zona-chapinero'], 'Bogotá D.C. · Chapinero');
-    expect(opciones['zona-chico'], 'Bogotá D.C. · Chapinero · Chicó Norte');
-  });
+      expect(opciones['zona-ciudad'], 'Bogotá D.C.');
+      expect(opciones['zona-chapinero'], 'Bogotá D.C. · Chapinero');
+      expect(opciones['zona-chico'], 'Bogotá D.C. · Chapinero · Chicó Norte');
+    },
+  );
 
   test('una zona no seleccionable no se ofrece como opción', () async {
     responder = (_) => json(arbolDeEjemplo(conInactiva: true));
@@ -141,12 +148,15 @@ void main() {
     expect(opciones.keys, ['zona-chico']);
   });
 
-  test('un catálogo sin zonas devuelve vacío en vez de inventar opciones', () async {
-    responder = (_) =>
-        json(jsonEncode({'zones': [], 'tree': [], 'inconsistencies': []}));
+  test(
+    'un catálogo sin zonas devuelve vacío en vez de inventar opciones',
+    () async {
+      responder = (_) =>
+          json(jsonEncode({'zones': [], 'tree': [], 'inconsistencies': []}));
 
-    expect(await datasource().opcionesSeleccionables(), isEmpty);
-  });
+      expect(await datasource().opcionesSeleccionables(), isEmpty);
+    },
+  );
 
   test('un rechazo del Gateway se propaga como GatewayException', () async {
     responder = (_) => json(
