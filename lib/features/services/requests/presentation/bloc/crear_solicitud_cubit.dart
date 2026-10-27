@@ -19,16 +19,19 @@ class CrearSolicitudCubit extends Cubit<CrearSolicitudState> {
     required CargarCatalogoSolicitud cargarCatalogo,
     required BuscarZonas buscarZonas,
     required PublicarSolicitud publicar,
+    required AvisarAliados avisarAliados,
     String Function() generarClave = nuevoUuid,
   }) : _cargarCatalogo = cargarCatalogo,
        _buscarZonas = buscarZonas,
        _publicar = publicar,
+       _avisarAliados = avisarAliados,
        _generarClave = generarClave,
        super(CrearSolicitudState(clave: generarClave()));
 
   final CargarCatalogoSolicitud _cargarCatalogo;
   final BuscarZonas _buscarZonas;
   final PublicarSolicitud _publicar;
+  final AvisarAliados _avisarAliados;
   final String Function() _generarClave;
   int _secuenciaAvisos = 0;
   int _tokenZonas = 0;
@@ -223,6 +226,32 @@ class CrearSolicitudCubit extends Cubit<CrearSolicitudState> {
         ),
       );
       _avisar(f.mensajeUsuario, esError: true);
+      return false;
+    }
+  }
+
+  /// La solicitud quedó publicada pero los aliados no recibieron la oferta:
+  /// se repite el aviso. Devuelve `true` si esta vez llegó.
+  Future<bool> reintentarAviso() async {
+    final publicada = state.publicada;
+    if (publicada == null || publicada.aliadosAvisados || state.avisando) {
+      return false;
+    }
+    emit(state.copyWith(avisando: true));
+    try {
+      await _avisarAliados(publicada.id);
+      if (!isClosed) {
+        emit(
+          state.copyWith(avisando: false, publicada: publicada.conAviso(true)),
+        );
+        _avisar('Listo: los aliados ya pueden ver tu solicitud.');
+      }
+      return true;
+    } on SolicitudFailure catch (f) {
+      if (!isClosed) {
+        emit(state.copyWith(avisando: false));
+        _avisar(f.mensajeUsuario, esError: true);
+      }
       return false;
     }
   }

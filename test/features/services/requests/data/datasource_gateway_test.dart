@@ -172,4 +172,25 @@ void main() {
 
     await expectLater(crear(datasource()), throwsFormatException);
   });
+
+  test(
+    'avisar a los aliados: POST orchestrate a Dispatch con la solicitud y la clave',
+    () async {
+      var n = 0;
+      responder = (_) => ++n == 1
+          ? http.Response('{"code":"CORE_SERVICE_UNAVAILABLE"}', 503)
+          : http.Response('{"notified":2}', 200);
+
+      await datasource().avisarAliados('sol-1', clave: 'clave-1');
+
+      final r = alGateway.last;
+      expect(r.method, 'POST');
+      expect(r.url.path, '/api/v1/dispatch/requests/orchestrate');
+      expect(r.headers['Authorization'], 'Bearer jwt-cliente');
+      expect(r.headers['Idempotency-Key'], 'clave-1');
+      expect(jsonDecode(r.body), {'requestId': 'sol-1'});
+      expect(alGateway, hasLength(2), reason: 'el 503 se reintenta');
+      expect(aSupabase, isEmpty);
+    },
+  );
 }

@@ -113,6 +113,28 @@ void main() {
       expect(repo.llamadasRechazar, 0);
     });
 
+    test('si ya la había rechazado (409R) la quita y explica', () async {
+      // Rechazada desde otro dispositivo: offers/me ya no la trae.
+      repo.rechazadas['s1'] = null;
+      repo.fallarAlAceptar = const AsignacionFailure(
+        AsignacionErrorTipo.yaRechazada,
+      );
+
+      expect(await cubit.aceptar('s1'), isFalse);
+      expect(cubit.state.bandeja.porId('s1'), isNull);
+      expect(cubit.state.aviso?.mensaje, contains('descartado'));
+    });
+
+    test('Dispatch caído (5xx) conserva la solicitud y lo explica', () async {
+      repo.fallarAlAceptar = const AsignacionFailure(
+        AsignacionErrorTipo.servicioNoDisponible,
+      );
+
+      expect(await cubit.aceptar('s1'), isFalse);
+      expect(cubit.state.bandeja.porId('s1'), isNotNull);
+      expect(cubit.state.aviso?.mensaje, contains('no responde'));
+    });
+
     test('un error de red conserva la solicitud para reintentar', () async {
       repo.fallarAlAceptar = const AsignacionFailure(
         AsignacionErrorTipo.sinConexion,

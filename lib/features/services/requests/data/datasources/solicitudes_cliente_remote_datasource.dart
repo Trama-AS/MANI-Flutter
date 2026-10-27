@@ -29,6 +29,11 @@ abstract interface class SolicitudesClienteRemoteDataSource {
     String? zonaId,
   });
 
+  /// Pide a Dispatch que ofrezca la solicitud a los aliados elegibles
+  /// (broadcast, SCRUM-1402). Dispatch no duplica la oferta a un mismo aliado,
+  /// así que repetirlo es seguro.
+  Future<void> avisarAliados(String solicitudId, {required String clave});
+
   /// `null` sin sesión; evita enviar la petición sin JWT.
   String? get usuarioId;
 
@@ -41,6 +46,7 @@ class SolicitudesClienteRemoteDataSourceImpl
   SolicitudesClienteRemoteDataSourceImpl(this._client, this._gateway);
 
   static const rutaCrear = '/api/v1/core/solicitudes';
+  static const rutaOrquestar = '/api/v1/dispatch/requests/orchestrate';
 
   final SupabaseClient _client;
   final GatewayClient _gateway;
@@ -109,6 +115,16 @@ class SolicitudesClienteRemoteDataSourceImpl
     }
     throw const FormatException('Respuesta inesperada de Core');
   }
+
+  /// El cliente y el tenant salen del JWT; el cuerpo solo lleva la solicitud.
+  /// La clave permite que el `GatewayClient` reintente ante 502/503/504.
+  @override
+  Future<void> avisarAliados(String solicitudId, {required String clave}) =>
+      _gateway.postJson(
+        rutaOrquestar,
+        {'requestId': solicitudId},
+        headers: {GatewayClient.headerIdempotencyKey: clave},
+      );
 
   @override
   String? get usuarioId => _client.auth.currentUser?.id;
