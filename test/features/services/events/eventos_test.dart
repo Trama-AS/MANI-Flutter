@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:mani/core/network/gateway_client.dart';
 import 'package:mani/core/platform/selector_fotos.dart';
+import 'package:mani/core/platform/url_opener.dart';
 import 'package:mani/features/services/events/data/eventos_datasource.dart';
 import 'package:mani/features/services/events/presentation/eventos_cubit.dart';
 import 'package:mani/features/services/events/presentation/eventos_seccion.dart';
@@ -43,6 +44,15 @@ class _FuenteFake implements FuenteEventos {
   Object? falloRegistrar;
   final claves = <String>[];
   final registros = <String>[];
+  Object? falloEvidencia;
+  final evidenciasPedidas = <String>[];
+
+  @override
+  Future<Uri> urlEvidencia(String solicitudId, String eventoId) async {
+    evidenciasPedidas.add(eventoId);
+    if (falloEvidencia != null) throw falloEvidencia!;
+    return Uri.parse('https://firmada/$eventoId.png');
+  }
 
   @override
   Future<List<EventoServicio>> listar(String solicitudId) async => lista;
@@ -67,6 +77,16 @@ class _FuenteFake implements FuenteEventos {
     );
     lista = [...lista, e];
     return e;
+  }
+}
+
+class _OpenerFake implements UrlOpener {
+  final abiertas = <Uri>[];
+
+  @override
+  Future<bool> abrir(Uri url) async {
+    abiertas.add(url);
+    return true;
   }
 }
 
@@ -282,6 +302,7 @@ void main() {
                 create: (_) => EventosCubit(f, 'sol-1')..cargar(),
                 child: EventosSeccion(
                   puedeRegistrar: puedeRegistrar,
+                  urlOpener: _OpenerFake(),
                   selectorFotos: _SelectorFijo(),
                 ),
               ),
@@ -342,4 +363,180 @@ void main() {
       },
     );
   });
+
+  group('SCRUM-870 · el cliente consulta la bitácora', () {
+    test(
+      'la fuente pide la evidencia a su ruta y exige una URL válida',
+      () async {
+        late http.Request pedida;
+        var cuerpo = jsonEncode({
+          'evidencia': {
+            'url': 'https://firmada/e1.png',
+            'expiraEnSegundos': 300,
+          },
+        });
+        final fuente = GatewayFuenteEventos(
+          GatewayClient(
+            baseUrl: 'http://gateway.local',
+            tokenProvider: () async => 'jwt',
+            correlationId: () => 'corr',
+            initialRetryDelay: Duration.zero,
+            httpClient: MockClient((r) async {
+              pedida = r;
+              return http.Response(cuerpo, 200, headers: _json);
+            }),
+          ),
+        );
+        final url = await fuente.urlEvidencia('sol-1', 'e1');
+        expect(
+          pedida.url.path,
+          '/api/v1/core/solicitudes/sol-1/eventos/e1/evidencia',
+        );
+        expect(url.toString(), 'https://firmada/e1.png');
+
+        cuerpo = '{"evidencia":{}}';
+        await expectLater(
+          fuente.urlEvidencia('sol-1', 'e1'),
+          throwsA(isA<CotizacionFailure>()),
+        );
+      },
+    );
+
+    Future<(_FuenteFake, _OpenerFake)> montarCliente(
+      WidgetTester tester,
+    ) async {
+      final f = _FuenteFake()
+        ..lista = [
+          EventoServicio.fromJson(_eventoJson('e1', 'INICIO_EJECUCION')),
+          EventoServicio.fromJson(
+            _eventoJson('e2', 'EJECUCION_AVANCE', foto: true),
+          ),
+        ];
+      final opener = _OpenerFake();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: BlocProvider(
+                create: (_) => EventosCubit(f, 'sol-1')..cargar(),
+                child: EventosSeccion(puedeRegistrar: false, urlOpener: opener),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      return (f, opener);
+    }
+
+    testWidgets('ve la secuencia en orden y en solo lectura', (tester) async {
+      await montarCliente(tester);
+      expect(find.text('Inicio del servicio'), findsOneWidget);
+      expect(find.text('Avance'), findsOneWidget);
+      final y1 = tester.getTopLeft(find.byKey(const Key('evento-e1'))).dy;
+      final y2 = tester.getTopLeft(find.byKey(const Key('evento-e2'))).dy;
+      expect(y1, lessThan(y2));
+      expect(find.byKey(const Key('btn-registrar-evento')), findsNothing);
+      expect(find.byKey(const Key('ver-foto-e1')), findsNothing);
+    });
+
+    testWidgets('«Ver foto» pide una URL nueva cada vez y la abre', (
+      tester,
+    ) async {
+      final (f, opener) = await montarCliente(tester);
+      await tester.tap(find.byKey(const Key('ver-foto-e2')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('ver-foto-e2')));
+      await tester.pumpAndSettle();
+      expect(f.evidenciasPedidas, ['e2', 'e2']);
+      expect(opener.abiertas.map((u) => u.toString()), [
+        'https://firmada/e2.png',
+        'https://firmada/e2.png',
+      ]);
+    });
+
+    testWidgets('si Core no da la foto, se avisa y no se abre nada', (
+      tester,
+    ) async {
+      final (f, opener) = await montarCliente(tester);
+      f.falloEvidencia = const CotizacionFailure(
+        CotizacionErrorTipo.noEncontrada,
+      );
+      await tester.tap(find.byKey(const Key('ver-foto-e2')));
+      await tester.pumpAndSettle();
+      expect(opener.abiertas, isEmpty);
+      expect(
+        find.text('No encontramos esta solicitud o cotización.'),
+        findsOneWidget,
+      );
+    });
+  });
+
+  group('SCRUM-870 · ramas de error al ver la foto', () {
+    test(
+      'un 404 de Core al pedir la foto llega como fallo de no encontrada',
+      () async {
+        final fuente = GatewayFuenteEventos(
+          GatewayClient(
+            baseUrl: 'http://gateway.local',
+            tokenProvider: () async => 'jwt',
+            correlationId: () => 'corr',
+            initialRetryDelay: Duration.zero,
+            httpClient: MockClient(
+              (_) async => http.Response(
+                '{"error":"MANI-EVT-404E: el evento no tiene evidencia"}',
+                404,
+                headers: _json,
+              ),
+            ),
+          ),
+        );
+        await expectLater(
+          fuente.urlEvidencia('sol-1', 'e1'),
+          throwsA(
+            isA<CotizacionFailure>().having(
+              (f) => f.tipo,
+              'tipo',
+              CotizacionErrorTipo.noEncontrada,
+            ),
+          ),
+        );
+      },
+    );
+
+    testWidgets('si el sistema no puede abrir la URL, se avisa', (
+      tester,
+    ) async {
+      final f = _FuenteFake()
+        ..lista = [
+          EventoServicio.fromJson(
+            _eventoJson('e2', 'EJECUCION_AVANCE', foto: true),
+          ),
+        ];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: BlocProvider(
+                create: (_) => EventosCubit(f, 'sol-1')..cargar(),
+                child: EventosSeccion(
+                  puedeRegistrar: false,
+                  urlOpener: _OpenerQueFalla(),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('ver-foto-e2')));
+      await tester.pumpAndSettle();
+      expect(find.text('No se pudo abrir la foto.'), findsOneWidget);
+    });
+  });
+}
+
+class _OpenerQueFalla implements UrlOpener {
+  @override
+  Future<bool> abrir(Uri url) async => false;
 }

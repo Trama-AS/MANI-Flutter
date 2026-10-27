@@ -90,6 +90,10 @@ abstract interface class FuenteEventos {
     required String claveIdempotencia,
     FotoAdjunta? foto,
   });
+
+  /// URL temporal de la foto de un evento (SCRUM-870). Vence en minutos: se
+  /// pide cada vez que el usuario la abre.
+  Future<Uri> urlEvidencia(String solicitudId, String eventoId);
 }
 
 /// Eventos del servicio por el Gateway a Core (US-04.3.2 / SCRUM-869). El
@@ -100,6 +104,8 @@ class GatewayFuenteEventos implements FuenteEventos {
 
   static String ruta(String solicitudId) =>
       '/api/v1/core/solicitudes/$solicitudId/eventos';
+  static String rutaEvidencia(String solicitudId, String eventoId) =>
+      '${ruta(solicitudId)}/$eventoId/evidencia';
 
   final GatewayClient _gateway;
 
@@ -154,6 +160,24 @@ class GatewayFuenteEventos implements FuenteEventos {
         throw const FormatException('Respuesta de Core sin "evento"');
       }
       return EventoServicio.fromJson(Map<String, dynamic>.from(e));
+    } on GatewayException catch (e) {
+      throw GatewayFuenteCotizaciones.mapearGateway(e);
+    } on FormatException catch (e) {
+      throw CotizacionFailure(CotizacionErrorTipo.desconocido, e.message);
+    }
+  }
+
+  @override
+  Future<Uri> urlEvidencia(String solicitudId, String eventoId) async {
+    try {
+      final res = await _gateway.get(rutaEvidencia(solicitudId, eventoId));
+      final evidencia = res['evidencia'];
+      final url = evidencia is Map ? evidencia['url'] : null;
+      final uri = url is String ? Uri.tryParse(url) : null;
+      if (uri == null || !uri.hasScheme) {
+        throw const FormatException('Respuesta de Core sin "evidencia.url"');
+      }
+      return uri;
     } on GatewayException catch (e) {
       throw GatewayFuenteCotizaciones.mapearGateway(e);
     } on FormatException catch (e) {

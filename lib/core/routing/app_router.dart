@@ -84,6 +84,50 @@ bool _isPublicPath(String path) {
       path.startsWith('/registro-');
 }
 
+/// Pantalla del servicio de una solicitud: la cotización (SCRUM-865 y 867), la
+/// ejecución (SCRUM-868) y la bitácora (SCRUM-869 y 870). Cada parte
+/// tiene su Cubit y consulta a Core por su lado.
+Widget _pantallaServicio(
+  String solicitudId, {
+  required bool esAliado,
+}) => MultiBlocProvider(
+  providers: [
+    BlocProvider(create: (_) => CotizacionCubit(sl(), solicitudId)..cargar()),
+    BlocProvider(create: (_) => EjecucionCubit(sl(), solicitudId)..cargar()),
+    BlocProvider(create: (_) => EventosCubit(sl(), solicitudId)..cargar()),
+  ],
+  child: Builder(
+    builder: (context) => CotizacionPage(
+      esAliado: esAliado,
+      pie: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          EjecucionSeccion(esAliado: esAliado),
+          // El aliado registra eventos solo con el servicio en ejecución (la regla
+          // definitiva la aplica Core, MANI-EVT-409E); el cliente consulta la
+          // bitácora en solo lectura (SCRUM-870).
+          BlocBuilder<EjecucionCubit, EjecucionState>(
+            buildWhen: (a, b) =>
+                a.ejecucion?.enEjecucion != b.ejecucion?.enEjecucion,
+            builder: (context, state) => EventosSeccion(
+              puedeRegistrar:
+                  esAliado && (state.ejecucion?.enEjecucion ?? false),
+              urlOpener: sl(),
+              selectorFotos: esAliado ? sl() : null,
+            ),
+          ),
+        ],
+      ),
+      alRefrescar: () async {
+        await Future.wait([
+          context.read<EjecucionCubit>().cargar(),
+          context.read<EventosCubit>().cargar(),
+        ]);
+      },
+    ),
+  ),
+);
+
 /// Configuración de rutas declarativas limpias para MANI Web (sin hash #).
 /// - `/login`: Pantalla de inicio de sesión
 /// - `/register-cliente`: Pantalla independiente de registro para clientes (US-02.2.1)
@@ -97,6 +141,8 @@ bool _isPublicPath(String path) {
 /// - `/cliente/solicitudes/nueva`: El cliente publica su solicitud con fotos (US-04.1.1)
 /// - `/cliente/solicitudes`: Estado y zona declarada de las solicitudes del cliente (HU-M07-04)
 /// - `/aliado/solicitudes`: Bandeja del aliado para aceptar/rechazar solicitudes (US-04.1.4)
+/// - `/cliente/solicitudes/:id/cotizacion` y `/aliado/solicitudes/:id/cotizacion`: Pantalla del servicio:
+///   cotización, ejecución y bitácora (US-04.2.1 a US-04.3.3)
 /// - `/admin/verificacion-aliados`: Bandeja de verificación del admin del tenant (US-02.1.3)
 /// - `/admin/categorias`: Catálogo de categorías de servicio del tenant (US-03.1.1)
 ///
@@ -105,49 +151,6 @@ bool _isPublicPath(String path) {
 /// de otro rol lo devuelve al inicio del suyo (US-11.2.2 / SCRUM-1445,
 /// `guardas_ruta.dart`). La autorización por rol la aplica, de todos modos,
 /// el servidor con el token verificado.
-/// Pantalla del servicio de una solicitud: la cotización (SCRUM-865 y 867), la
-/// ejecución (SCRUM-868) y, para el aliado, la bitácora (SCRUM-869). Cada parte
-/// tiene su Cubit y consulta a Core por su lado.
-Widget _pantallaServicio(
-  String solicitudId, {
-  required bool esAliado,
-}) => MultiBlocProvider(
-  providers: [
-    BlocProvider(create: (_) => CotizacionCubit(sl(), solicitudId)..cargar()),
-    BlocProvider(create: (_) => EjecucionCubit(sl(), solicitudId)..cargar()),
-    if (esAliado)
-      BlocProvider(create: (_) => EventosCubit(sl(), solicitudId)..cargar()),
-  ],
-  child: Builder(
-    builder: (context) => CotizacionPage(
-      esAliado: esAliado,
-      pie: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          EjecucionSeccion(esAliado: esAliado),
-          if (esAliado)
-            // Los eventos solo se registran con el servicio en ejecución; la
-            // regla definitiva la aplica Core (MANI-EVT-409E).
-            BlocBuilder<EjecucionCubit, EjecucionState>(
-              buildWhen: (a, b) =>
-                  a.ejecucion?.enEjecucion != b.ejecucion?.enEjecucion,
-              builder: (context, state) => EventosSeccion(
-                puedeRegistrar: state.ejecucion?.enEjecucion ?? false,
-                selectorFotos: sl(),
-              ),
-            ),
-        ],
-      ),
-      alRefrescar: () async {
-        await Future.wait([
-          context.read<EjecucionCubit>().cargar(),
-          if (esAliado) context.read<EventosCubit>().cargar(),
-        ]);
-      },
-    ),
-  ),
-);
-
 final appRouter = GoRouter(
   initialLocation: '/login',
   refreshListenable: _AuthChangeNotifier(),
