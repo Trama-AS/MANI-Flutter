@@ -40,10 +40,11 @@ void main() {
       httpClient: MockClient((req) async {
         // Core ya tiene la sede: es el caso en que la recarga se adelanta al
         // emit del alta.
-        if (req.method == 'GET')
+        if (req.method == 'GET') {
           return json({
             'sitios': const [sedeNueva],
           });
+        }
         return json({'sitio': sedeNueva}, 201);
       }),
     );
