@@ -457,9 +457,7 @@ class _LoginViewState extends State<_LoginView> {
     return Column(
       children: [
         GestureDetector(
-          onTap: () {
-            // TODO: Pantalla de recuperación
-          },
+          onTap: () => context.go('/forgot-password'),
           child: Text(
             '¿Olvidaste tu contraseña?',
             style: GoogleFonts.plusJakartaSans(
