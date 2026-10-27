@@ -5,9 +5,16 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:mani/core/di/injection_container.dart';
+import 'package:mani/core/session/guardas_ruta.dart';
+import 'package:mani/core/session/rol_usuario.dart';
+import 'package:mani/core/shell/app_shell.dart';
+import 'package:mani/core/shell/datos_sesion.dart';
 import 'package:mani/features/asignacion/presentation/bloc/solicitudes_aliado_cubit.dart';
 import 'package:mani/features/asignacion/presentation/pages/solicitudes_aliado_page.dart';
+import 'package:mani/features/auth/domain/repositories/i_auth_repository.dart';
 import 'package:mani/features/auth/presentation/pages/login_page.dart';
+import 'package:mani/features/home/data/resumen_inicio.dart';
+import 'package:mani/features/home/presentation/pages/inicio_page.dart';
 import 'package:mani/features/auth/presentation/pages/registro_cliente_page.dart';
 import 'package:mani/features/auth/presentation/pages/registro_cliente_empresa_page.dart';
 import 'package:mani/features/auth/domain/entities/enlace_recuperacion.dart';
@@ -84,20 +91,22 @@ bool _isPublicPath(String path) {
 /// - `/admin/verificacion-aliados`: Bandeja de verificación del admin del tenant (US-02.1.3)
 /// - `/admin/categorias`: Catálogo de categorías de servicio del tenant (US-03.1.1)
 ///
-/// El `redirect` protege cualquier ruta que no esté en `_publicPaths`: si no
-/// hay sesión activa en Supabase, el usuario es enviado a `/login`. Las rutas
-/// de categorías, cobertura y verificación son privadas a propósito: solo un aliado o un
-/// administrador autenticados deben llegar a ellas; la autorización por rol
-/// la aplican, de todos modos, las RPC del servidor.
+/// El `redirect` protege cualquier ruta que no esté en `_publicPaths`: sin
+/// sesión activa en Supabase el usuario va a `/login`, y con sesión una ruta
+/// de otro rol lo devuelve al inicio del suyo (US-11.2.2 / SCRUM-1445,
+/// `guardas_ruta.dart`). La autorización por rol la aplica, de todos modos,
+/// el servidor con el token verificado.
 final appRouter = GoRouter(
   initialLocation: '/login',
   refreshListenable: _AuthChangeNotifier(),
   redirect: (context, state) {
-    final isLoggedIn = Supabase.instance.client.auth.currentSession != null;
-    if (!isLoggedIn && !_isPublicPath(state.matchedLocation)) {
-      return '/login';
-    }
-    return null;
+    final session = Supabase.instance.client.auth.currentSession;
+    return resolverRedireccion(
+      ubicacion: state.matchedLocation,
+      esPublica: _isPublicPath(state.matchedLocation),
+      haySesion: session != null,
+      rol: rolDesdeAccessToken(session?.accessToken),
+    );
   },
   routes: [
     GoRoute(path: '/', redirect: (context, state) => '/login'),
@@ -155,12 +164,6 @@ final appRouter = GoRouter(
       path: '/registro-empresa',
       redirect: (context, state) => '/register-empresa',
     ),
-    // Ruta independiente: Selección de categorías del aliado (US-03.1.3)
-    GoRoute(
-      path: '/categories',
-      name: 'categories',
-      builder: (context, state) => const CategoriesPage(),
-    ),
     // Redirecciones por compatibilidad
     GoRoute(
       path: '/register',
@@ -175,106 +178,142 @@ final appRouter = GoRouter(
       path: '/registro',
       redirect: (context, state) => '/register-cliente',
     ),
-    // Ruta independiente: Zona de Cobertura (US-02.1.4)
-    GoRoute(
-      path: '/aliado/cobertura',
-      name: 'declarar-cobertura',
-      builder: (context, state) => DeclararCoberturaPage(controller: sl()),
-    ),
-    // Configuración y consulta de reglas contextuales de un sitio (US-02.2.3 / SCRUM-853)
-    GoRoute(
-      path: '/sitios/:id/reglas',
-      name: 'reglas-sitio',
-      builder: (context, state) {
-        final siteId = state.pathParameters['id'] ?? '';
-        final esAliado = state.uri.queryParameters['esAliado'] == 'true';
-        return BlocProvider(
-          create: (_) => sl<ReglasSitioCubit>(),
-          child: ReglasSitioPage(siteId: siteId, esVistaAliado: esAliado),
-        );
-      },
-    ),
-    // Edición del perfil propio de cliente o aliado (US-02.3.1 / SCRUM-854)
-    GoRoute(
-      path: '/perfil/editar',
-      name: 'editar-perfil',
-      builder: (context, state) => EditarPerfilPage(dataSource: sl()),
-    ),
-    // Gestión de múltiples sedes del cliente empresa (US-02.2.2 / SCRUM-852)
-    GoRoute(
-      path: '/cliente/sedes',
-      name: 'sedes-empresa',
-      builder: (context, state) {
-        final clienteId =
-            state.uri.queryParameters['clienteId'] ??
-            Supabase.instance.client.auth.currentUser?.id ??
-            '';
-        return BlocProvider(
-          create: (_) => sl<SedesEmpresaCubit>(),
-          child: GestionSedesEmpresaPage(clienteId: clienteId),
-        );
-      },
-    ),
-    // Ruta independiente: Registro de empleado directo del aliado (US-02.1.5 / SCRUM-850)
-    GoRoute(
-      path: '/aliado/empleados/nuevo',
-      name: 'registrar-empleado-directo',
-      builder: (context, state) => BlocProvider(
-        create: (_) => sl<EmpleadoDirectoCubit>(),
-        child: const RegistrarEmpleadoDirectoPage(),
-      ),
-    ),
-    // Crear solicitud (US-04.1.1): el cliente describe su problema y adjunta
-    // fotos; el tenant y el cliente salen de la sesión, nunca de la app.
-    GoRoute(
-      path: '/cliente/solicitudes/nueva',
-      name: 'crear-solicitud',
-      builder: (context, state) => BlocProvider(
-        create: (_) => sl<CrearSolicitudCubit>()..cargar(),
-        child: CrearSolicitudPage(selectorFotos: sl()),
-      ),
-    ),
-    // Bandeja del aliado (US-04.1.4). La asignación sin doble aliado la
-    // garantiza el servidor (UPDATE condicional atómico, DD-MANI §7.1).
-    GoRoute(
-      path: '/aliado/solicitudes',
-      name: 'solicitudes-aliado',
-      builder: (context, state) => BlocProvider(
-        create: (_) => sl<SolicitudesAliadoCubit>()..cargar(),
-        child: SolicitudesAliadoPage(
-          onAbrirCobertura: () => context.push('/aliado/cobertura'),
-          onAbrirCategorias: () => context.push('/categories'),
-          onAbrirDisponibilidad: () => context.push('/aliado/disponibilidad'),
+    // Pantallas con sesión dentro del menú superior por rol (US-11.2.1 /
+    // SCRUM-1444). El shell solo pinta: la autorización la aplica el servidor.
+    ShellRoute(
+      builder: (context, state, child) => AppShell(
+        rol: rolDesdeAccessToken(
+          Supabase.instance.client.auth.currentSession?.accessToken,
         ),
+        ubicacion: state.matchedLocation,
+        fuenteDatos: sl<FuenteDatosSesion>(),
+        onNavegar: (ruta) => context.go(ruta),
+        onCerrarSesion: () => sl<IAuthRepository>().signOut(),
+        child: child,
       ),
-    ),
-    // Ausencias del aliado (US-02.1.6). Rol y tenant los valida Core.
-    GoRoute(
-      path: '/aliado/disponibilidad',
-      name: 'disponibilidad-aliado',
-      builder: (context, state) => const DisponibilidadPage(),
-    ),
-    // Bandeja de verificación de aliados (US-02.1.3). La autorización real
-    // la aplica el servidor: las RPC exigen rol ADMIN_TENANT.
-    GoRoute(
-      path: '/admin/verificacion-aliados',
-      name: 'verificacion-aliados',
-      builder: (context, state) => BlocProvider(
-        create: (_) => sl<BandejaVerificacionCubit>()..cargar(),
-        child: BandejaVerificacionPage(
-          onAbrirCategorias: () => context.push('/admin/categorias'),
+      routes: [
+        // Inicio por tipo de usuario (US-11.2.3 / SCRUM-1446).
+        GoRoute(
+          path: rutaInicio,
+          name: 'inicio',
+          builder: (context, state) => InicioPage(
+            rol: rolDesdeAccessToken(
+              Supabase.instance.client.auth.currentSession?.accessToken,
+            ),
+            fuenteSesion: sl<FuenteDatosSesion>(),
+            fuenteResumen: sl<FuenteResumenInicio>(),
+            onNavegar: (ruta) => context.go(ruta),
+          ),
         ),
-      ),
-    ),
-    // Catálogo de categorías de servicio (US-03.1.1). Las RPC exigen rol
-    // ADMIN_TENANT; el tenant sale de la sesión, nunca de la app.
-    GoRoute(
-      path: '/admin/categorias',
-      name: 'categorias',
-      builder: (context, state) => BlocProvider(
-        create: (_) => sl<CategoriasCubit>()..cargar(),
-        child: const GestionCategoriasPage(),
-      ),
+        // Ruta independiente: Selección de categorías del aliado (US-03.1.3)
+        GoRoute(
+          path: '/categories',
+          name: 'categories',
+          builder: (context, state) => const CategoriesPage(),
+        ),
+        // Ruta independiente: Zona de Cobertura (US-02.1.4)
+        GoRoute(
+          path: '/aliado/cobertura',
+          name: 'declarar-cobertura',
+          builder: (context, state) => DeclararCoberturaPage(controller: sl()),
+        ),
+        // Configuración y consulta de reglas contextuales de un sitio (US-02.2.3 / SCRUM-853)
+        GoRoute(
+          path: '/sitios/:id/reglas',
+          name: 'reglas-sitio',
+          builder: (context, state) {
+            final siteId = state.pathParameters['id'] ?? '';
+            final esAliado = state.uri.queryParameters['esAliado'] == 'true';
+            return BlocProvider(
+              create: (_) => sl<ReglasSitioCubit>(),
+              child: ReglasSitioPage(siteId: siteId, esVistaAliado: esAliado),
+            );
+          },
+        ),
+        // Edición del perfil propio de cliente o aliado (US-02.3.1 / SCRUM-854)
+        GoRoute(
+          path: '/perfil/editar',
+          name: 'editar-perfil',
+          builder: (context, state) => EditarPerfilPage(dataSource: sl()),
+        ),
+        // Gestión de múltiples sedes del cliente empresa (US-02.2.2 / SCRUM-852)
+        GoRoute(
+          path: '/cliente/sedes',
+          name: 'sedes-empresa',
+          builder: (context, state) {
+            final clienteId =
+                state.uri.queryParameters['clienteId'] ??
+                Supabase.instance.client.auth.currentUser?.id ??
+                '';
+            return BlocProvider(
+              create: (_) => sl<SedesEmpresaCubit>(),
+              child: GestionSedesEmpresaPage(clienteId: clienteId),
+            );
+          },
+        ),
+        // Ruta independiente: Registro de empleado directo del aliado (US-02.1.5 / SCRUM-850)
+        GoRoute(
+          path: '/aliado/empleados/nuevo',
+          name: 'registrar-empleado-directo',
+          builder: (context, state) => BlocProvider(
+            create: (_) => sl<EmpleadoDirectoCubit>(),
+            child: const RegistrarEmpleadoDirectoPage(),
+          ),
+        ),
+        // Crear solicitud (US-04.1.1): el cliente describe su problema y adjunta
+        // fotos; el tenant y el cliente salen de la sesión, nunca de la app.
+        GoRoute(
+          path: '/cliente/solicitudes/nueva',
+          name: 'crear-solicitud',
+          builder: (context, state) => BlocProvider(
+            create: (_) => sl<CrearSolicitudCubit>()..cargar(),
+            child: CrearSolicitudPage(selectorFotos: sl()),
+          ),
+        ),
+        // Bandeja del aliado (US-04.1.4). La asignación sin doble aliado la
+        // garantiza el servidor (UPDATE condicional atómico, DD-MANI §7.1).
+        GoRoute(
+          path: '/aliado/solicitudes',
+          name: 'solicitudes-aliado',
+          builder: (context, state) => BlocProvider(
+            create: (_) => sl<SolicitudesAliadoCubit>()..cargar(),
+            child: SolicitudesAliadoPage(
+              onAbrirCobertura: () => context.push('/aliado/cobertura'),
+              onAbrirCategorias: () => context.push('/categories'),
+              onAbrirDisponibilidad: () =>
+                  context.push('/aliado/disponibilidad'),
+            ),
+          ),
+        ),
+        // Ausencias del aliado (US-02.1.6). Rol y tenant los valida Core.
+        GoRoute(
+          path: '/aliado/disponibilidad',
+          name: 'disponibilidad-aliado',
+          builder: (context, state) => const DisponibilidadPage(),
+        ),
+        // Bandeja de verificación de aliados (US-02.1.3). La autorización real
+        // la aplica el servidor: las RPC exigen rol ADMIN_TENANT.
+        GoRoute(
+          path: '/admin/verificacion-aliados',
+          name: 'verificacion-aliados',
+          builder: (context, state) => BlocProvider(
+            create: (_) => sl<BandejaVerificacionCubit>()..cargar(),
+            child: BandejaVerificacionPage(
+              onAbrirCategorias: () => context.push('/admin/categorias'),
+            ),
+          ),
+        ),
+        // Catálogo de categorías de servicio (US-03.1.1). Las RPC exigen rol
+        // ADMIN_TENANT; el tenant sale de la sesión, nunca de la app.
+        GoRoute(
+          path: '/admin/categorias',
+          name: 'categorias',
+          builder: (context, state) => BlocProvider(
+            create: (_) => sl<CategoriasCubit>()..cargar(),
+            child: const GestionCategoriasPage(),
+          ),
+        ),
+      ],
     ),
   ],
 );
