@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mani/core/platform/selector_fotos.dart';
+import 'package:mani/core/platform/url_opener.dart';
 import 'package:mani/core/widgets/mani_button.dart';
 import 'package:mani/features/services/requests/domain/entities/foto_adjunta.dart';
 import 'package:mani/features/services/requests/domain/failures/solicitud_failure.dart';
@@ -10,19 +11,28 @@ import 'package:mani/features/services/tracking/presentation/mis_solicitudes_pag
 import '../data/eventos_datasource.dart';
 import 'eventos_cubit.dart';
 
-/// Bitácora del servicio en la pantalla del aliado (US-04.3.2 / SCRUM-869):
-/// la secuencia de eventos que guarda Core y, mientras el servicio está en
-/// ejecución, el formulario para registrar uno con foto opcional.
+/// Bitácora del servicio: la secuencia de eventos que guarda Core.
+///
+/// - Aliado (US-04.3.2 / SCRUM-869): mientras el servicio está en ejecución,
+///   además registra eventos con foto opcional.
+/// - Cliente (US-04.3.3 / SCRUM-870): la consulta en solo lectura.
+///
+/// En los eventos con foto, «Ver foto» pide a Core una URL temporal y la abre.
 class EventosSeccion extends StatelessWidget {
   const EventosSeccion({
     super.key,
     required this.puedeRegistrar,
-    required this.selectorFotos,
+    required this.urlOpener,
+    this.selectorFotos,
   });
 
-  /// El servicio está en ejecución (lo informa la sección de ejecución).
+  /// El aliado puede registrar: el servicio está en ejecución. Siempre `false`
+  /// para el cliente.
   final bool puedeRegistrar;
-  final SelectorFotos selectorFotos;
+  final UrlOpener urlOpener;
+
+  /// Solo hace falta si [puedeRegistrar].
+  final SelectorFotos? selectorFotos;
 
   @override
   Widget build(BuildContext context) {
@@ -53,10 +63,10 @@ class EventosSeccion extends StatelessWidget {
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const SizedBox(height: 8),
-                if (puedeRegistrar)
+                if (puedeRegistrar && selectorFotos != null)
                   _FormularioEvento(
                     enviando: state.enviando,
-                    selectorFotos: selectorFotos,
+                    selectorFotos: selectorFotos!,
                   ),
                 if (state.cargando && state.eventos.isEmpty)
                   const LinearProgressIndicator()
@@ -73,7 +83,8 @@ class EventosSeccion extends StatelessWidget {
                 else if (state.eventos.isEmpty)
                   const Text('Aún no hay eventos registrados.')
                 else
-                  for (final e in state.eventos) _Evento(e),
+                  for (final e in state.eventos)
+                    _Evento(e, urlOpener: urlOpener),
               ],
             ),
           ),
@@ -84,9 +95,21 @@ class EventosSeccion extends StatelessWidget {
 }
 
 class _Evento extends StatelessWidget {
-  const _Evento(this.evento);
+  const _Evento(this.evento, {required this.urlOpener});
 
   final EventoServicio evento;
+  final UrlOpener urlOpener;
+
+  Future<void> _verFoto(BuildContext context) async {
+    final url = await context.read<EventosCubit>().urlEvidencia(evento.id);
+    if (url == null) return;
+    final abierta = await urlOpener.abrir(url);
+    if (!abierta && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo abrir la foto.')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -105,6 +128,13 @@ class _Evento extends StatelessWidget {
           formatearFecha(e.registradoEn),
         ].join('\n'),
       ),
+      trailing: e.tieneEvidencia
+          ? TextButton(
+              key: Key('ver-foto-${e.id}'),
+              onPressed: () => _verFoto(context),
+              child: const Text('Ver foto'),
+            )
+          : null,
     );
   }
 }

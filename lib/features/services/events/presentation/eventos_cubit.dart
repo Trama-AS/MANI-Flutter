@@ -137,4 +137,16 @@ class EventosCubit extends Cubit<EventosState> {
     }
     return true;
   }
+
+  /// URL de la foto del evento (SCRUM-870), o `null` si no se pudo obtener; en
+  /// ese caso se avisa el motivo sin cambiar la bitácora.
+  Future<Uri?> urlEvidencia(String eventoId) async {
+    try {
+      return await _fuente.urlEvidencia(solicitudId, eventoId);
+    } on CotizacionFailure catch (f) {
+      if (isClosed) return null;
+      emit(state.copiar(aviso: f.mensajeUsuario, avisoEsError: true));
+      return null;
+    }
+  }
 }
