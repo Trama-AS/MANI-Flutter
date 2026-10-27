@@ -57,6 +57,8 @@ import 'package:mani/features/services/requests/data/repositories/solicitudes_cl
 import 'package:mani/features/services/requests/domain/repositories/solicitudes_cliente_repository.dart';
 import 'package:mani/features/services/requests/domain/usecases/solicitud_usecases.dart';
 import 'package:mani/features/services/requests/presentation/bloc/crear_solicitud_cubit.dart';
+import 'package:mani/features/services/tracking/data/seguimiento_datasource.dart';
+import 'package:mani/features/services/tracking/presentation/mis_solicitudes_cubit.dart';
 import 'package:mani/features/profiles/site_rules/data/reglas_sitio_remote_datasource.dart';
 import 'package:mani/features/profiles/site_rules/domain/usecases/reglas_sitio_usecases.dart';
 import 'package:mani/features/profiles/site_rules/presentation/bloc/reglas_sitio_cubit.dart';
@@ -232,6 +234,12 @@ Future<void> init() async {
   );
   sl.registerLazySingleton<AsignacionRemoteDataSource>(
     () => SupabaseAsignacionDataSource(sl()),
+  );
+
+  // Seguimiento del cliente (HU-M07-04 / SCRUM-871).
+  sl.registerFactory(() => MisSolicitudesCubit(sl()));
+  sl.registerLazySingleton<FuenteSeguimiento>(
+    () => GatewayFuenteSeguimiento(sl()),
   );
 
   // Features - Services / Requests: crear solicitud (US-04.1.1)

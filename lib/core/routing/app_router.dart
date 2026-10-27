@@ -31,6 +31,8 @@ import 'package:mani/features/services/categories/presentation/bloc/categorias_c
 import 'package:mani/features/services/categories/presentation/pages/gestion_categorias_page.dart';
 import 'package:mani/features/services/requests/presentation/bloc/crear_solicitud_cubit.dart';
 import 'package:mani/features/services/requests/presentation/pages/crear_solicitud_page.dart';
+import 'package:mani/features/services/tracking/presentation/mis_solicitudes_cubit.dart';
+import 'package:mani/features/services/tracking/presentation/mis_solicitudes_page.dart';
 import 'package:mani/features/profiles/site_rules/presentation/bloc/reglas_sitio_cubit.dart';
 import 'package:mani/features/profiles/site_rules/presentation/pages/reglas_sitio_page.dart';
 import 'package:mani/features/profiles/company_sites/presentation/bloc/sedes_empresa_cubit.dart';
@@ -87,6 +89,7 @@ bool _isPublicPath(String path) {
 /// - `/aliado/cobertura`: Zona de cobertura del aliado (US-02.1.4)
 /// - `/aliado/disponibilidad`: Ausencias del aliado, "No disponible" (US-02.1.6)
 /// - `/cliente/solicitudes/nueva`: El cliente publica su solicitud con fotos (US-04.1.1)
+/// - `/cliente/solicitudes`: Estado y zona declarada de las solicitudes del cliente (HU-M07-04)
 /// - `/aliado/solicitudes`: Bandeja del aliado para aceptar/rechazar solicitudes (US-04.1.4)
 /// - `/admin/verificacion-aliados`: Bandeja de verificación del admin del tenant (US-02.1.3)
 /// - `/admin/categorias`: Catálogo de categorías de servicio del tenant (US-03.1.1)
@@ -268,6 +271,18 @@ final appRouter = GoRouter(
           builder: (context, state) => BlocProvider(
             create: (_) => sl<CrearSolicitudCubit>()..cargar(),
             child: CrearSolicitudPage(selectorFotos: sl()),
+          ),
+        ),
+        // Mis solicitudes (HU-M07-04 / SCRUM-871): estado y zona declarada,
+        // sin rastreo en vivo del aliado.
+        GoRoute(
+          path: '/cliente/solicitudes',
+          name: 'mis-solicitudes',
+          builder: (context, state) => BlocProvider(
+            create: (_) => sl<MisSolicitudesCubit>()..cargar(),
+            child: MisSolicitudesPage(
+              onNuevaSolicitud: () => context.go('/cliente/solicitudes/nueva'),
+            ),
           ),
         ),
         // Bandeja del aliado (US-04.1.4). La asignación sin doble aliado la
