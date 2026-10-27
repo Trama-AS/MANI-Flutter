@@ -1,8 +1,8 @@
 import '../../domain/entities/catalogo_solicitud.dart';
 import '../../domain/entities/solicitud_publicada.dart';
 
-/// Mapeos del JSON de Core (camelCase, contrato `core.yaml`) y de la RPC
-/// `buscar_zonas_cliente` de la migración 006 (snake_case).
+/// Mapeos del JSON de Core (camelCase, contrato `core.yaml`). Las zonas llegan
+/// ya filtradas del catálogo por el datasource.
 class CategoriaDisponibleModel extends CategoriaDisponible {
   const CategoriaDisponibleModel({
     required super.id,
@@ -46,7 +46,7 @@ class ZonaOpcionModel extends ZonaOpcion {
       ZonaOpcionModel(
         id: json['id'] as String,
         nombre: json['nombre'] as String? ?? '',
-        zonaPadre: json['zona_padre'] as String?,
+        zonaPadre: json['zonaPadre'] as String?,
       );
 }
 

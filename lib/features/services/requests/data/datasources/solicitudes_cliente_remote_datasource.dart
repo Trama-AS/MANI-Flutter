@@ -11,11 +11,18 @@ import '../../domain/entities/foto_adjunta.dart';
 /// SCRUM-1072, ADR-0027): Core valida, sube las fotos al bucket `solicitudes` y
 /// crea la solicitud en una transacción. Las categorías y los sitios también
 /// van por Core (`GET /api/v1/core/solicitudes/categorias` y `/sitios`,
-/// SCRUM-1465). La búsqueda de zonas sigue en la RPC `buscar_zonas_cliente`
-/// hasta que Core exponga el catálogo de zonas (SCRUM-1393).
+/// SCRUM-1465), igual que la búsqueda de zonas, que lee el catálogo de Core
+/// (`GET /api/v1/core/catalog/zones`, SCRUM-1393) en lugar de la RPC
+/// `buscar_zonas_cliente`.
 abstract interface class SolicitudesClienteRemoteDataSource {
   Future<List<Map<String, dynamic>>> listarCategorias();
   Future<List<Map<String, dynamic>>> listarSitios();
+
+  /// Zonas escogibles con [texto] en el nombre, con las mismas reglas que la
+  /// RPC `buscar_zonas_cliente`: solo zonas activas con zona padre (barrios y
+  /// localidades, no ciudades), sin distinguir mayúsculas, desde 2 caracteres,
+  /// ordenadas por nombre y como máximo 20. Cada mapa trae `id`, `nombre` y
+  /// `zonaPadre`.
   Future<List<Map<String, dynamic>>> buscarZonas(String texto);
 
   /// Publica la solicitud con sus fotos en una sola petición multipart.
@@ -44,28 +51,30 @@ abstract interface class SolicitudesClienteRemoteDataSource {
 
 class SolicitudesClienteRemoteDataSourceImpl
     implements SolicitudesClienteRemoteDataSource {
-  SolicitudesClienteRemoteDataSourceImpl(this._client, this._gateway);
+  SolicitudesClienteRemoteDataSourceImpl(
+    this._client,
+    this._gateway, {
+    DateTime Function()? ahora,
+  }) : _ahora = ahora ?? DateTime.now;
 
   static const rutaCrear = '/api/v1/core/solicitudes';
   static const rutaCategorias = '/api/v1/core/solicitudes/categorias';
   static const rutaSitios = '/api/v1/core/solicitudes/sitios';
+  static const rutaZonas = '/api/v1/core/catalog/zones';
   static const rutaOrquestar = '/api/v1/dispatch/requests/orchestrate';
+
+  /// El catálogo de zonas es global y cambia poco: se relee cada 5 minutos en
+  /// vez de en cada búsqueda mientras el cliente escribe.
+  static const vigenciaCatalogoZonas = Duration(minutes: 5);
+  static const minimoBusquedaZonas = 2;
+  static const maximoZonas = 20;
 
   final SupabaseClient _client;
   final GatewayClient _gateway;
+  final DateTime Function() _ahora;
 
-  Future<List<Map<String, dynamic>>> _lista(
-    String fn, [
-    Map<String, dynamic>? params,
-  ]) async {
-    final res = await _client.rpc(fn, params: params);
-    if (res is! List) {
-      return const [];
-    }
-    return res
-        .map((e) => Map<String, dynamic>.from(e as Map))
-        .toList(growable: false);
-  }
+  List<Map<String, dynamic>>? _catalogoZonas;
+  DateTime? _catalogoLeidoEn;
 
   /// Lee la lista [campo] de una respuesta de Core; sin lista no inventa datos.
   Future<List<Map<String, dynamic>>> _listaCore(
@@ -90,9 +99,53 @@ class SolicitudesClienteRemoteDataSourceImpl
   Future<List<Map<String, dynamic>>> listarSitios() =>
       _listaCore(rutaSitios, 'sitios');
 
+  /// Catálogo completo, también con las zonas inactivas (`selectable: false`):
+  /// así una zona activa conserva el nombre de su padre aunque el padre esté
+  /// inactivo, como hacía el `LEFT JOIN` de la RPC. Un error no se guarda.
+  Future<List<Map<String, dynamic>>> _catalogo() async {
+    final ahora = _ahora();
+    final guardado = _catalogoZonas;
+    final leidoEn = _catalogoLeidoEn;
+    if (guardado != null &&
+        leidoEn != null &&
+        ahora.difference(leidoEn) < vigenciaCatalogoZonas) {
+      return guardado;
+    }
+    final zonas = await _listaCore(rutaZonas, 'zones');
+    _catalogoZonas = zonas;
+    _catalogoLeidoEn = ahora;
+    return zonas;
+  }
+
   @override
-  Future<List<Map<String, dynamic>>> buscarZonas(String texto) =>
-      _lista('buscar_zonas_cliente', {'p_texto': texto});
+  Future<List<Map<String, dynamic>>> buscarZonas(String texto) async {
+    final buscado = texto.trim().toLowerCase();
+    if (buscado.length < minimoBusquedaZonas) {
+      return const [];
+    }
+    final catalogo = await _catalogo();
+    final nombres = {for (final z in catalogo) z['id']: z['name']};
+    final encontradas =
+        catalogo
+            .where(
+              (z) =>
+                  z['parentId'] != null &&
+                  z['selectable'] == true &&
+                  (z['name'] as String? ?? '').toLowerCase().contains(buscado),
+            )
+            .map(
+              (z) => <String, dynamic>{
+                'id': z['id'],
+                'nombre': z['name'],
+                'zonaPadre': nombres[z['parentId']],
+              },
+            )
+            .toList()
+          ..sort(
+            (a, b) => (a['nombre'] as String).compareTo(b['nombre'] as String),
+          );
+    return encontradas.take(maximoZonas).toList(growable: false);
+  }
 
   @override
   Future<Map<String, dynamic>> crear({
