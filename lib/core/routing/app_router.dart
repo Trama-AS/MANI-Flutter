@@ -30,6 +30,8 @@ import 'package:mani/features/services/requests/presentation/bloc/crear_solicitu
 import 'package:mani/features/services/requests/presentation/pages/crear_solicitud_page.dart';
 import 'package:mani/features/services/tracking/presentation/mis_solicitudes_cubit.dart';
 import 'package:mani/features/services/tracking/presentation/mis_solicitudes_page.dart';
+import 'package:mani/features/services/quotes/presentation/cotizacion_cubit.dart';
+import 'package:mani/features/services/quotes/presentation/cotizacion_page.dart';
 import 'package:mani/features/profiles/site_rules/presentation/bloc/reglas_sitio_cubit.dart';
 import 'package:mani/features/profiles/site_rules/presentation/pages/reglas_sitio_page.dart';
 import 'package:mani/features/profiles/company_sites/presentation/bloc/sedes_empresa_cubit.dart';
@@ -263,7 +265,31 @@ final appRouter = GoRouter(
             create: (_) => sl<MisSolicitudesCubit>()..cargar(),
             child: MisSolicitudesPage(
               onNuevaSolicitud: () => context.go('/cliente/solicitudes/nueva'),
+              onVerCotizacion: (id) =>
+                  context.push('/cliente/solicitudes/$id/cotizacion'),
             ),
+          ),
+        ),
+        // Cotización del cliente (US-04.2.3 / SCRUM-867): acepta, rechaza o
+        // pide ajuste. Solo el cliente dueño responde; lo valida Core.
+        GoRoute(
+          path: '/cliente/solicitudes/:id/cotizacion',
+          name: 'cotizacion-cliente',
+          builder: (context, state) => BlocProvider(
+            create: (_) =>
+                CotizacionCubit(sl(), state.pathParameters['id']!)..cargar(),
+            child: const CotizacionPage(esAliado: false),
+          ),
+        ),
+        // Cotización del aliado (US-04.2.1 / SCRUM-865): solo el aliado
+        // asignado emite; lo valida Core.
+        GoRoute(
+          path: '/aliado/solicitudes/:id/cotizacion',
+          name: 'cotizacion-aliado',
+          builder: (context, state) => BlocProvider(
+            create: (_) =>
+                CotizacionCubit(sl(), state.pathParameters['id']!)..cargar(),
+            child: const CotizacionPage(esAliado: true),
           ),
         ),
         // Bandeja del aliado (US-04.1.4). La asignación sin doble aliado la
@@ -278,6 +304,8 @@ final appRouter = GoRouter(
               onAbrirCategorias: () => context.push('/categories'),
               onAbrirDisponibilidad: () =>
                   context.push('/aliado/disponibilidad'),
+              onCotizar: (id) =>
+                  context.push('/aliado/solicitudes/$id/cotizacion'),
             ),
           ),
         ),

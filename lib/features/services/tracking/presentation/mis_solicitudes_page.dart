@@ -8,9 +8,16 @@ import 'mis_solicitudes_cubit.dart';
 /// de cada solicitud del cliente. No muestra la ubicación del aliado ni se
 /// actualiza sola: el cliente consulta de nuevo con «Actualizar».
 class MisSolicitudesPage extends StatelessWidget {
-  const MisSolicitudesPage({super.key, this.onNuevaSolicitud});
+  const MisSolicitudesPage({
+    super.key,
+    this.onNuevaSolicitud,
+    this.onVerCotizacion,
+  });
 
   final VoidCallback? onNuevaSolicitud;
+
+  /// Abre la cotización de la solicitud (SCRUM-867).
+  final void Function(String solicitudId)? onVerCotizacion;
 
   @override
   Widget build(BuildContext context) {
@@ -39,7 +46,14 @@ class MisSolicitudesPage extends StatelessWidget {
                   else if (state.solicitudes.isEmpty && state.error == null)
                     _Vacio(onNuevaSolicitud: onNuevaSolicitud)
                   else
-                    for (final s in state.solicitudes) _TarjetaSolicitud(s),
+                    for (final s in state.solicitudes)
+                      _TarjetaSolicitud(
+                        s,
+                        onVerCotizacion:
+                            onVerCotizacion == null || !s.tieneCotizacion
+                            ? null
+                            : () => onVerCotizacion!(s.id),
+                      ),
                 ],
               ),
             ),
@@ -110,9 +124,10 @@ class _AvisoZona extends StatelessWidget {
 }
 
 class _TarjetaSolicitud extends StatelessWidget {
-  const _TarjetaSolicitud(this.solicitud);
+  const _TarjetaSolicitud(this.solicitud, {this.onVerCotizacion});
 
   final SolicitudSeguimiento solicitud;
+  final VoidCallback? onVerCotizacion;
 
   @override
   Widget build(BuildContext context) {
@@ -143,6 +158,16 @@ class _TarjetaSolicitud extends StatelessWidget {
               'Estado actualizado: ${formatearFecha(solicitud.actualizadaEn)}',
               style: tema.bodySmall,
             ),
+            if (onVerCotizacion != null)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  key: Key('ver-cotizacion-${solicitud.id}'),
+                  icon: const Icon(Icons.request_quote_outlined),
+                  label: const Text('Ver cotización'),
+                  onPressed: onVerCotizacion,
+                ),
+              ),
           ],
         ),
       ),
