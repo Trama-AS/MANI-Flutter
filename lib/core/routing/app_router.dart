@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/material.dart' show Icons;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -8,6 +9,7 @@ import 'package:mani/core/di/injection_container.dart';
 import 'package:mani/core/session/guardas_ruta.dart';
 import 'package:mani/core/session/rol_usuario.dart';
 import 'package:mani/core/shell/app_shell.dart';
+import 'package:mani/core/widgets/mani_button.dart';
 import 'package:mani/core/shell/datos_sesion.dart';
 import 'package:mani/features/asignacion/presentation/bloc/solicitudes_aliado_cubit.dart';
 import 'package:mani/features/asignacion/presentation/pages/solicitudes_aliado_page.dart';
@@ -20,6 +22,8 @@ import 'package:mani/features/auth/presentation/pages/registro_cliente_empresa_p
 import 'package:mani/features/auth/domain/entities/enlace_recuperacion.dart';
 import 'package:mani/features/auth/presentation/pages/olvide_contrasena_page.dart';
 import 'package:mani/features/auth/presentation/pages/restablecer_contrasena_page.dart';
+import 'package:mani/features/messaging/presentation/chat_cubit.dart';
+import 'package:mani/features/messaging/presentation/chat_page.dart';
 import 'package:mani/features/payments/presentation/pago_cubit.dart';
 import 'package:mani/features/payments/presentation/pago_sandbox_page.dart';
 import 'package:mani/features/auth/presentation/pages/registro_aliado_page.dart';
@@ -86,6 +90,13 @@ bool _isPublicPath(String path) {
       path.startsWith('/registro-');
 }
 
+/// Chat de un servicio (SCRUM-881). El Cubit consulta a Core cada pocos
+/// segundos mientras la pantalla está abierta.
+Widget _pantallaChat(String solicitudId) => BlocProvider(
+  create: (_) => ChatCubit(sl(), solicitudId)..iniciar(),
+  child: const ChatPage(),
+);
+
 /// Pantalla del servicio de una solicitud: la cotización (SCRUM-865 y 867), la
 /// ejecución (SCRUM-868) y la bitácora (SCRUM-869 y 870). Cada parte
 /// tiene su Cubit y consulta a Core por su lado.
@@ -108,6 +119,21 @@ Widget _pantallaServicio(
       pie: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Chat del servicio (HU-M09-02 / SCRUM-881): solo participan el cliente
+          // y el aliado asignado; lo valida Core.
+          ManiButton(
+            key: const Key('btn-abrir-chat'),
+            etiqueta: esAliado
+                ? 'Mensajes con el cliente'
+                : 'Mensajes con el aliado',
+            icono: Icons.chat_bubble_outline,
+            variante: ManiButtonVariante.secundario,
+            expandir: true,
+            onPressed: () => context.push(
+              '/${esAliado ? 'aliado' : 'cliente'}/solicitudes/$solicitudId/chat',
+            ),
+          ),
+          const SizedBox(height: 12),
           EjecucionSeccion(esAliado: esAliado),
           // El aliado registra eventos solo con el servicio en ejecución (la regla
           // definitiva la aplica Core, MANI-EVT-409E); el cliente consulta la
@@ -364,6 +390,20 @@ final appRouter = GoRouter(
                 PagoCubit(sl(), state.pathParameters['cotizacionId']!),
             child: PagoSandboxPage(total: state.extra as double?),
           ),
+        ),
+        // Chat del servicio (HU-M09-02 / SCRUM-881) para el cliente y para el
+        // aliado asignado. Core decide quién participa; la app solo consulta.
+        GoRoute(
+          path: '/cliente/solicitudes/:id/chat',
+          name: 'chat-cliente',
+          builder: (context, state) =>
+              _pantallaChat(state.pathParameters['id']!),
+        ),
+        GoRoute(
+          path: '/aliado/solicitudes/:id/chat',
+          name: 'chat-aliado',
+          builder: (context, state) =>
+              _pantallaChat(state.pathParameters['id']!),
         ),
         // Cotización del aliado (US-04.2.1 / SCRUM-865): solo el aliado
         // asignado emite; lo valida Core.
