@@ -10,12 +10,14 @@ import 'regla_sitio.dart';
 enum EstadoSolicitud {
   pendiente,
   asignada,
+  cancelada,
   otro;
 
   static EstadoSolicitud desde(String? valor) =>
       switch (valor?.trim().toUpperCase()) {
         'PENDIENTE' => pendiente,
         'ASIGNADA' => asignada,
+        'CANCELADA' => cancelada,
         _ => otro,
       };
 }
@@ -68,6 +70,10 @@ class SolicitudEntity extends Equatable {
   final String? direccion;
   final DateTime fechaCreacion;
   final DateTime? fechaAsignacion;
+
+  /// El cliente la canceló antes de la ejecución (US-04.5.1 / SCRUM-877):
+  /// sigue en «mis trabajos» para que el aliado lo sepa, pero sin acciones.
+  bool get cancelada => estado == EstadoSolicitud.cancelada;
 
   /// Se puede aceptar o rechazar: sigue pendiente y no es de nadie.
   bool get estaDisponible => estado == EstadoSolicitud.pendiente && !esMia;

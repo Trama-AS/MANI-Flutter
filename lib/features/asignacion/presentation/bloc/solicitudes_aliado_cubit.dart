@@ -144,6 +144,7 @@ class SolicitudesAliadoCubit extends Cubit<SolicitudesAliadoState> {
       AsignacionErrorTipo.yaNoDisponible ||
       AsignacionErrorTipo.noEncontrada ||
       AsignacionErrorTipo.noElegible ||
+      AsignacionErrorTipo.yaRechazada ||
       AsignacionErrorTipo.yaEsTuya => true,
       _ => false,
     };

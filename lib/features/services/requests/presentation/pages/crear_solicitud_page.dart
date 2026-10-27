@@ -103,12 +103,15 @@ class _CrearSolicitudPageState extends State<CrearSolicitudPage> {
                   buildWhen: (a, b) =>
                       a.carga != b.carga ||
                       a.paso != b.paso ||
-                      a.publicada != b.publicada,
+                      a.publicada != b.publicada ||
+                      a.avisando != b.avisando,
                   builder: (context, state) {
                     if (state.publicada != null) {
                       return SolicitudPublicadaVista(
                         solicitud: state.publicada!,
                         onNueva: _nuevaSolicitud,
+                        avisando: state.avisando,
+                        onReintentarAviso: _cubit.reintentarAviso,
                       );
                     }
                     return switch (state.carga) {

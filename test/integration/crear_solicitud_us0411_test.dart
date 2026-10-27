@@ -45,6 +45,7 @@ Future<_App> _montar(WidgetTester t, ServidorSolicitudesFake servidor) async {
     cargarCatalogo: CargarCatalogoSolicitud(repo),
     buscarZonas: BuscarZonas(repo),
     publicar: PublicarSolicitud(repo),
+    avisarAliados: AvisarAliados(repo),
     generarClave: () => '00000000-0000-4000-8000-00000000000${++n}',
   );
   addTearDown(cubit.close);

@@ -1,6 +1,5 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
-
 import 'package:mani/core/logging/structured_logger.dart';
+import 'package:mani/core/network/gateway_exception.dart';
 
 import '../../domain/entities/motivo_rechazo.dart';
 import '../../domain/entities/solicitud_entity.dart';
@@ -9,11 +8,12 @@ import '../../domain/repositories/i_asignacion_repository.dart';
 import '../datasources/asignacion_remote_datasource.dart';
 import '../models/solicitud_model.dart';
 
-/// Implementación Supabase del despacho de solicitudes.
+/// Despacho de solicitudes por el Gateway (decisión 6A).
 ///
-/// La exclusión la garantiza el servidor con un UPDATE condicional atómico
-/// (DD-MANI §7.1); aquí solo se traducen sus códigos y se registra cada
-/// intento con su duración (QS-09 exige respuesta < 500 ms).
+/// Dispatch decide quién acepta y Core registra la asignación con un UPDATE
+/// condicional bajo bloqueo de fila (DD-MANI §7.1); aquí solo se traducen sus
+/// códigos y se registra cada intento con su duración (QS-09 exige respuesta
+/// < 500 ms).
 class AsignacionRepositoryImpl implements IAsignacionRepository {
   AsignacionRepositoryImpl(this._ds, {StructuredLogger? logger})
     : _log = logger ?? StructuredLogger(canal: 'mani.asignacion');
@@ -25,11 +25,11 @@ class AsignacionRepositoryImpl implements IAsignacionRepository {
   static const _eventoRechazar = 'US-04.1.4.rechazar_solicitud';
 
   @override
-  Future<List<SolicitudEntity>> listar() => _guard(
-    () async => (await _ds.listar())
-        .map<SolicitudEntity>(SolicitudModel.fromJson)
-        .toList(),
-  );
+  Future<List<SolicitudEntity>> listar() => _guard(_listar);
+
+  Future<List<SolicitudEntity>> _listar() async => (await _ds.listar())
+      .map<SolicitudEntity>(SolicitudModel.fromGateway)
+      .toList();
 
   @override
   Future<SolicitudEntity> aceptar(String solicitudId) => _registrar(
@@ -37,7 +37,10 @@ class AsignacionRepositoryImpl implements IAsignacionRepository {
     solicitudId: solicitudId,
     exito: 'solicitud_asignada',
     fallo: 'solicitud_no_asignada',
-    op: () async => SolicitudModel.fromJson(await _ds.aceptar(solicitudId)),
+    op: () async {
+      await _ds.aceptar(solicitudId);
+      return _asignadaDesdeBandeja(solicitudId);
+    },
   );
 
   @override
@@ -50,6 +53,31 @@ class AsignacionRepositoryImpl implements IAsignacionRepository {
         extra: {'motivo': motivo?.codigo},
         op: () => _ds.rechazar(solicitudId, motivo?.codigo),
       );
+
+  /// La aceptación no devuelve la solicitud, así que se lee de la bandeja, que
+  /// ya trae la dirección. La asignación ya quedó en Core: si la bandeja no
+  /// responde o aún no la muestra, no se informa un error, se devuelve lo
+  /// mínimo y el siguiente refresco completa los datos.
+  Future<SolicitudEntity> _asignadaDesdeBandeja(String solicitudId) async {
+    try {
+      for (final s in await _listar()) {
+        if (s.id == solicitudId && s.esMia) {
+          return s;
+        }
+      }
+    } on Object {
+      // Se cae al mínimo de abajo.
+    }
+    return SolicitudEntity(
+      id: solicitudId,
+      estado: EstadoSolicitud.asignada,
+      esMia: true,
+      categoria: 'Servicio',
+      zona: '',
+      fechaCreacion: DateTime.now(),
+      fechaAsignacion: DateTime.now(),
+    );
+  }
 
   /// Ejecuta [op] y deja un log JSON con resultado y duración. Sin datos
   /// personales: solo ids, códigos y tiempos.
@@ -98,44 +126,52 @@ class AsignacionRepositoryImpl implements IAsignacionRepository {
   Future<T> _guard<T>(Future<T> Function() op) async {
     try {
       return await op();
-    } on PostgrestException catch (e) {
-      throw mapearMensaje(e.message);
-    } on AuthException catch (e) {
-      throw AsignacionFailure(AsignacionErrorTipo.sinSesion, e.message);
+    } on GatewayException catch (e) {
+      throw mapearGateway(e);
     } on AsignacionFailure {
       rethrow;
     } catch (e) {
-      final s = e.toString();
-      if (s.contains('SocketException') ||
-          s.contains('ClientException') ||
-          s.contains('TimeoutException')) {
-        throw AsignacionFailure(AsignacionErrorTipo.sinConexion, s);
-      }
-      throw AsignacionFailure(AsignacionErrorTipo.desconocido, s);
+      throw AsignacionFailure(AsignacionErrorTipo.desconocido, e.toString());
     }
   }
 
-  /// Traduce el prefijo `MANI-SOL-*` de las RPC. El orden importa: los códigos
-  /// con sufijo (403V, 403E, 409A) van antes que su versión corta.
-  static AsignacionFailure mapearMensaje(String mensaje) {
-    const tabla = <String, AsignacionErrorTipo>{
+  /// Traduce el `code` que devuelven Dispatch y Core (`dispatch.yaml`). Si no
+  /// hay código, decide el status HTTP. Un 5xx no se disfraza de otra cosa:
+  /// el aliado ve que el servicio no responde y puede reintentar.
+  static AsignacionFailure mapearGateway(GatewayException e) {
+    final status = e.statusCode;
+    if (status == null) {
+      return AsignacionFailure(AsignacionErrorTipo.sinConexion, e.message);
+    }
+    final codigo = e.cuerpo?['code'];
+    const porCodigo = <String, AsignacionErrorTipo>{
       'MANI-SOL-401': AsignacionErrorTipo.sinSesion,
+      'MANI-DSP-401': AsignacionErrorTipo.sinSesion,
       'MANI-SOL-403V': AsignacionErrorTipo.aliadoNoVerificado,
       'MANI-SOL-403E': AsignacionErrorTipo.noElegible,
+      'MANI-SOL-403O': AsignacionErrorTipo.noElegible,
       'MANI-SOL-403': AsignacionErrorTipo.noEsAliado,
+      'MANI-DSP-403': AsignacionErrorTipo.noEsAliado,
       'MANI-SOL-404': AsignacionErrorTipo.noEncontrada,
-      'MANI-SOL-409A': AsignacionErrorTipo.yaEsTuya,
+      'MANI-DSP-404': AsignacionErrorTipo.noEncontrada,
       'MANI-SOL-409': AsignacionErrorTipo.yaNoDisponible,
+      'MANI-SOL-409E': AsignacionErrorTipo.yaNoDisponible,
+      'MANI-DSP-409E': AsignacionErrorTipo.yaNoDisponible,
+      'MANI-DSP-409A': AsignacionErrorTipo.yaEsTuya,
+      'MANI-DSP-409R': AsignacionErrorTipo.yaRechazada,
       'MANI-SOL-422M': AsignacionErrorTipo.motivoInvalido,
     };
-    for (final e in tabla.entries) {
-      if (mensaje.startsWith(e.key)) {
-        return AsignacionFailure(e.value, mensaje);
-      }
-    }
-    if (mensaje.contains('JWT') || mensaje.contains('permission denied')) {
-      return AsignacionFailure(AsignacionErrorTipo.sinSesion, mensaje);
-    }
-    return AsignacionFailure(AsignacionErrorTipo.desconocido, mensaje);
+    final tipo =
+        porCodigo[codigo] ??
+        switch (status) {
+          401 => AsignacionErrorTipo.sinSesion,
+          403 => AsignacionErrorTipo.noEsAliado,
+          404 => AsignacionErrorTipo.noEncontrada,
+          409 => AsignacionErrorTipo.yaNoDisponible,
+          422 => AsignacionErrorTipo.motivoInvalido,
+          >= 500 => AsignacionErrorTipo.servicioNoDisponible,
+          _ => AsignacionErrorTipo.desconocido,
+        };
+    return AsignacionFailure(tipo, codigo is String ? codigo : e.message);
   }
 }

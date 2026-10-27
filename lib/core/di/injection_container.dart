@@ -2,7 +2,10 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:get_it/get_it.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:mani/core/network/gateway_client.dart';
+import 'package:mani/core/session/sesion_expirada.dart';
+import 'package:mani/core/shell/datos_sesion.dart';
 import 'package:mani/features/catalog/data/zonas_catalogo_remote_datasource.dart';
+import 'package:mani/features/home/data/resumen_inicio.dart';
 import 'package:mani/core/platform/url_opener.dart';
 import 'package:mani/features/auth/data/datasources/auth_remote_data_source.dart';
 import 'package:mani/features/auth/data/repositories/auth_repository_impl.dart';
@@ -11,6 +14,14 @@ import 'package:mani/features/auth/domain/usecases/login_usecase.dart';
 import 'package:mani/features/auth/domain/usecases/register_cliente_usecase.dart';
 import 'package:mani/features/auth/domain/usecases/register_aliado_usecase.dart';
 import 'package:mani/features/auth/domain/usecases/register_empresa_usecase.dart';
+import 'package:mani/features/auth/domain/usecases/register_cliente_empresa_usecase.dart';
+import 'package:mani/features/auth/data/datasources/recuperacion_contrasena_remote_data_source.dart';
+import 'package:mani/features/auth/data/repositories/recuperacion_contrasena_repository_impl.dart';
+import 'package:mani/features/auth/domain/repositories/i_recuperacion_contrasena_repository.dart';
+import 'package:mani/features/auth/domain/usecases/recuperar_contrasena_usecases.dart';
+import 'package:mani/features/auth/presentation/bloc/recuperacion_contrasena_cubit.dart';
+import 'package:mani/features/messaging/data/mensajes_datasource.dart';
+import 'package:mani/features/payments/data/pagos_datasource.dart';
 import 'package:mani/features/auth/presentation/bloc/auth_cubit.dart';
 import 'package:mani/features/availability/data/datasources/disponibilidad_remote_datasource.dart';
 import 'package:mani/features/availability/data/repositories/disponibilidad_repository_impl.dart';
@@ -32,6 +43,7 @@ import 'package:mani/features/profiles/verification/data/repositories/verificaci
 import 'package:mani/features/profiles/verification/domain/repositories/verificacion_aliados_repository.dart';
 import 'package:mani/features/profiles/verification/domain/usecases/verificacion_usecases.dart';
 import 'package:mani/features/profiles/verification/presentation/bloc/bandeja_verificacion_cubit.dart';
+import 'package:mani/features/services/categories/data/datasources/catalogo_publico_datasource.dart';
 import 'package:mani/features/services/categories/data/datasources/categorias_remote_datasource.dart';
 import 'package:mani/features/services/categories/data/repositories/categorias_repository_impl.dart';
 import 'package:mani/features/services/categories/domain/repositories/categorias_repository.dart';
@@ -48,6 +60,9 @@ import 'package:mani/features/services/requests/data/repositories/solicitudes_cl
 import 'package:mani/features/services/requests/domain/repositories/solicitudes_cliente_repository.dart';
 import 'package:mani/features/services/requests/domain/usecases/solicitud_usecases.dart';
 import 'package:mani/features/services/requests/presentation/bloc/crear_solicitud_cubit.dart';
+import 'package:mani/features/services/eligible_allies/data/elegibles_datasource.dart';
+import 'package:mani/features/services/tracking/data/seguimiento_datasource.dart';
+import 'package:mani/features/services/tracking/presentation/mis_solicitudes_cubit.dart';
 import 'package:mani/features/profiles/site_rules/data/reglas_sitio_remote_datasource.dart';
 import 'package:mani/features/profiles/site_rules/domain/usecases/reglas_sitio_usecases.dart';
 import 'package:mani/features/profiles/site_rules/presentation/bloc/reglas_sitio_cubit.dart';
@@ -58,6 +73,9 @@ import 'package:mani/features/profiles/direct_employees/data/empleados_directos_
 import 'package:mani/features/profiles/own_profile/data/datasources/perfil_propio_remote_datasource.dart';
 import 'package:mani/features/profiles/direct_employees/domain/usecases/registrar_empleado_directo_usecase.dart';
 import 'package:mani/features/profiles/direct_employees/presentation/bloc/empleado_directo_cubit.dart';
+import 'package:mani/features/services/quotes/data/cotizaciones_datasource.dart';
+import 'package:mani/features/services/execution/data/ejecucion_datasource.dart';
+import 'package:mani/features/services/events/data/eventos_datasource.dart';
 
 final sl = GetIt.instance; // sl = service locator
 
@@ -73,14 +91,11 @@ Future<void> init() async {
       baseUrl: dotenv.maybeGet('API_GATEWAY_URL') ?? 'http://localhost:80',
       tokenProvider: () async =>
           sl<SupabaseClient>().auth.currentSession?.accessToken,
-      onTokenExpired: () async {
-        try {
-          final res = await sl<SupabaseClient>().auth.refreshSession();
-          return res.session != null;
-        } catch (_) {
-          return false;
-        }
-      },
+      // Ante un 401 se intenta refrescar una vez. Si no se puede, la sesión
+      // local se cierra y el `redirect` del router lleva al login
+      // (US-11.2.2 / SCRUM-1445): no se deja al usuario en una pantalla que
+      // ya no puede cargar nada.
+      onTokenExpired: () => refrescarOCerrarSesion(sl<SupabaseClient>().auth),
     ),
   );
   sl.registerLazySingleton<UrlOpener>(() => const UrlLauncherOpener());
@@ -96,6 +111,7 @@ Future<void> init() async {
       registerClienteUseCase: sl(),
       registerAliadoUseCase: sl(),
       registerEmpresaUseCase: sl(),
+      registerClienteEmpresaUseCase: sl(),
     ),
   );
 
@@ -104,6 +120,23 @@ Future<void> init() async {
   sl.registerLazySingleton(() => RegisterClienteUseCase(sl()));
   sl.registerLazySingleton(() => RegisterAliadoUseCase(sl()));
   sl.registerLazySingleton(() => RegisterEmpresaUseCase(sl()));
+  sl.registerLazySingleton(() => RegisterClienteEmpresaUseCase(sl()));
+
+  // Recuperación de contraseña (HU-M02-10)
+  sl.registerFactory(
+    () => RecuperacionContrasenaCubit(
+      solicitarUseCase: sl(),
+      restablecerUseCase: sl(),
+    ),
+  );
+  sl.registerLazySingleton(() => SolicitarRecuperacionUseCase(sl()));
+  sl.registerLazySingleton(() => RestablecerContrasenaUseCase(sl()));
+  sl.registerLazySingleton<IRecuperacionContrasenaRepository>(
+    () => RecuperacionContrasenaRepositoryImpl(remoteDataSource: sl()),
+  );
+  sl.registerLazySingleton<IRecuperacionContrasenaRemoteDataSource>(
+    () => RecuperacionContrasenaRemoteDataSource(client: sl(), gateway: sl()),
+  );
 
   // Repository
   sl.registerLazySingleton<IAuthRepository>(
@@ -193,6 +226,8 @@ Future<void> init() async {
   sl.registerLazySingleton<CategoriasRemoteDataSource>(
     () => GatewayCategoriasDataSource(sl(), sesion: sl()),
   );
+  // Catálogo público del tenant para los registros sin sesión (aliado y empresa).
+  sl.registerLazySingleton(() => CatalogoPublicoDataSource(sl()));
 
   // Features - Asignación / Aceptar-rechazar solicitud (US-04.1.4)
   sl.registerFactory(
@@ -204,9 +239,45 @@ Future<void> init() async {
   sl.registerLazySingleton<IAsignacionRepository>(
     () => AsignacionRepositoryImpl(sl()),
   );
+  // Bandeja, aceptar y rechazar por el Gateway hacia Dispatch (decisión 6A,
+  // SCRUM-1402/1403/1404); reemplaza las RPC de la migración 005.
   sl.registerLazySingleton<AsignacionRemoteDataSource>(
-    () => SupabaseAsignacionDataSource(sl()),
+    () => GatewayAsignacionDataSource(
+      sl(),
+      tenantIdSesion: () {
+        final user = sl<SupabaseClient>().auth.currentUser;
+        return (user?.appMetadata['tenant_id'] ??
+                user?.userMetadata?['tenant_id'])
+            as String?;
+      },
+    ),
   );
+
+  // Aliados elegibles de la solicitud por el Gateway a Dispatch (SCRUM-1398,
+  // 1400 y 1401). El Cubit se crea por solicitud en la ruta.
+  sl.registerLazySingleton<FuenteElegibles>(() => GatewayFuenteElegibles(sl()));
+
+  // Seguimiento del cliente (HU-M07-04 / SCRUM-871).
+  sl.registerFactory(() => MisSolicitudesCubit(sl()));
+  sl.registerLazySingleton<FuenteSeguimiento>(
+    () => GatewayFuenteSeguimiento(sl()),
+  );
+
+  // Cotización (US-04.2.1 / SCRUM-865 y US-04.2.3 / SCRUM-867), por el Gateway
+  // a Core. El Cubit se crea por solicitud en la ruta.
+  sl.registerLazySingleton<FuenteCotizaciones>(
+    () => GatewayFuenteCotizaciones(sl()),
+  );
+  // Pago en el sandbox (HU-M11-01 / SCRUM-1432), por el Gateway a Core. El Cubit
+  // se crea por cotización en la ruta.
+  sl.registerLazySingleton<FuentePagos>(() => GatewayFuentePagos(sl()));
+  // Mensajería cliente-aliado (HU-M09-02 / SCRUM-881), por el Gateway a Core. El
+  // Cubit se crea por solicitud en la ruta y consulta cada pocos segundos.
+  sl.registerLazySingleton<FuenteMensajes>(() => GatewayFuenteMensajes(sl()));
+  // Ejecución del servicio (US-04.3.1 / SCRUM-868), en la misma pantalla.
+  sl.registerLazySingleton<FuenteEjecucion>(() => GatewayFuenteEjecucion(sl()));
+  // Bitácora del servicio (US-04.3.2 / SCRUM-869), en la misma pantalla.
+  sl.registerLazySingleton<FuenteEventos>(() => GatewayFuenteEventos(sl()));
 
   // Features - Services / Requests: crear solicitud (US-04.1.1)
   sl.registerFactory(
@@ -214,9 +285,11 @@ Future<void> init() async {
       cargarCatalogo: sl(),
       buscarZonas: sl(),
       publicar: sl(),
+      avisarAliados: sl(),
     ),
   );
   sl.registerLazySingleton(() => CargarCatalogoSolicitud(sl()));
+  sl.registerLazySingleton(() => AvisarAliados(sl()));
   sl.registerLazySingleton(() => BuscarZonas(sl()));
   sl.registerLazySingleton(() => PublicarSolicitud(sl()));
   sl.registerLazySingleton<SolicitudesClienteRepository>(
@@ -242,6 +315,16 @@ Future<void> init() async {
   // Features - Profiles / Perfil propio (US-02.3.1 / SCRUM-854): habla con Core por el Gateway.
   sl.registerLazySingleton<PerfilPropioRemoteDataSource>(
     () => GatewayPerfilPropioDataSource(sl()),
+  );
+
+  // Shell de aplicación (US-11.2.1 / SCRUM-1444): cabecera del menú superior.
+  sl.registerLazySingleton<FuenteDatosSesion>(
+    () => GatewayFuenteDatosSesion(sl()),
+  );
+
+  // Inicio por tipo de usuario (US-11.2.3 / SCRUM-1446).
+  sl.registerLazySingleton<FuenteResumenInicio>(
+    () => GatewayResumenInicio(sl()),
   );
 
   // Features - Profiles / Sedes Empresa (US-02.2.2 / SCRUM-852)

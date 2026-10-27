@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mani/core/session/guardas_ruta.dart';
 import 'package:mani/core/theme/app_theme.dart';
 import 'package:mani/core/di/injection_container.dart';
 import 'package:mani/features/auth/presentation/bloc/auth_cubit.dart';
@@ -92,19 +93,10 @@ class _LoginViewState extends State<_LoginView> {
       listener: (context, state) {
         if (state is AuthAuthenticated) {
           _showNotification('¡Bienvenido a MANI!', isError: false);
-          // US-02.1.3: el admin del tenant entra directo a su bandeja de
-          // verificación. Si la cuenta no es ADMIN_TENANT, el servidor
-          // responde 403 y la bandeja lo informa; la pestaña no otorga
-          // permisos por sí sola.
-          if (_selectedRole == 'admin') {
-            context.go('/admin/verificacion-aliados');
-          } else if (_selectedRole == 'aliado') {
-            // US-04.1.4: el aliado entra a su bandeja de solicitudes.
-            context.go('/aliado/solicitudes');
-          } else if (_selectedRole == 'cliente') {
-            // US-04.1.1: el cliente entra a publicar su solicitud.
-            context.go('/cliente/solicitudes/nueva');
-          }
+          // US-11.2.3 (SCRUM-1446): todos entran a su inicio. El inicio
+          // depende del rol del token, no de la pestaña elegida, que no
+          // otorga permisos por sí sola.
+          context.go(rutaInicio);
         } else if (state is AuthError) {
           _showNotification(state.message);
         }
@@ -465,9 +457,7 @@ class _LoginViewState extends State<_LoginView> {
     return Column(
       children: [
         GestureDetector(
-          onTap: () {
-            // TODO: Pantalla de recuperación
-          },
+          onTap: () => context.go('/forgot-password'),
           child: Text(
             '¿Olvidaste tu contraseña?',
             style: GoogleFonts.plusJakartaSans(
@@ -540,6 +530,14 @@ class _LoginViewState extends State<_LoginView> {
         ),
         const SizedBox(height: 10),
 
+        // Botón 1b: Registrar mi empresa como cliente (HU-M02-07)
+        _botonRegistroSecundario(
+          icono: Icons.apartment_outlined,
+          texto: 'REGISTRAR MI EMPRESA COMO CLIENTE',
+          ruta: '/register-cliente-empresa',
+        ),
+        const SizedBox(height: 10),
+
         // Botón 2: Registrarme como Aliado Técnico
         GestureDetector(
           onTap: () => context.go('/register-aliado'),
@@ -580,39 +578,48 @@ class _LoginViewState extends State<_LoginView> {
         const SizedBox(height: 10),
 
         // Botón 3: Registrar Empresa de Servicios (US-02.1.2)
-        GestureDetector(
-          onTap: () => context.go('/register-empresa'),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-            decoration: BoxDecoration(
-              color: AppTheme.surface,
-              borderRadius: BorderRadius.circular(AppTheme.radiusXl),
-              border: Border.all(color: AppTheme.dark, width: 1.5),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(
-                  Icons.business_outlined,
-                  color: AppTheme.dark,
-                  size: 18,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'REGISTRAR MI EMPRESA DE SERVICIOS',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.4,
-                    color: AppTheme.dark,
-                  ),
-                ),
-              ],
-            ),
-          ),
+        _botonRegistroSecundario(
+          icono: Icons.business_outlined,
+          texto: 'REGISTRAR MI EMPRESA DE SERVICIOS',
+          ruta: '/register-empresa',
         ),
       ],
+    );
+  }
+
+  /// Botón de registro sin resaltar (empresa cliente y empresa de servicios).
+  Widget _botonRegistroSecundario({
+    required IconData icono,
+    required String texto,
+    required String ruta,
+  }) {
+    return GestureDetector(
+      onTap: () => context.go(ruta),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        decoration: BoxDecoration(
+          color: AppTheme.surface,
+          borderRadius: BorderRadius.circular(AppTheme.radiusXl),
+          border: Border.all(color: AppTheme.dark, width: 1.5),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icono, color: AppTheme.dark, size: 18),
+            const SizedBox(width: 8),
+            Text(
+              texto,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.4,
+                color: AppTheme.dark,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

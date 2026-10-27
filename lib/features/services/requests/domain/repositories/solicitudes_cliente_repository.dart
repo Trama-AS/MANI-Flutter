@@ -19,5 +19,11 @@ abstract interface class SolicitudesClienteRepository {
 
   /// Sube las fotos y publica la solicitud. Es idempotente por
   /// `claveIdempotencia`: un reintento devuelve la misma solicitud.
+  ///
+  /// Después avisa a los aliados elegibles. Si ese aviso falla, la solicitud
+  /// igual queda publicada y vuelve con `aliadosAvisados = false`.
   Future<SolicitudPublicada> publicar(NuevaSolicitud solicitud);
+
+  /// Repite el aviso a los aliados de una solicitud ya publicada.
+  Future<void> avisarAliados(String solicitudId);
 }

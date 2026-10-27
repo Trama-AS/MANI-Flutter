@@ -12,10 +12,16 @@ class SolicitudPublicadaVista extends StatelessWidget {
     super.key,
     required this.solicitud,
     required this.onNueva,
+    this.onReintentarAviso,
+    this.avisando = false,
   });
 
   final SolicitudPublicada solicitud;
   final VoidCallback onNueva;
+
+  /// Repite el aviso a los aliados si la publicación no lo logró (SCRUM-1402).
+  final VoidCallback? onReintentarAviso;
+  final bool avisando;
 
   @override
   Widget build(BuildContext context) {
@@ -49,11 +55,25 @@ class SolicitudPublicadaVista extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               Text(
-                'Los aliados de ${s.categoria} en ${s.zona} ya pueden verla. '
-                'Te avisaremos cuando uno la tome.',
+                s.aliadosAvisados
+                    ? 'Los aliados de ${s.categoria} en ${s.zona} ya pueden verla. '
+                          'Te avisaremos cuando uno la tome.'
+                    : 'Tu solicitud quedó guardada, pero todavía no pudimos '
+                          'avisarle a los aliados.',
+                key: const ValueKey('texto-publicada'),
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: AppTheme.textSecondary),
               ),
+              if (!s.aliadosAvisados) ...[
+                const SizedBox(height: 14),
+                ManiButton(
+                  key: const ValueKey('btn-reintentar-aviso'),
+                  etiqueta: avisando ? 'Avisando…' : 'Avisar a los aliados',
+                  icono: Icons.refresh_rounded,
+                  expandir: true,
+                  onPressed: avisando ? null : onReintentarAviso,
+                ),
+              ],
               const SizedBox(height: 20),
               ManiCard(
                 sombra: AppTheme.hardShadowSm,
@@ -86,9 +106,11 @@ class SolicitudPublicadaVista extends StatelessWidget {
                               width: 1.5,
                             ),
                           ),
-                          child: const Text(
-                            'BUSCANDO ALIADO',
-                            style: TextStyle(
+                          child: Text(
+                            s.aliadosAvisados
+                                ? 'BUSCANDO ALIADO'
+                                : 'SIN AVISAR',
+                            style: const TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w900,
                               color: Color(0xFFB45309),

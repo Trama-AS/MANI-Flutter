@@ -47,6 +47,7 @@ class CrearSolicitudState extends Equatable {
     this.buscandoZonas = false,
     this.publicando = false,
     this.publicada,
+    this.avisando = false,
     this.error,
     this.errorEnvio,
     this.aviso,
@@ -68,6 +69,9 @@ class CrearSolicitudState extends Equatable {
   final bool buscandoZonas;
   final bool publicando;
   final SolicitudPublicada? publicada;
+
+  /// Reintentando el aviso a los aliados de [publicada] (SCRUM-1402).
+  final bool avisando;
 
   /// Error al cargar el formulario.
   final SolicitudFailure? error;
@@ -132,6 +136,7 @@ class CrearSolicitudState extends Equatable {
     bool? buscandoZonas,
     bool? publicando,
     Object? publicada = _sinCambio,
+    bool? avisando,
     Object? error = _sinCambio,
     Object? errorEnvio = _sinCambio,
     Object? aviso = _sinCambio,
@@ -155,6 +160,7 @@ class CrearSolicitudState extends Equatable {
     publicada: identical(publicada, _sinCambio)
         ? this.publicada
         : publicada as SolicitudPublicada?,
+    avisando: avisando ?? this.avisando,
     error: identical(error, _sinCambio)
         ? this.error
         : error as SolicitudFailure?,
@@ -181,6 +187,7 @@ class CrearSolicitudState extends Equatable {
     buscandoZonas,
     publicando,
     publicada,
+    avisando,
     error?.tipo,
     errorEnvio?.tipo,
     aviso,

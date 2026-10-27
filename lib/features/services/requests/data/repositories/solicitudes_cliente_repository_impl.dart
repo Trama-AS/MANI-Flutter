@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:mani/core/logging/structured_logger.dart';
 import 'package:mani/core/network/gateway_exception.dart';
+import 'package:mani/core/utils/generador_id.dart';
 
 import '../../domain/entities/catalogo_solicitud.dart';
 import '../../domain/entities/nueva_solicitud.dart';
@@ -79,6 +80,12 @@ class SolicitudesClienteRepositoryImpl implements SolicitudesClienteRepository {
           ),
         ),
       );
+      final avisados = await _avisar(
+        publicada.id,
+        solicitud.claveIdempotencia,
+        traceId: traceId,
+        tenantId: tenantId,
+      );
       _log.info(
         'solicitud_creada',
         traceId: traceId,
@@ -89,10 +96,11 @@ class SolicitudesClienteRepositoryImpl implements SolicitudesClienteRepository {
           'categoria_id': solicitud.categoria.id,
           'fotos': solicitud.fotos.length,
           'sitio_nuevo': ubicacion is NuevaDireccion,
+          'aliados_avisados': avisados,
           'duracion_ms': sw.elapsedMilliseconds,
         },
       );
-      return publicada;
+      return publicada.conAviso(avisados);
     } on SolicitudFailure catch (f) {
       _log.error(
         'solicitud_no_creada',
@@ -106,6 +114,38 @@ class SolicitudesClienteRepositoryImpl implements SolicitudesClienteRepository {
         },
       );
       rethrow;
+    }
+  }
+
+  @override
+  Future<void> avisarAliados(String solicitudId) =>
+      _guard(() => _ds.avisarAliados(solicitudId, clave: nuevoUuid()));
+
+  /// La solicitud ya existe en Core: si Dispatch no responde no se informa un
+  /// error de publicación, solo que falta el aviso (el cliente lo reintenta).
+  Future<bool> _avisar(
+    String solicitudId,
+    String clave, {
+    required String traceId,
+    String? tenantId,
+  }) async {
+    try {
+      await _ds.avisarAliados(solicitudId, clave: clave);
+      return true;
+    } on Object catch (e) {
+      _log.error(
+        'aliados_no_avisados',
+        traceId: traceId,
+        tenantId: tenantId,
+        extra: {
+          'event': 'SCRUM-1402.orquestar_despacho',
+          'solicitud_id': solicitudId,
+          'error': e is GatewayException
+              ? '${e.statusCode ?? 'sin respuesta'}'
+              : e.runtimeType.toString(),
+        },
+      );
+      return false;
     }
   }
 
