@@ -14,6 +14,11 @@ import 'package:mani/features/auth/domain/usecases/register_cliente_usecase.dart
 import 'package:mani/features/auth/domain/usecases/register_aliado_usecase.dart';
 import 'package:mani/features/auth/domain/usecases/register_empresa_usecase.dart';
 import 'package:mani/features/auth/domain/usecases/register_cliente_empresa_usecase.dart';
+import 'package:mani/features/auth/data/datasources/recuperacion_contrasena_remote_data_source.dart';
+import 'package:mani/features/auth/data/repositories/recuperacion_contrasena_repository_impl.dart';
+import 'package:mani/features/auth/domain/repositories/i_recuperacion_contrasena_repository.dart';
+import 'package:mani/features/auth/domain/usecases/recuperar_contrasena_usecases.dart';
+import 'package:mani/features/auth/presentation/bloc/recuperacion_contrasena_cubit.dart';
 import 'package:mani/features/auth/presentation/bloc/auth_cubit.dart';
 import 'package:mani/features/availability/data/datasources/disponibilidad_remote_datasource.dart';
 import 'package:mani/features/availability/data/repositories/disponibilidad_repository_impl.dart';
@@ -111,6 +116,22 @@ Future<void> init() async {
   sl.registerLazySingleton(() => RegisterAliadoUseCase(sl()));
   sl.registerLazySingleton(() => RegisterEmpresaUseCase(sl()));
   sl.registerLazySingleton(() => RegisterClienteEmpresaUseCase(sl()));
+
+  // Recuperación de contraseña (HU-M02-10)
+  sl.registerFactory(
+    () => RecuperacionContrasenaCubit(
+      solicitarUseCase: sl(),
+      restablecerUseCase: sl(),
+    ),
+  );
+  sl.registerLazySingleton(() => SolicitarRecuperacionUseCase(sl()));
+  sl.registerLazySingleton(() => RestablecerContrasenaUseCase(sl()));
+  sl.registerLazySingleton<IRecuperacionContrasenaRepository>(
+    () => RecuperacionContrasenaRepositoryImpl(remoteDataSource: sl()),
+  );
+  sl.registerLazySingleton<IRecuperacionContrasenaRemoteDataSource>(
+    () => RecuperacionContrasenaRemoteDataSource(client: sl(), gateway: sl()),
+  );
 
   // Repository
   sl.registerLazySingleton<IAuthRepository>(

@@ -27,7 +27,14 @@ class GatewayFuenteSeguimiento implements FuenteSeguimiento {
       throw mapearGateway(e);
     }
     final lista = res['solicitudes'];
-    if (lista is! List) return const [];
+    // Un 200 sin la lista es una respuesta mal formada, no «sin solicitudes» (T2):
+    // se informa el error para que el cliente pueda reintentar.
+    if (lista is! List) {
+      throw const SeguimientoFailure(
+        SeguimientoErrorTipo.desconocido,
+        'Respuesta de Core sin "solicitudes"',
+      );
+    }
     return lista
         .whereType<Map>()
         .map((e) => SolicitudSeguimiento.fromJson(Map<String, dynamic>.from(e)))

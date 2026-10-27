@@ -155,13 +155,23 @@ void main() {
       expect(req.url.queryParameters, isEmpty);
     });
 
-    test('sin lista en la respuesta devuelve vacío', () async {
-      final lista = await fuente(
-        (_) async => http.Response('{}', 200, headers: _json),
-      ).listar();
-
-      expect(lista, isEmpty);
-    });
+    test(
+      'una respuesta sin lista es un error, no «sin solicitudes» (T2)',
+      () async {
+        await expectLater(
+          fuente(
+            (_) async => http.Response('{}', 200, headers: _json),
+          ).listar(),
+          throwsA(
+            isA<SeguimientoFailure>().having(
+              (f) => f.tipo,
+              'tipo',
+              SeguimientoErrorTipo.desconocido,
+            ),
+          ),
+        );
+      },
+    );
 
     test('401, 403, 5xx y sin red se traducen sin disfrazarse', () async {
       Future<http.Response> error(int status, String code) async =>
