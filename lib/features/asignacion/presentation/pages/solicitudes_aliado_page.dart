@@ -22,12 +22,16 @@ class SolicitudesAliadoPage extends StatefulWidget {
     this.onAbrirCobertura,
     this.onAbrirCategorias,
     this.onAbrirDisponibilidad,
+    this.onCotizar,
     this.intervaloRefresco = const Duration(seconds: 30),
   });
 
   final VoidCallback? onAbrirCobertura;
   final VoidCallback? onAbrirCategorias;
   final VoidCallback? onAbrirDisponibilidad;
+
+  /// Abre la cotización de una solicitud ya asignada al aliado (SCRUM-865).
+  final void Function(String solicitudId)? onCotizar;
 
   /// Cada cuánto se refresca la bandeja para no ofrecer solicitudes que otro
   /// aliado ya tomó. `null` desactiva el refresco (tests).
@@ -99,6 +103,7 @@ class _SolicitudesAliadoPageState extends State<SolicitudesAliadoPage> {
                         CargaSolicitudes.listo => _Bandeja(
                           onAbrirCobertura: widget.onAbrirCobertura,
                           onAbrirCategorias: widget.onAbrirCategorias,
+                          onCotizar: widget.onCotizar,
                         ),
                       },
                     ),
@@ -112,10 +117,15 @@ class _SolicitudesAliadoPageState extends State<SolicitudesAliadoPage> {
 }
 
 class _Bandeja extends StatelessWidget {
-  const _Bandeja({this.onAbrirCobertura, this.onAbrirCategorias});
+  const _Bandeja({
+    this.onAbrirCobertura,
+    this.onAbrirCategorias,
+    this.onCotizar,
+  });
 
   final VoidCallback? onAbrirCobertura;
   final VoidCallback? onAbrirCategorias;
+  final void Function(String solicitudId)? onCotizar;
 
   Future<void> _rechazar(BuildContext context, String id) async {
     final cubit = context.read<SolicitudesAliadoCubit>();
@@ -177,6 +187,9 @@ class _Bandeja extends StatelessWidget {
                         bloqueada: state.procesando,
                         onAceptar: () => cubit.aceptar(s.id),
                         onRechazar: () => _rechazar(context, s.id),
+                        onCotizar: onCotizar == null
+                            ? null
+                            : () => onCotizar!(s.id),
                       ),
                       const SizedBox(height: 14),
                     ],

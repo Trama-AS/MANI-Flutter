@@ -17,6 +17,7 @@ class SolicitudCard extends StatelessWidget {
     required this.solicitud,
     this.onAceptar,
     this.onRechazar,
+    this.onCotizar,
     this.accionEnCurso,
     this.bloqueada = false,
     this.recienAsignada = false,
@@ -26,6 +27,10 @@ class SolicitudCard extends StatelessWidget {
   final SolicitudEntity solicitud;
   final VoidCallback? onAceptar;
   final VoidCallback? onRechazar;
+
+  /// Abre la cotización; solo se ofrece en las solicitudes asignadas al aliado
+  /// (SCRUM-865). Core valida que sea el aliado asignado.
+  final VoidCallback? onCotizar;
 
   /// Acción que se está enviando para ESTA solicitud.
   final AccionSolicitud? accionEnCurso;
@@ -122,6 +127,17 @@ class SolicitudCard extends StatelessWidget {
           if (s.esMia) ...[
             const SizedBox(height: 12),
             _Direccion(direccion: s.direccion),
+            if (onCotizar != null) ...[
+              const SizedBox(height: 12),
+              ManiButton(
+                key: ValueKey('btn-cotizar-${s.id}'),
+                etiqueta: 'Cotización',
+                icono: Icons.request_quote_outlined,
+                variante: ManiButtonVariante.secundario,
+                expandir: true,
+                onPressed: onCotizar,
+              ),
+            ],
           ],
           if (s.estaDisponible) ...[
             const SizedBox(height: 16),

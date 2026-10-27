@@ -69,6 +69,7 @@ import 'package:mani/features/profiles/direct_employees/data/empleados_directos_
 import 'package:mani/features/profiles/own_profile/data/datasources/perfil_propio_remote_datasource.dart';
 import 'package:mani/features/profiles/direct_employees/domain/usecases/registrar_empleado_directo_usecase.dart';
 import 'package:mani/features/profiles/direct_employees/presentation/bloc/empleado_directo_cubit.dart';
+import 'package:mani/features/services/quotes/data/cotizaciones_datasource.dart';
 
 final sl = GetIt.instance; // sl = service locator
 
@@ -240,6 +241,12 @@ Future<void> init() async {
   sl.registerFactory(() => MisSolicitudesCubit(sl()));
   sl.registerLazySingleton<FuenteSeguimiento>(
     () => GatewayFuenteSeguimiento(sl()),
+  );
+
+  // Cotización (US-04.2.1 / SCRUM-865 y US-04.2.3 / SCRUM-867), por el Gateway
+  // a Core. El Cubit se crea por solicitud en la ruta.
+  sl.registerLazySingleton<FuenteCotizaciones>(
+    () => GatewayFuenteCotizaciones(sl()),
   );
 
   // Features - Services / Requests: crear solicitud (US-04.1.1)

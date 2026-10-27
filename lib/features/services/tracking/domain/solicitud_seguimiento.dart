@@ -7,6 +7,9 @@ import 'package:equatable/equatable.dart';
 enum EstadoSeguimiento {
   pendiente('Buscando aliado'),
   asignada('Aliado asignado'),
+  cotizando('Cotización en curso'),
+  aceptada('Cotización aceptada'),
+  rechazada('Cotización rechazada'),
   enEjecucion('En ejecución'),
   finalizada('Finalizada'),
   cancelada('Cancelada'),
@@ -20,6 +23,9 @@ enum EstadoSeguimiento {
       switch (valor.trim().toUpperCase()) {
         'PENDIENTE' => pendiente,
         'ASIGNADA' => asignada,
+        'COTIZANDO' => cotizando,
+        'ACEPTADA' => aceptada,
+        'RECHAZADA' => rechazada,
         'EN_EJECUCION' || 'EN_CURSO' => enEjecucion,
         'FINALIZADA' || 'CERRADA' || 'COMPLETADA' => finalizada,
         'CANCELADA' => cancelada,
@@ -70,6 +76,16 @@ class SolicitudSeguimiento extends Equatable {
   final DateTime actualizadaEn;
 
   EstadoSeguimiento get estado => EstadoSeguimiento.desde(estadoCrudo);
+
+  /// Hay cotización que ver desde que el aliado cotiza (SCRUM-865 y 867).
+  bool get tieneCotizacion => switch (estado) {
+    EstadoSeguimiento.cotizando ||
+    EstadoSeguimiento.aceptada ||
+    EstadoSeguimiento.rechazada ||
+    EstadoSeguimiento.enEjecucion ||
+    EstadoSeguimiento.finalizada => true,
+    _ => false,
+  };
 
   /// Texto del estado; si la app no lo conoce, el valor que envió Core.
   String get etiquetaEstado =>
