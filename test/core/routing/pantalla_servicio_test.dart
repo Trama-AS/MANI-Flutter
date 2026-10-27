@@ -5,6 +5,9 @@ import 'package:mani/core/di/injection_container.dart';
 import 'package:mani/core/platform/selector_fotos.dart';
 import 'package:mani/core/platform/url_opener.dart';
 import 'package:mani/core/routing/app_router.dart';
+import 'package:mani/features/messaging/data/mensajes_datasource.dart';
+import 'package:mani/features/messaging/domain/mensaje.dart';
+import 'package:mani/features/messaging/presentation/chat_page.dart';
 import 'package:mani/features/services/events/data/eventos_datasource.dart';
 import 'package:mani/features/services/execution/data/ejecucion_datasource.dart';
 import 'package:mani/features/services/quotes/data/cotizaciones_datasource.dart';
@@ -104,6 +107,19 @@ class _Eventos implements FuenteEventos {
       Uri.parse('https://firmada/$eventoId');
 }
 
+class _Mensajes implements FuenteMensajes {
+  @override
+  Future<List<Mensaje>> listar(String solicitudId, {String? despuesDe}) async =>
+      const [];
+
+  @override
+  Future<void> enviar(
+    String solicitudId,
+    String contenido, {
+    required String claveIdempotencia,
+  }) async {}
+}
+
 class _Opener implements UrlOpener {
   @override
   Future<bool> abrir(Uri url) async => true;
@@ -135,6 +151,7 @@ void main() {
     sl.registerSingleton<FuenteCotizaciones>(_Cotizaciones());
     sl.registerSingleton<FuenteEjecucion>(ejecucion);
     sl.registerSingleton<FuenteEventos>(eventos);
+    sl.registerSingleton<FuenteMensajes>(_Mensajes());
     sl.registerSingleton<UrlOpener>(_Opener());
     sl.registerSingleton<SelectorFotos>(_SinFotos());
   });
@@ -214,4 +231,71 @@ void main() {
     expect(ejecucion.consultas, greaterThan(antesEjecucion));
     expect(eventos.consultas, greaterThan(antesEventos));
   });
+
+  GoRouterState estado(GoRoute r, String ubicacion) => GoRouterState(
+    appRouter.configuration,
+    uri: Uri.parse(ubicacion),
+    matchedLocation: ubicacion,
+    fullPath: r.path,
+    pathParameters: const {'id': 'sol-1'},
+    pageKey: ValueKey(ubicacion),
+  );
+
+  // SCRUM-881: cada participante entra al chat del servicio desde la pantalla del servicio.
+  for (final (nombre, destino, etiqueta) in [
+    (
+      'cotizacion-cliente',
+      '/cliente/solicitudes/sol-1/chat',
+      'Mensajes con el aliado',
+    ),
+    (
+      'cotizacion-aliado',
+      '/aliado/solicitudes/sol-1/chat',
+      'Mensajes con el cliente',
+    ),
+  ]) {
+    testWidgets('$nombre: el botón de mensajes abre $destino', (tester) async {
+      final r = ruta(nombre);
+      final router = GoRouter(
+        routes: [
+          GoRoute(
+            path: '/',
+            builder: (context, _) =>
+                Scaffold(body: r.builder!(context, estado(r, '/ignorada'))),
+          ),
+          GoRoute(
+            path: destino,
+            builder: (_, _) => const Text('pantalla de chat'),
+          ),
+        ],
+      );
+      await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+      await tester.pumpAndSettle();
+
+      expect(find.text(etiqueta), findsOneWidget);
+      await tester.tap(find.byKey(const Key('btn-abrir-chat')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('pantalla de chat'), findsOneWidget);
+    });
+  }
+
+  for (final nombre in ['chat-cliente', 'chat-aliado']) {
+    testWidgets('$nombre arma la pantalla del chat con su Cubit', (
+      tester,
+    ) async {
+      final r = ruta(nombre);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => r.builder!(context, estado(r, r.path)),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ChatPage), findsOneWidget);
+      expect(find.byKey(const Key('chat-vacio')), findsOneWidget);
+    });
+  }
 }
