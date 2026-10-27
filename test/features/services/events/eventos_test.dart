@@ -471,4 +471,72 @@ void main() {
       );
     });
   });
+
+  group('SCRUM-870 · ramas de error al ver la foto', () {
+    test(
+      'un 404 de Core al pedir la foto llega como fallo de no encontrada',
+      () async {
+        final fuente = GatewayFuenteEventos(
+          GatewayClient(
+            baseUrl: 'http://gateway.local',
+            tokenProvider: () async => 'jwt',
+            correlationId: () => 'corr',
+            initialRetryDelay: Duration.zero,
+            httpClient: MockClient(
+              (_) async => http.Response(
+                '{"error":"MANI-EVT-404E: el evento no tiene evidencia"}',
+                404,
+                headers: _json,
+              ),
+            ),
+          ),
+        );
+        await expectLater(
+          fuente.urlEvidencia('sol-1', 'e1'),
+          throwsA(
+            isA<CotizacionFailure>().having(
+              (f) => f.tipo,
+              'tipo',
+              CotizacionErrorTipo.noEncontrada,
+            ),
+          ),
+        );
+      },
+    );
+
+    testWidgets('si el sistema no puede abrir la URL, se avisa', (
+      tester,
+    ) async {
+      final f = _FuenteFake()
+        ..lista = [
+          EventoServicio.fromJson(
+            _eventoJson('e2', 'EJECUCION_AVANCE', foto: true),
+          ),
+        ];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: BlocProvider(
+                create: (_) => EventosCubit(f, 'sol-1')..cargar(),
+                child: EventosSeccion(
+                  puedeRegistrar: false,
+                  urlOpener: _OpenerQueFalla(),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('ver-foto-e2')));
+      await tester.pumpAndSettle();
+      expect(find.text('No se pudo abrir la foto.'), findsOneWidget);
+    });
+  });
+}
+
+class _OpenerQueFalla implements UrlOpener {
+  @override
+  Future<bool> abrir(Uri url) async => false;
 }
