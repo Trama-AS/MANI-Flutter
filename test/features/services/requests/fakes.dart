@@ -352,7 +352,7 @@ class ServidorSolicitudesFake implements SolicitudesClienteRemoteDataSource {
           (z) => {
             'id': z['id'],
             'nombre': z['nombre'],
-            'zona_padre': z['padre'],
+            'zonaPadre': z['padre'],
           },
         )
         .toList();
