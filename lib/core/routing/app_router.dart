@@ -20,6 +20,8 @@ import 'package:mani/features/auth/presentation/pages/registro_cliente_empresa_p
 import 'package:mani/features/auth/domain/entities/enlace_recuperacion.dart';
 import 'package:mani/features/auth/presentation/pages/olvide_contrasena_page.dart';
 import 'package:mani/features/auth/presentation/pages/restablecer_contrasena_page.dart';
+import 'package:mani/features/payments/presentation/pago_cubit.dart';
+import 'package:mani/features/payments/presentation/pago_sandbox_page.dart';
 import 'package:mani/features/auth/presentation/pages/registro_aliado_page.dart';
 import 'package:mani/features/auth/presentation/pages/registro_aliado_empresa_page.dart';
 import 'package:mani/features/availability/presentation/pages/disponibilidad_page.dart';
@@ -99,6 +101,10 @@ Widget _pantallaServicio(
   child: Builder(
     builder: (context) => CotizacionPage(
       esAliado: esAliado,
+      alPagar: esAliado
+          ? null
+          : (cotizacionId, total) =>
+                context.push('/cliente/pagos/$cotizacionId', extra: total),
       pie: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -346,6 +352,18 @@ final appRouter = GoRouter(
           name: 'cotizacion-cliente',
           builder: (context, state) =>
               _pantallaServicio(state.pathParameters['id']!, esAliado: false),
+        ),
+        // Pago de la cotización aceptada en el sandbox (HU-M11-01 / SCRUM-1432):
+        // simulador sin dinero ni tarjetas reales. El monto lo calcula Core;
+        // `extra` solo trae el total para mostrarlo antes de pagar.
+        GoRoute(
+          path: '/cliente/pagos/:cotizacionId',
+          name: 'pago-sandbox',
+          builder: (context, state) => BlocProvider(
+            create: (_) =>
+                PagoCubit(sl(), state.pathParameters['cotizacionId']!),
+            child: PagoSandboxPage(total: state.extra as double?),
+          ),
         ),
         // Cotización del aliado (US-04.2.1 / SCRUM-865): solo el aliado
         // asignado emite; lo valida Core.

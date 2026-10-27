@@ -37,6 +37,7 @@ class CotizacionPage extends StatelessWidget {
     required this.esAliado,
     this.pie,
     this.alRefrescar,
+    this.alPagar,
   });
 
   final bool esAliado;
@@ -46,6 +47,10 @@ class CotizacionPage extends StatelessWidget {
 
   /// Se llama además de recargar la cotización al deslizar hacia abajo.
   final Future<void> Function()? alRefrescar;
+
+  /// Abre el pago en el sandbox de una cotización aceptada (SCRUM-1432). Solo
+  /// el cliente lo recibe; sin él no se ofrece el botón.
+  final void Function(String cotizacionId, double total)? alPagar;
 
   @override
   Widget build(BuildContext context) {
@@ -87,7 +92,7 @@ class CotizacionPage extends StatelessWidget {
                 if (esAliado)
                   _SeccionAliado(state: state)
                 else
-                  _SeccionCliente(state: state),
+                  _SeccionCliente(state: state, alPagar: alPagar),
                 if (state.cotizaciones.length > 1) ...[
                   const SizedBox(height: 16),
                   Text(
@@ -316,9 +321,10 @@ class _FormularioCotizacionState extends State<_FormularioCotizacion> {
 // ----------------------------------------------------------------- cliente
 
 class _SeccionCliente extends StatelessWidget {
-  const _SeccionCliente({required this.state});
+  const _SeccionCliente({required this.state, this.alPagar});
 
   final CotizacionState state;
+  final void Function(String cotizacionId, double total)? alPagar;
 
   @override
   Widget build(BuildContext context) {
@@ -340,7 +346,23 @@ class _SeccionCliente extends StatelessWidget {
       };
       return Padding(
         padding: const EdgeInsets.only(top: 8),
-        child: Text(texto, key: const Key('estado-cotizacion-cliente')),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(texto, key: const Key('estado-cotizacion-cliente')),
+            if (vigente.estado == EstadoCotizacion.aceptada &&
+                alPagar != null) ...[
+              const SizedBox(height: 8),
+              ManiButton(
+                key: const Key('btn-pagar-cotizacion'),
+                etiqueta: 'Pagar (sandbox)',
+                icono: Icons.payments_outlined,
+                expandir: true,
+                onPressed: () => alPagar!(vigente.id, vigente.total),
+              ),
+            ],
+          ],
+        ),
       );
     }
     final cubit = context.read<CotizacionCubit>();

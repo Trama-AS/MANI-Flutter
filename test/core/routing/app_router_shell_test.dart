@@ -128,6 +128,7 @@ const _rutasConSesion = {
   '/cliente/solicitudes/nueva',
   '/cliente/solicitudes',
   '/cliente/solicitudes/:id/cotizacion',
+  '/cliente/pagos/:cotizacionId',
   '/aliado/solicitudes/:id/cotizacion',
   '/aliado/solicitudes',
   '/aliado/disponibilidad',
