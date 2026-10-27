@@ -32,9 +32,20 @@ String formatearPesos(double valor) {
 /// El total y la versión los calcula Core; la app solo muestra el total
 /// mientras se escribe, como ayuda.
 class CotizacionPage extends StatelessWidget {
-  const CotizacionPage({super.key, required this.esAliado});
+  const CotizacionPage({
+    super.key,
+    required this.esAliado,
+    this.pie,
+    this.alRefrescar,
+  });
 
   final bool esAliado;
+
+  /// Sección que va al final de la pantalla (p. ej. la ejecución, SCRUM-868).
+  final Widget? pie;
+
+  /// Se llama además de recargar la cotización al deslizar hacia abajo.
+  final Future<void> Function()? alRefrescar;
 
   @override
   Widget build(BuildContext context) {
@@ -55,7 +66,9 @@ class CotizacionPage extends StatelessWidget {
       builder: (context, state) {
         final cubit = context.read<CotizacionCubit>();
         return RefreshIndicator(
-          onRefresh: cubit.cargar,
+          onRefresh: () async {
+            await Future.wait([cubit.cargar(), ?alRefrescar?.call()]);
+          },
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
@@ -85,6 +98,7 @@ class CotizacionPage extends StatelessWidget {
                     _TarjetaCotizacion(c, vigente: false),
                 ],
               ],
+              if (pie != null) ...[const SizedBox(height: 16), pie!],
             ],
           ),
         );

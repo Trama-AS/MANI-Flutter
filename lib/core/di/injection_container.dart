@@ -70,6 +70,7 @@ import 'package:mani/features/profiles/own_profile/data/datasources/perfil_propi
 import 'package:mani/features/profiles/direct_employees/domain/usecases/registrar_empleado_directo_usecase.dart';
 import 'package:mani/features/profiles/direct_employees/presentation/bloc/empleado_directo_cubit.dart';
 import 'package:mani/features/services/quotes/data/cotizaciones_datasource.dart';
+import 'package:mani/features/services/execution/data/ejecucion_datasource.dart';
 
 final sl = GetIt.instance; // sl = service locator
 
@@ -248,6 +249,8 @@ Future<void> init() async {
   sl.registerLazySingleton<FuenteCotizaciones>(
     () => GatewayFuenteCotizaciones(sl()),
   );
+  // Ejecución del servicio (US-04.3.1 / SCRUM-868), en la misma pantalla.
+  sl.registerLazySingleton<FuenteEjecucion>(() => GatewayFuenteEjecucion(sl()));
 
   // Features - Services / Requests: crear solicitud (US-04.1.1)
   sl.registerFactory(
