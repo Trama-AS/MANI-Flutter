@@ -17,6 +17,9 @@ import 'package:mani/features/home/data/resumen_inicio.dart';
 import 'package:mani/features/home/presentation/pages/inicio_page.dart';
 import 'package:mani/features/auth/presentation/pages/registro_cliente_page.dart';
 import 'package:mani/features/auth/presentation/pages/registro_cliente_empresa_page.dart';
+import 'package:mani/features/auth/domain/entities/enlace_recuperacion.dart';
+import 'package:mani/features/auth/presentation/pages/olvide_contrasena_page.dart';
+import 'package:mani/features/auth/presentation/pages/restablecer_contrasena_page.dart';
 import 'package:mani/features/auth/presentation/pages/registro_aliado_page.dart';
 import 'package:mani/features/auth/presentation/pages/registro_aliado_empresa_page.dart';
 import 'package:mani/features/availability/presentation/pages/disponibilidad_page.dart';
@@ -70,6 +73,8 @@ const _publicPaths = {
   '/register-aliado',
   '/register-empresa',
   '/register-cliente-empresa',
+  '/forgot-password',
+  '/reset-password',
 };
 
 bool _isPublicPath(String path) {
@@ -85,6 +90,7 @@ bool _isPublicPath(String path) {
 /// - `/register-aliado`: Pantalla independiente de registro para aliados técnicos (US-02.1.1)
 /// - `/register-empresa`: Pantalla independiente de registro para aliados empresas (US-02.1.2)
 /// - `/register-cliente-empresa`: Registro de cliente empresa con NIT y representante (HU-M02-07)
+/// - `/forgot-password` y `/reset-password`: Recuperación de contraseña (HU-M02-10)
 /// - `/categories`: Pantalla de selección de categorías del aliado (US-03.1.3)
 /// - `/aliado/cobertura`: Zona de cobertura del aliado (US-02.1.4)
 /// - `/aliado/disponibilidad`: Ausencias del aliado, "No disponible" (US-02.1.6)
@@ -170,6 +176,19 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/registro-cliente',
       redirect: (context, state) => '/register-cliente',
+    ),
+    // Recuperación de contraseña (HU-M02-10): el enlace del correo abre /reset-password con el token en la URL.
+    GoRoute(
+      path: '/forgot-password',
+      name: 'forgot-password',
+      builder: (context, state) => const OlvideContrasenaPage(),
+    ),
+    GoRoute(
+      path: '/reset-password',
+      name: 'reset-password',
+      builder: (context, state) => RestablecerContrasenaPage(
+        enlace: EnlaceRecuperacion.resolver(state.uri, Uri.base),
+      ),
     ),
     // Ruta independiente: Registro de Cliente Empresa (HU-M02-07)
     GoRoute(
