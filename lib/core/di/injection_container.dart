@@ -237,8 +237,18 @@ Future<void> init() async {
   sl.registerLazySingleton<IAsignacionRepository>(
     () => AsignacionRepositoryImpl(sl()),
   );
+  // Bandeja, aceptar y rechazar por el Gateway hacia Dispatch (decisión 6A,
+  // SCRUM-1402/1403/1404); reemplaza las RPC de la migración 005.
   sl.registerLazySingleton<AsignacionRemoteDataSource>(
-    () => SupabaseAsignacionDataSource(sl()),
+    () => GatewayAsignacionDataSource(
+      sl(),
+      tenantIdSesion: () {
+        final user = sl<SupabaseClient>().auth.currentUser;
+        return (user?.appMetadata['tenant_id'] ??
+                user?.userMetadata?['tenant_id'])
+            as String?;
+      },
+    ),
   );
 
   // Seguimiento del cliente (HU-M07-04 / SCRUM-871).
@@ -269,9 +279,11 @@ Future<void> init() async {
       cargarCatalogo: sl(),
       buscarZonas: sl(),
       publicar: sl(),
+      avisarAliados: sl(),
     ),
   );
   sl.registerLazySingleton(() => CargarCatalogoSolicitud(sl()));
+  sl.registerLazySingleton(() => AvisarAliados(sl()));
   sl.registerLazySingleton(() => BuscarZonas(sl()));
   sl.registerLazySingleton(() => PublicarSolicitud(sl()));
   sl.registerLazySingleton<SolicitudesClienteRepository>(
