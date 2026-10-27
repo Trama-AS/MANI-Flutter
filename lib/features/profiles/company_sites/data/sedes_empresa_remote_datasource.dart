@@ -22,7 +22,12 @@ class SedesEmpresaRemoteDataSource implements ISedesEmpresaRemoteDataSource {
   @override
   Future<List<SedeEmpresa>> listarSedes(String clienteId) async {
     final respuesta = await gateway.get(rutaSedesCliente(clienteId));
-    final raw = respuesta['data'] ?? respuesta['sites'] ?? const [];
+    // Core responde `{ clienteId, razonSocial, totalSitios, sitios: [...] }`.
+    // `data` y `sites` quedan como respaldo por si alguna respuesta vieja
+    // sigue usándolas; sin `sitios` la lista llegaba siempre vacía aunque el
+    // cliente tuviera sedes.
+    final raw =
+        respuesta['sitios'] ?? respuesta['data'] ?? respuesta['sites'] ?? const [];
     if (raw is List) {
       return raw
           .whereType<Map<String, dynamic>>()
@@ -53,9 +58,9 @@ class SedesEmpresaRemoteDataSource implements ISedesEmpresaRemoteDataSource {
       rutaSedesCliente(clienteId),
       payload,
     );
-    final data = (respuesta['data'] is Map<String, dynamic>)
-        ? respuesta['data'] as Map<String, dynamic>
-        : respuesta;
+    // Core responde `{ message, correlationId, sitio: {...} }`.
+    final cuerpo = respuesta['sitio'] ?? respuesta['data'];
+    final data = cuerpo is Map<String, dynamic> ? cuerpo : respuesta;
     return SedeEmpresa.fromJson(data);
   }
 }
