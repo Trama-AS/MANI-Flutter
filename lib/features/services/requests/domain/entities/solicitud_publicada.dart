@@ -14,6 +14,7 @@ class SolicitudPublicada extends Equatable {
     this.zonaPadre,
     this.modalidad = ModalidadCobro.desconocida,
     this.cantidadFotos = 0,
+    this.aliadosAvisados = true,
   });
 
   final String id;
@@ -25,6 +26,23 @@ class SolicitudPublicada extends Equatable {
   final String? zonaPadre;
   final int cantidadFotos;
   final DateTime fechaCreacion;
+
+  /// `false` si la solicitud quedó guardada pero Dispatch no alcanzó a
+  /// ofrecerla a los aliados (SCRUM-1402); el cliente puede reintentar.
+  final bool aliadosAvisados;
+
+  SolicitudPublicada conAviso(bool avisados) => SolicitudPublicada(
+    id: id,
+    categoria: categoria,
+    descripcion: descripcion,
+    direccion: direccion,
+    zona: zona,
+    fechaCreacion: fechaCreacion,
+    zonaPadre: zonaPadre,
+    modalidad: modalidad,
+    cantidadFotos: cantidadFotos,
+    aliadosAvisados: avisados,
+  );
 
   String get ubicacion => [
     zona,
@@ -42,5 +60,6 @@ class SolicitudPublicada extends Equatable {
     zonaPadre,
     cantidadFotos,
     fechaCreacion,
+    aliadosAvisados,
   ];
 }

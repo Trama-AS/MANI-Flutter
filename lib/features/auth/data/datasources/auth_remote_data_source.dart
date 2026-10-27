@@ -361,8 +361,16 @@ class AuthRemoteDataSource implements IAuthRemoteDataSource {
     return limpio == null || limpio.isEmpty ? null : limpio;
   }
 
+  /// Ruta con la que Core deja constancia del cierre de sesión (HU-M02-03, RNF-04).
+  static const rutaCierreSesion = '/api/v1/core/auth/logout';
+
   @override
   Future<void> signOut() async {
+    // Core solo audita: la sesión la revoca Supabase (T6). Si la llamada falla (sin red, token vencido, Core
+    // caído) el cierre no se bloquea: la persona debe poder salir siempre.
+    try {
+      await gateway.postJson(rutaCierreSesion, const {});
+    } catch (_) {}
     await client.auth.signOut();
   }
 }

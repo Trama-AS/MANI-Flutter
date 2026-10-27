@@ -1,12 +1,15 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
-
 import 'package:mani/core/network/gateway_client.dart';
+import 'package:mani/core/utils/generador_id.dart';
 
-/// Acceso crudo a Supabase. Ni `tenant_id` ni `aliado_id` viajan desde la
-/// app: las RPC los derivan de `auth.uid()`
-/// (migración 005_aceptar_rechazar_solicitud.sql).
+/// Acceso crudo a Dispatch por el Gateway. Ni `tenant_id` ni `aliado_id`
+/// viajan desde la app: Dispatch y Core los derivan del JWT. Los errores salen
+/// como `GatewayException` y el repositorio los traduce por `code`.
 abstract interface class AsignacionRemoteDataSource {
+  /// Elementos de la bandeja (`items`), en el formato camelCase de Core.
   Future<List<Map<String, dynamic>>> listar();
+
+  /// Respuesta de la aceptación: `requestId`, `status` e `isRetry`. No trae
+  /// la solicitud; el repositorio la vuelve a leer de la bandeja.
   Future<Map<String, dynamic>> aceptar(String solicitudId);
   Future<void> rechazar(String solicitudId, String? motivo);
 
@@ -14,101 +17,63 @@ abstract interface class AsignacionRemoteDataSource {
   String? get tenantIdSesion;
 }
 
-class SupabaseAsignacionDataSource implements AsignacionRemoteDataSource {
-  SupabaseAsignacionDataSource(this._client);
-
-  final SupabaseClient _client;
-
-  @override
-  Future<List<Map<String, dynamic>>> listar() async {
-    final res = await _client.rpc('listar_solicitudes_aliado');
-    if (res is! List) {
-      return const [];
-    }
-    return res
-        .map((e) => Map<String, dynamic>.from(e as Map))
-        .toList(growable: false);
-  }
-
-  @override
-  Future<Map<String, dynamic>> aceptar(String solicitudId) async {
-    final res = await _client.rpc(
-      'aceptar_solicitud',
-      params: {'p_solicitud_id': solicitudId},
-    );
-    if (res is Map) {
-      return Map<String, dynamic>.from(res);
-    }
-    throw const PostgrestException(
-      message: 'Respuesta inesperada del servidor',
-    );
-  }
-
-  @override
-  Future<void> rechazar(String solicitudId, String? motivo) => _client.rpc(
-    'rechazar_solicitud',
-    params: {'p_solicitud_id': solicitudId, 'p_motivo': motivo},
-  );
-
-  @override
-  String? get tenantIdSesion {
-    final user = _client.auth.currentUser;
-    return (user?.appMetadata['tenant_id'] ?? user?.userMetadata?['tenant_id'])
-        as String?;
-  }
-}
-
-/// Aceptar y rechazar van a Dispatch por el Gateway (TEC-18 / SCRUM-1465):
-/// `POST /api/v1/dispatch/requests/{id}/accept` y `.../reject`. Dispatch
-/// toma el tenant y el aliado del JWT verificado; la app solo envía el id
-/// de la solicitud y el motivo.
-///
-/// El listado sigue en la RPC `listar_solicitudes_aliado` de [rpc]: ni Core
-/// ni Dispatch exponen todavía la bandeja de ofertas del aliado
-/// (`assignments/me` solo devuelve los ids ya asignados). Cuando exista ese
-/// endpoint, solo cambia [listar].
+/// Bandeja, aceptación y rechazo por `MANI-APIGateway` → `MANI-.NET`
+/// (decisión 6A, SCRUM-1402/1403/1404). Reemplaza las RPC de la migración
+/// `005_aceptar_rechazar_solicitud.sql`.
 class GatewayAsignacionDataSource implements AsignacionRemoteDataSource {
   GatewayAsignacionDataSource(
     this._gateway, {
-    required AsignacionRemoteDataSource rpc,
-  }) : _rpc = rpc;
+    String? Function()? tenantIdSesion,
+    String Function()? generarClave,
+  }) : _tenantIdSesion = tenantIdSesion,
+       _generarClave = generarClave ?? nuevoUuid;
+
+  static const ruta = '/api/v1/dispatch';
+  static const rutaBandeja = '$ruta/offers/me';
 
   static String rutaAceptar(String solicitudId) =>
-      '/api/v1/dispatch/requests/${Uri.encodeComponent(solicitudId)}/accept';
+      '$ruta/requests/${Uri.encodeComponent(solicitudId)}/accept';
+
   static String rutaRechazar(String solicitudId) =>
-      '/api/v1/dispatch/requests/${Uri.encodeComponent(solicitudId)}/reject';
+      '$ruta/requests/${Uri.encodeComponent(solicitudId)}/reject';
 
   final GatewayClient _gateway;
-  final AsignacionRemoteDataSource _rpc;
+  final String? Function()? _tenantIdSesion;
+  final String Function() _generarClave;
 
   @override
-  Future<List<Map<String, dynamic>>> listar() => _rpc.listar();
-
-  /// Dispatch responde solo `requestId`, `assignedAllyId` y `status`, sin la
-  /// dirección que el aliado ve al ganar. Por eso, tras un 200 se relee la
-  /// bandeja y se devuelve la solicitud ya asignada. Si no aparece (bandeja
-  /// caída o desfasada), se devuelve lo mínimo para marcarla como propia:
-  /// la aceptación ya quedó confirmada en el servidor y no se reporta como
-  /// error.
-  @override
-  Future<Map<String, dynamic>> aceptar(String solicitudId) async {
-    await _gateway.postJson(rutaAceptar(solicitudId), const {});
-    try {
-      for (final s in await _rpc.listar()) {
-        if (s['id'] == solicitudId) {
-          return s;
-        }
-      }
-    } catch (_) {
-      // La aceptación ya se confirmó; la relectura es solo para mostrarla.
+  Future<List<Map<String, dynamic>>> listar() async {
+    final res = await _gateway.get(rutaBandeja);
+    final items = res['items'];
+    // Un 200 sin la lista es una respuesta mal formada, no «bandeja vacía» (T2).
+    if (items is! List) {
+      throw const FormatException('Respuesta de Dispatch sin "items"');
     }
-    return {'id': solicitudId, 'estado': 'ASIGNADA', 'es_mia': true};
+    return items
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList(growable: false);
   }
 
+  /// Una clave por toque: si el `GatewayClient` reintenta tras un 503 o una
+  /// caída de red, Core reconoce el reintento y no asigna dos veces (1405).
+  @override
+  Future<Map<String, dynamic>> aceptar(String solicitudId) => _gateway.postJson(
+    rutaAceptar(solicitudId),
+    const {},
+    headers: {GatewayClient.headerIdempotencyKey: _generarClave()},
+  );
+
+  /// El rechazo es idempotente en Dispatch (`ON CONFLICT DO NOTHING`), así
+  /// que también puede reintentarse con su propia clave.
   @override
   Future<void> rechazar(String solicitudId, String? motivo) =>
-      _gateway.postJson(rutaRechazar(solicitudId), {'motivo': ?motivo});
+      _gateway.postJson(
+        rutaRechazar(solicitudId),
+        {'motivo': motivo},
+        headers: {GatewayClient.headerIdempotencyKey: _generarClave()},
+      );
 
   @override
-  String? get tenantIdSesion => _rpc.tenantIdSesion;
+  String? get tenantIdSesion => _tenantIdSesion?.call();
 }

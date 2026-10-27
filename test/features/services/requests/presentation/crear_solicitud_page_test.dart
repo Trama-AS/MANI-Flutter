@@ -234,6 +234,33 @@ void main() {
     expect(repo.llamadasPublicar, 2);
   });
 
+  testWidgets(
+    'publicada sin aviso a los aliados: se informa y se puede reintentar',
+    (t) async {
+      final repo = FakeSolicitudesClienteRepository()..avisoAlPublicar = false;
+      await _montar(t, repo);
+      await _tocar(t, const ValueKey('categoria-cat-plo'));
+      await _escribir(
+        t,
+        const ValueKey('campo-descripcion'),
+        descripcionValida,
+      );
+      await _tocar(t, const ValueKey('btn-continuar'));
+      await _tocar(t, const ValueKey('btn-continuar'));
+      await _tocar(t, const ValueKey('btn-publicar'));
+
+      expect(find.byKey(const ValueKey('titulo-publicada')), findsOneWidget);
+      expect(find.textContaining('todavía no pudimos'), findsOneWidget);
+      expect(find.text('SIN AVISAR'), findsOneWidget);
+
+      await _tocar(t, const ValueKey('btn-reintentar-aviso'));
+
+      expect(repo.avisos, hasLength(1));
+      expect(find.byKey(const ValueKey('btn-reintentar-aviso')), findsNothing);
+      expect(find.text('BUSCANDO ALIADO'), findsOneWidget);
+    },
+  );
+
   testWidgets('"Publicar otra solicitud" reinicia el asistente', (t) async {
     await _montar(t, FakeSolicitudesClienteRepository());
     await _tocar(t, const ValueKey('categoria-cat-plo'));

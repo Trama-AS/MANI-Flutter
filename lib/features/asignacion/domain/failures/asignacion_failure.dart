@@ -1,17 +1,18 @@
-/// Errores de negocio de US-04.1.4. Los códigos `MANI-SOL-*` los emiten las
-/// RPC de la migración `005_aceptar_rechazar_solicitud.sql` y, para aceptar y
-/// rechazar, Dispatch en el campo `error` (TEC-18 / SCRUM-1465).
+/// Errores de negocio de US-04.1.4. Los códigos `MANI-SOL-*` los emite Core al
+/// registrar la asignación y los `MANI-DSP-*` Dispatch (decisión 6A); llegan
+/// por el Gateway en el campo `code`.
 enum AsignacionErrorTipo {
   sinSesion, // MANI-SOL-401
   noEsAliado, // MANI-SOL-403
   aliadoNoVerificado, // MANI-SOL-403V
-  noElegible, // MANI-SOL-403E
+  noElegible, // MANI-SOL-403E / 403O
   noEncontrada, // MANI-SOL-404
-  yaNoDisponible, // MANI-SOL-409 (ya_no_disponible, DD-MANI §7.1)
-  yaEsTuya, // MANI-SOL-409A
+  yaNoDisponible, // MANI-SOL-409 / 409E (ya_no_disponible, DD-MANI §7.1)
+  yaEsTuya, // MANI-DSP-409A
+  yaRechazada, // MANI-DSP-409R
   motivoInvalido, // MANI-SOL-422M
+  servicioNoDisponible, // 5xx: Dispatch, Core o la base no responden
   sinConexion,
-  servicioNoDisponible, // 5xx del Gateway o de Dispatch (T2)
   desconocido,
 }
 
@@ -35,12 +36,14 @@ class AsignacionFailure implements Exception {
       'Otro aliado tomó esta solicitud primero. Te mostramos las que siguen disponibles.',
     AsignacionErrorTipo.yaEsTuya =>
       'Esta solicitud ya es tuya. Búscala en "Mis trabajos".',
+    AsignacionErrorTipo.yaRechazada =>
+      'Ya habías descartado esta solicitud, así que no puedes aceptarla.',
     AsignacionErrorTipo.motivoInvalido =>
       'Elige un motivo válido para rechazar la solicitud.',
+    AsignacionErrorTipo.servicioNoDisponible =>
+      'El servicio de asignación no responde en este momento. Inténtalo en unos minutos.',
     AsignacionErrorTipo.sinConexion =>
       'Sin conexión. Revisa tu internet e inténtalo de nuevo.',
-    AsignacionErrorTipo.servicioNoDisponible =>
-      'No pudimos confirmar la operación porque el servicio no está disponible. Inténtalo en unos minutos.',
     AsignacionErrorTipo.desconocido => 'Algo salió mal. Inténtalo de nuevo.',
   };
 
