@@ -172,6 +172,95 @@ void main() {
 
     await expectLater(crear(datasource()), throwsFormatException);
   });
+  group('SCRUM-1465: categorías y sitios por Core, sin RPC', () {
+    http.Response json(Object cuerpo, [int status = 200]) => http.Response(
+      jsonEncode(cuerpo),
+      status,
+      headers: {'content-type': 'application/json; charset=utf-8'},
+    );
+
+    test(
+      'GET /api/v1/core/solicitudes/categorias sin ids del cliente',
+      () async {
+        responder = (_) => json({
+          'categorias': [
+            {
+              'id': 'cat-plo',
+              'nombre': 'Plomería',
+              'flujoOperativo': 'COTIZACION_PREVIA',
+            },
+          ],
+          'correlationId': 'corr-test',
+        });
+
+        final res = await datasource().listarCategorias();
+
+        expect(alGateway.single.method, 'GET');
+        expect(
+          alGateway.single.url.path,
+          '/api/v1/core/solicitudes/categorias',
+        );
+        expect(alGateway.single.url.query, isEmpty);
+        expect(alGateway.single.headers['Authorization'], 'Bearer jwt-cliente');
+        expect(res.single['flujoOperativo'], 'COTIZACION_PREVIA');
+        expect(aSupabase, isEmpty);
+      },
+    );
+
+    test(
+      'GET /api/v1/core/solicitudes/sitios trae zona y zona padre',
+      () async {
+        responder = (_) => json({
+          'sitios': [
+            {
+              'id': 'sitio-1',
+              'nombre': 'Calle Colima 120',
+              'direccion': 'Calle Colima 120',
+              'zonaId': 'z-roma',
+              'zona': 'Roma Norte',
+              'zonaPadre': 'Cuauhtémoc',
+            },
+          ],
+        });
+
+        final res = await datasource().listarSitios();
+
+        expect(alGateway.single.url.path, '/api/v1/core/solicitudes/sitios');
+        expect(res.single['zonaPadre'], 'Cuauhtémoc');
+        expect(aSupabase, isEmpty);
+      },
+    );
+
+    test(
+      'un 403 de Core llega como GatewayException, no como lista vacía',
+      () async {
+        responder = (_) => json({
+          'error':
+              'MANI-SOL-403C: solo un cliente activo puede publicar solicitudes',
+          'code': 'MANI-SOL-403C',
+        }, 403);
+
+        await expectLater(
+          datasource().listarSitios(),
+          throwsA(
+            isA<GatewayException>().having((e) => e.statusCode, 'status', 403),
+          ),
+        );
+      },
+    );
+
+    test(
+      'una respuesta sin la lista es un error, no una lista vacía',
+      () async {
+        responder = (_) => json({'correlationId': 'corr-test'});
+
+        await expectLater(
+          datasource().listarCategorias(),
+          throwsFormatException,
+        );
+      },
+    );
+  });
 
   test(
     'avisar a los aliados: POST orchestrate a Dispatch con la solicitud y la clave',

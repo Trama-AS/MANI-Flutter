@@ -1,9 +1,8 @@
 import '../../domain/entities/catalogo_solicitud.dart';
 import '../../domain/entities/solicitud_publicada.dart';
 
-/// Mapeos del JSON de las RPC de la migración 006 (catálogos, snake_case) y
-/// de la respuesta de Core al crear la solicitud (camelCase, contrato
-/// `core.yaml`).
+/// Mapeos del JSON de Core (camelCase, contrato `core.yaml`) y de la RPC
+/// `buscar_zonas_cliente` de la migración 006 (snake_case).
 class CategoriaDisponibleModel extends CategoriaDisponible {
   const CategoriaDisponibleModel({
     required super.id,
@@ -15,7 +14,7 @@ class CategoriaDisponibleModel extends CategoriaDisponible {
       CategoriaDisponibleModel(
         id: json['id'] as String,
         nombre: json['nombre'] as String? ?? '',
-        modalidad: ModalidadCobro.desde(json['flujo_operativo'] as String?),
+        modalidad: ModalidadCobro.desde(json['flujoOperativo'] as String?),
       );
 }
 
@@ -32,7 +31,7 @@ class SitioClienteModel extends SitioCliente {
         id: json['id'] as String,
         direccion: json['direccion'] as String? ?? '',
         zona: json['zona'] as String? ?? '',
-        zonaPadre: json['zona_padre'] as String?,
+        zonaPadre: json['zonaPadre'] as String?,
       );
 }
 
