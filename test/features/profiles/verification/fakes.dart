@@ -16,11 +16,13 @@ DocumentoKyc doc(
   String id, {
   TipoDocumentoKyc tipo = TipoDocumentoKyc.cedulaCiudadania,
   String ruta = 'kyc/t1/cedula.pdf',
+  String? aliadoId,
 }) => DocumentoKyc(
   id: id,
   tipo: tipo,
   rutaStorage: ruta,
   estado: EstadoDocumentoKyc.pendiente,
+  aliadoId: aliadoId,
 );
 
 SolicitudAliado aliado({
@@ -314,7 +316,11 @@ class ServidorVerificacionFake implements VerificacionRemoteDataSource {
   }
 
   @override
-  Future<String> urlFirmada(String rutaStorage) async {
+  Future<String> urlFirmada(
+    String rutaStorage, {
+    String? aliadoId,
+    String? documentoId,
+  }) async {
     if (errorDeRed != null) throw errorDeRed!;
     if (!archivosSubidos.contains(rutaStorage)) {
       throw const StorageException('Object not found', statusCode: '404');
