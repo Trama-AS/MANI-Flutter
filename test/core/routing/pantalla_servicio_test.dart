@@ -198,6 +198,11 @@ void main() {
     expect(find.byKey(const Key('evento-e1')), findsOneWidget);
     expect(find.byKey(const Key('btn-registrar-evento')), findsNothing);
 
+    // RefreshIndicator solo se arma si el gesto empieza arriba. Con la cotización aceptada la lista lleva
+    // el botón de pago (SCRUM-1432) y queda un poco desplazada, así que primero se vuelve al inicio.
+    await tester.drag(find.byType(ListView).first, const Offset(0, 300));
+    await tester.pumpAndSettle();
+
     final antesEjecucion = ejecucion.consultas;
     final antesEventos = eventos.consultas;
     await tester.fling(
