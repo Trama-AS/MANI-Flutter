@@ -297,7 +297,7 @@ class ServidorSolicitudesFake implements SolicitudesClienteRemoteDataSource {
           (c) => {
             'id': c['id'],
             'nombre': c['nombre'],
-            'flujo_operativo': c['flujo_operativo'],
+            'flujoOperativo': c['flujo_operativo'],
           },
         )
         .toList();
@@ -312,7 +312,7 @@ class ServidorSolicitudesFake implements SolicitudesClienteRemoteDataSource {
         'id': s['id'],
         'direccion': s['direccion'],
         'zona': z['nombre'],
-        'zona_padre': z['padre'],
+        'zonaPadre': z['padre'],
       };
     }).toList();
   }
