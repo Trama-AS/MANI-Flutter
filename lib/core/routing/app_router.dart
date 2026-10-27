@@ -37,6 +37,8 @@ import 'package:mani/features/services/quotes/presentation/cotizacion_cubit.dart
 import 'package:mani/features/services/quotes/presentation/cotizacion_page.dart';
 import 'package:mani/features/services/execution/presentation/ejecucion_cubit.dart';
 import 'package:mani/features/services/execution/presentation/ejecucion_seccion.dart';
+import 'package:mani/features/services/events/presentation/eventos_cubit.dart';
+import 'package:mani/features/services/events/presentation/eventos_seccion.dart';
 import 'package:mani/features/profiles/site_rules/presentation/bloc/reglas_sitio_cubit.dart';
 import 'package:mani/features/profiles/site_rules/presentation/pages/reglas_sitio_page.dart';
 import 'package:mani/features/profiles/company_sites/presentation/bloc/sedes_empresa_cubit.dart';
@@ -103,9 +105,9 @@ bool _isPublicPath(String path) {
 /// de otro rol lo devuelve al inicio del suyo (US-11.2.2 / SCRUM-1445,
 /// `guardas_ruta.dart`). La autorización por rol la aplica, de todos modos,
 /// el servidor con el token verificado.
-/// Pantalla del servicio de una solicitud: la cotización (SCRUM-865 y 867) y,
-/// al final, la ejecución (SCRUM-868). Cada parte tiene su Cubit y consulta a
-/// Core por su lado.
+/// Pantalla del servicio de una solicitud: la cotización (SCRUM-865 y 867), la
+/// ejecución (SCRUM-868) y, para el aliado, la bitácora (SCRUM-869). Cada parte
+/// tiene su Cubit y consulta a Core por su lado.
 Widget _pantallaServicio(
   String solicitudId, {
   required bool esAliado,
@@ -113,12 +115,35 @@ Widget _pantallaServicio(
   providers: [
     BlocProvider(create: (_) => CotizacionCubit(sl(), solicitudId)..cargar()),
     BlocProvider(create: (_) => EjecucionCubit(sl(), solicitudId)..cargar()),
+    if (esAliado)
+      BlocProvider(create: (_) => EventosCubit(sl(), solicitudId)..cargar()),
   ],
   child: Builder(
     builder: (context) => CotizacionPage(
       esAliado: esAliado,
-      pie: EjecucionSeccion(esAliado: esAliado),
-      alRefrescar: context.read<EjecucionCubit>().cargar,
+      pie: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          EjecucionSeccion(esAliado: esAliado),
+          if (esAliado)
+            // Los eventos solo se registran con el servicio en ejecución; la
+            // regla definitiva la aplica Core (MANI-EVT-409E).
+            BlocBuilder<EjecucionCubit, EjecucionState>(
+              buildWhen: (a, b) =>
+                  a.ejecucion?.enEjecucion != b.ejecucion?.enEjecucion,
+              builder: (context, state) => EventosSeccion(
+                puedeRegistrar: state.ejecucion?.enEjecucion ?? false,
+                selectorFotos: sl(),
+              ),
+            ),
+        ],
+      ),
+      alRefrescar: () async {
+        await Future.wait([
+          context.read<EjecucionCubit>().cargar(),
+          if (esAliado) context.read<EventosCubit>().cargar(),
+        ]);
+      },
     ),
   ),
 );
