@@ -53,14 +53,9 @@ final _reglas = <_Regla>[
 
 /// Excepciones conocidas: archivo -> regla -> cuántas veces. Son deuda, no un permiso.
 ///
-/// Las dos funciones de cobertura y categorías del aliado llaman RPC de Supabase directo. Core aún no expone endpoints
-/// para ellas, así que migrarlas exige trabajo en Node y en el contrato del Gateway (ver el PR de SCRUM-1380).
-const _excepciones = <String, Map<String, int>>{
-  'lib/features/profiles/coverage/data/datasources/cobertura_remote_datasource.dart':
-      {'rpc': 1},
-  'lib/features/profile_categories/data/datasources/categories_remote_datasource.dart':
-      {'rpc': 1},
-};
+/// Vacía desde SCRUM-1380: la cobertura y las categorías del aliado ya salen por el Gateway. Una entrada nueva
+/// necesita una decisión de Arquitectura y de la PO, no solo este archivo.
+const _excepciones = <String, Map<String, int>>{};
 
 /// Lo único que la app puede hacer con `supabase.auth`: sesión.
 const _miembrosDeAuthPermitidos = {
