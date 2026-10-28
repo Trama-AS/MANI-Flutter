@@ -43,6 +43,8 @@ import 'package:mani/features/services/tracking/presentation/mis_solicitudes_cub
 import 'package:mani/features/services/tracking/presentation/mis_solicitudes_page.dart';
 import 'package:mani/features/services/quotes/presentation/cotizacion_cubit.dart';
 import 'package:mani/features/services/quotes/presentation/cotizacion_page.dart';
+import 'package:mani/features/services/additions/presentation/adiciones_cubit.dart';
+import 'package:mani/features/services/additions/presentation/adiciones_seccion.dart';
 import 'package:mani/features/services/execution/presentation/ejecucion_cubit.dart';
 import 'package:mani/features/services/execution/presentation/ejecucion_seccion.dart';
 import 'package:mani/features/services/events/presentation/eventos_cubit.dart';
@@ -100,8 +102,8 @@ Widget _pantallaChat(String solicitudId) => BlocProvider(
 );
 
 /// Pantalla del servicio de una solicitud: la cotización (SCRUM-865 y 867), la
-/// ejecución (SCRUM-868) y la bitácora (SCRUM-869 y 870). Cada parte
-/// tiene su Cubit y consulta a Core por su lado.
+/// ejecución (SCRUM-868), las adiciones (SCRUM-872) y la bitácora (SCRUM-869 y
+/// 870). Cada parte tiene su Cubit y consulta a Core por su lado.
 Widget _pantallaServicio(
   String solicitudId, {
   required bool esAliado,
@@ -109,15 +111,27 @@ Widget _pantallaServicio(
   providers: [
     BlocProvider(create: (_) => CotizacionCubit(sl(), solicitudId)..cargar()),
     BlocProvider(create: (_) => EjecucionCubit(sl(), solicitudId)..cargar()),
+    BlocProvider(create: (_) => AdicionesCubit(sl(), solicitudId)..cargar()),
     BlocProvider(create: (_) => EventosCubit(sl(), solicitudId)..cargar()),
   ],
   child: Builder(
     builder: (context) => CotizacionPage(
       esAliado: esAliado,
+      // El pago cobra el total vigente: cotización aceptada + adiciones
+      // aceptadas (SCRUM-872). Sin resumen, el total de la cotización.
       alPagar: esAliado
           ? null
-          : (cotizacionId, total) =>
-                context.push('/cliente/pagos/$cotizacionId', extra: total),
+          : (cotizacionId, total) => context.push(
+              '/cliente/pagos/$cotizacionId',
+              extra:
+                  context
+                      .read<AdicionesCubit>()
+                      .state
+                      .datos
+                      ?.resumen
+                      ?.totalVigente ??
+                  total,
+            ),
       pie: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -137,6 +151,16 @@ Widget _pantallaServicio(
           ),
           const SizedBox(height: 12),
           EjecucionSeccion(esAliado: esAliado),
+          // Adiciones por imprevisto (SCRUM-872): el aliado las pide con el
+          // servicio en ejecución; el cliente decide. Core aplica el tope.
+          BlocBuilder<EjecucionCubit, EjecucionState>(
+            buildWhen: (a, b) =>
+                a.ejecucion?.enEjecucion != b.ejecucion?.enEjecucion,
+            builder: (context, state) => AdicionesSeccion(
+              esAliado: esAliado,
+              puedePedir: esAliado && (state.ejecucion?.enEjecucion ?? false),
+            ),
+          ),
           // El aliado registra eventos solo con el servicio en ejecución (la regla
           // definitiva la aplica Core, MANI-EVT-409E); el cliente consulta la
           // bitácora en solo lectura (SCRUM-870).
@@ -155,6 +179,7 @@ Widget _pantallaServicio(
       alRefrescar: () async {
         await Future.wait([
           context.read<EjecucionCubit>().cargar(),
+          context.read<AdicionesCubit>().cargar(),
           context.read<EventosCubit>().cargar(),
         ]);
       },
