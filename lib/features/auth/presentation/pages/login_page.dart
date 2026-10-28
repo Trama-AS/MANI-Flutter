@@ -71,7 +71,8 @@ class _LoginViewState extends State<_LoginView> {
     super.initState();
     final slug = dotenv.maybeGet('TENANT_SLUG') ?? '';
     final url = dotenv.maybeGet('SUPABASE_URL') ?? '';
-    final esQa = slug == 'acme-servicios' || url.contains('hpsxdotaizzclkeufzct');
+    final esQa =
+        slug == 'acme-servicios' || url.contains('hpsxdotaizzclkeufzct');
     _tenants = esQa
         ? const ['ACME Servicios', 'Nova Mantenimiento']
         : const [
