@@ -73,6 +73,7 @@ import 'package:mani/features/profiles/own_profile/data/datasources/perfil_propi
 import 'package:mani/features/profiles/direct_employees/domain/usecases/registrar_empleado_directo_usecase.dart';
 import 'package:mani/features/profiles/direct_employees/presentation/bloc/empleado_directo_cubit.dart';
 import 'package:mani/features/services/quotes/data/cotizaciones_datasource.dart';
+import 'package:mani/features/services/additions/data/adiciones_datasource.dart';
 import 'package:mani/features/services/execution/data/ejecucion_datasource.dart';
 import 'package:mani/features/services/events/data/eventos_datasource.dart';
 
@@ -276,6 +277,8 @@ Future<void> init() async {
   sl.registerLazySingleton<FuenteMensajes>(() => GatewayFuenteMensajes(sl()));
   // Ejecución del servicio (US-04.3.1 / SCRUM-868), en la misma pantalla.
   sl.registerLazySingleton<FuenteEjecucion>(() => GatewayFuenteEjecucion(sl()));
+  // Adiciones por imprevisto (US-04.3.5 / SCRUM-872), en la misma pantalla.
+  sl.registerLazySingleton<FuenteAdiciones>(() => GatewayFuenteAdiciones(sl()));
   // Bitácora del servicio (US-04.3.2 / SCRUM-869), en la misma pantalla.
   sl.registerLazySingleton<FuenteEventos>(() => GatewayFuenteEventos(sl()));
 

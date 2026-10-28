@@ -8,6 +8,7 @@ import 'package:mani/core/routing/app_router.dart';
 import 'package:mani/features/messaging/data/mensajes_datasource.dart';
 import 'package:mani/features/messaging/domain/mensaje.dart';
 import 'package:mani/features/messaging/presentation/chat_page.dart';
+import 'package:mani/features/services/additions/data/adiciones_datasource.dart';
 import 'package:mani/features/services/events/data/eventos_datasource.dart';
 import 'package:mani/features/services/execution/data/ejecucion_datasource.dart';
 import 'package:mani/features/services/quotes/data/cotizaciones_datasource.dart';
@@ -53,6 +54,50 @@ class _Cotizaciones implements FuenteCotizaciones {
     DecisionCotizacion decision, {
     String? texto,
   }) => throw UnimplementedError();
+}
+
+// Cotización de 100 con una adición aceptada de 30: total vigente 130 (SCRUM-872).
+class _Adiciones implements FuenteAdiciones {
+  int consultas = 0;
+
+  @override
+  Future<AdicionesServicio> listar(String solicitudId) async {
+    consultas++;
+    return AdicionesServicio(
+      adiciones: [
+        Adicion.fromJson({
+          'id': 'adi-1',
+          'motivo': 'Tubería rota detrás del muro',
+          'valorManoObra': 30,
+          'valorMateriales': 0,
+          'total': 30,
+          'estado': 'ACEPTADA',
+        }),
+      ],
+      resumen: ResumenAdiciones.desde({
+        'totalCotizacion': 100,
+        'totalAdicionesAceptadas': 30,
+        'totalVigente': 130,
+        'disponibleParaAdiciones': 20,
+      }),
+    );
+  }
+
+  @override
+  Future<void> solicitar(
+    String solicitudId, {
+    required String motivo,
+    required String valorManoObra,
+    required String valorMateriales,
+    int? tiempoAdicionalMinutos,
+  }) async {}
+
+  @override
+  Future<void> responder(
+    String adicionId,
+    DecisionAdicion decision, {
+    String? comentario,
+  }) async {}
 }
 
 class _Ejecucion implements FuenteEjecucion {
@@ -133,6 +178,7 @@ class _SinFotos implements SelectorFotos {
 void main() {
   late _Ejecucion ejecucion;
   late _Eventos eventos;
+  late _Adiciones adiciones;
 
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
@@ -148,8 +194,10 @@ void main() {
     );
     ejecucion = _Ejecucion();
     eventos = _Eventos();
+    adiciones = _Adiciones();
     sl.registerSingleton<FuenteCotizaciones>(_Cotizaciones());
     sl.registerSingleton<FuenteEjecucion>(ejecucion);
+    sl.registerSingleton<FuenteAdiciones>(adiciones);
     sl.registerSingleton<FuenteEventos>(eventos);
     sl.registerSingleton<FuenteMensajes>(_Mensajes());
     sl.registerSingleton<UrlOpener>(_Opener());
@@ -197,6 +245,12 @@ void main() {
     expect(find.byKey(const Key('cotizacion-v1')), findsOneWidget);
     expect(find.byKey(const Key('seccion-ejecucion')), findsOneWidget);
     await tester.scrollUntilVisible(
+      find.byKey(const Key('seccion-adiciones')),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.byKey(const Key('btn-pedir-adicion')), findsOneWidget);
+    await tester.scrollUntilVisible(
       find.byKey(const Key('seccion-eventos')),
       300,
       scrollable: find.byType(Scrollable).first,
@@ -215,13 +269,19 @@ void main() {
     expect(find.byKey(const Key('evento-e1')), findsOneWidget);
     expect(find.byKey(const Key('btn-registrar-evento')), findsNothing);
 
-    // RefreshIndicator solo se arma si el gesto empieza arriba. Con la cotización aceptada la lista lleva
-    // el botón de pago (SCRUM-1432) y queda un poco desplazada, así que primero se vuelve al inicio.
+    // RefreshIndicator solo se arma si el gesto empieza arriba. La lista lleva el botón de pago (SCRUM-1432)
+    // y la sección de adiciones (SCRUM-872), así que primero se vuelve al inicio, hasta ver la cotización.
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('cotizacion-v1')),
+      -300,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.drag(find.byType(ListView).first, const Offset(0, 300));
     await tester.pumpAndSettle();
 
     final antesEjecucion = ejecucion.consultas;
     final antesEventos = eventos.consultas;
+    final antesAdiciones = adiciones.consultas;
     await tester.fling(
       find.byType(ListView).first,
       const Offset(0, 2000),
@@ -230,6 +290,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(ejecucion.consultas, greaterThan(antesEjecucion));
     expect(eventos.consultas, greaterThan(antesEventos));
+    expect(adiciones.consultas, greaterThan(antesAdiciones));
   });
 
   GoRouterState estado(GoRoute r, String ubicacion) => GoRouterState(
@@ -240,6 +301,36 @@ void main() {
     pathParameters: const {'id': 'sol-1'},
     pageKey: ValueKey(ubicacion),
   );
+
+  testWidgets('el cliente paga el total vigente: cotización + adiciones '
+      'aceptadas (SCRUM-872)', (tester) async {
+    final r = ruta('cotizacion-cliente');
+    Object? extra;
+    final router = GoRouter(
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (context, _) =>
+              Scaffold(body: r.builder!(context, estado(r, '/ignorada'))),
+        ),
+        GoRoute(
+          path: '/cliente/pagos/:cotizacionId',
+          builder: (_, s) {
+            extra = s.extra;
+            return const Text('pantalla de pago');
+          },
+        ),
+      ],
+    );
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('btn-pagar-cotizacion')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('pantalla de pago'), findsOneWidget);
+    expect(extra, 130.0);
+  });
 
   // SCRUM-881: cada participante entra al chat del servicio desde la pantalla del servicio.
   for (final (nombre, destino, etiqueta) in [
