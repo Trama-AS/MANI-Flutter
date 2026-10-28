@@ -76,6 +76,7 @@ import 'package:mani/features/services/quotes/data/cotizaciones_datasource.dart'
 import 'package:mani/features/services/additions/data/adiciones_datasource.dart';
 import 'package:mani/features/services/execution/data/ejecucion_datasource.dart';
 import 'package:mani/features/services/events/data/eventos_datasource.dart';
+import 'package:mani/core/session/tenant_sesion.dart';
 
 final sl = GetIt.instance; // sl = service locator
 
@@ -245,12 +246,7 @@ Future<void> init() async {
   sl.registerLazySingleton<AsignacionRemoteDataSource>(
     () => GatewayAsignacionDataSource(
       sl(),
-      tenantIdSesion: () {
-        final user = sl<SupabaseClient>().auth.currentUser;
-        return (user?.appMetadata['tenant_id'] ??
-                user?.userMetadata?['tenant_id'])
-            as String?;
-      },
+      tenantIdSesion: () => tenantIdDeSesion(sl<SupabaseClient>().auth),
     ),
   );
 

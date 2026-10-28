@@ -1,6 +1,7 @@
 import 'package:mani/core/network/gateway_client.dart';
 import 'package:mani/core/network/gateway_exception.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:mani/core/session/tenant_sesion.dart';
 
 /// Acceso crudo a la bandeja de verificación. `tenant_id` NUNCA se envía: el
 /// servidor lo deriva de la sesión (claim del JWT en Core, `auth.uid()` en las
@@ -90,9 +91,8 @@ class GatewayVerificacionDataSource implements VerificacionRemoteDataSource {
 
   @override
   String? get tenantIdSesion {
-    final user = _sesion?.auth.currentUser;
-    return (user?.appMetadata['tenant_id'] ?? user?.userMetadata?['tenant_id'])
-        as String?;
+    final auth = _sesion?.auth;
+    return auth == null ? null : tenantIdDeSesion(auth);
   }
 
   static const _respuestaInesperada = GatewayException(
