@@ -170,7 +170,7 @@ Future<void> init() async {
 
   // Data sources
   sl.registerLazySingleton<CategoriesRemoteDataSource>(
-    () => SupabaseCategoriesDataSource(sl()),
+    () => GatewayCategoriesDataSource(sl()),
   );
 
   // Features - Availability (US-02.1.6). Va por el Gateway: Core Node expone
@@ -188,7 +188,9 @@ Future<void> init() async {
   sl.registerLazySingleton<CoberturaRepository>(
     () => CoberturaRepositoryImpl(sl()),
   );
-  sl.registerLazySingleton(() => SupabaseCoberturaDataSource(sl()));
+  sl.registerLazySingleton<CoberturaRemoteDataSource>(
+    () => GatewayCoberturaDataSource(sl(), sesion: sl()),
+  );
 
   // Features - Profiles / Verification (US-02.1.3)
   sl.registerFactory(

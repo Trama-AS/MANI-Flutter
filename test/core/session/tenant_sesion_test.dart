@@ -171,7 +171,10 @@ void main() {
           GatewayVerificacionDataSource(gateway, sesion: c).tenantIdSesion,
           'tenant-token',
         );
-        expect(SupabaseCoberturaDataSource(c).tenantIdSesion, 'tenant-token');
+        expect(
+          GatewayCoberturaDataSource(gateway, sesion: c).tenantIdSesion,
+          'tenant-token',
+        );
       },
     );
 
@@ -188,7 +191,11 @@ void main() {
           SolicitudesClienteRemoteDataSourceImpl(vacio, gateway).tenantIdSesion,
           isNull,
         );
-        expect(SupabaseCoberturaDataSource(vacio).tenantIdSesion, isNull);
+        expect(
+          GatewayCoberturaDataSource(gateway, sesion: vacio).tenantIdSesion,
+          isNull,
+        );
+        expect(GatewayCoberturaDataSource(gateway).tenantIdSesion, isNull);
       },
     );
   });
