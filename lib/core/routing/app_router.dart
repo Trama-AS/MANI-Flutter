@@ -326,20 +326,15 @@ final appRouter = GoRouter(
           name: 'editar-perfil',
           builder: (context, state) => EditarPerfilPage(dataSource: sl()),
         ),
-        // Gestión de múltiples sedes del cliente empresa (US-02.2.2 / SCRUM-852)
+        // Gestión de múltiples sedes del cliente empresa (US-02.2.2 /
+        // SCRUM-852, SCRUM-1387). Core resuelve el cliente por el token.
         GoRoute(
           path: '/cliente/sedes',
           name: 'sedes-empresa',
-          builder: (context, state) {
-            final clienteId =
-                state.uri.queryParameters['clienteId'] ??
-                Supabase.instance.client.auth.currentUser?.id ??
-                '';
-            return BlocProvider(
-              create: (_) => sl<SedesEmpresaCubit>(),
-              child: GestionSedesEmpresaPage(clienteId: clienteId),
-            );
-          },
+          builder: (context, state) => BlocProvider(
+            create: (_) => sl<SedesEmpresaCubit>(),
+            child: const GestionSedesEmpresaPage(),
+          ),
         ),
         // Ruta independiente: Registro de empleado directo del aliado (US-02.1.5 / SCRUM-850)
         GoRoute(
