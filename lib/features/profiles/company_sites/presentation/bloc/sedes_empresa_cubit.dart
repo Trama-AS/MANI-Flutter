@@ -110,7 +110,11 @@ class SedesEmpresaCubit extends Cubit<SedesEmpresaState> {
       emit(
         state.copyWith(
           cargando: false,
-          sedes: [...state.sedes, creada],
+          // Se reemplaza la sede si ya estaba en la lista en vez de añadirla
+          // siempre: una recarga que llegue entre el POST y este emit la deja
+          // dos veces, y dos tarjetas con la misma Key rompen el Column con
+          // "Duplicate keys found".
+          sedes: [...state.sedes.where((s) => s.id != creada.id), creada],
           aviso: 'Sede registrada.',
         ),
       );
