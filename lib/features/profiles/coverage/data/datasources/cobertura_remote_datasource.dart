@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:mani/core/session/tenant_sesion.dart';
 
 /// Acceso crudo a Supabase. La app llama a Supabase directamente con el SDK
 /// (no hay backend intermedio). `tenant_id` y `aliado_id` NUNCA se envían:
@@ -48,6 +49,5 @@ class SupabaseCoberturaDataSource implements CoberturaRemoteDataSource {
       _rpc('declarar_cobertura', {'p_zona_ids': zonaIds});
 
   @override
-  String? get tenantIdSesion =>
-      _client.auth.currentUser?.appMetadata['tenant_id'] as String?;
+  String? get tenantIdSesion => tenantIdDeSesion(_client.auth);
 }
