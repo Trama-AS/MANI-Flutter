@@ -3,6 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mani/core/session/guardas_ruta.dart';
+import 'package:mani/core/session/rol_usuario.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show Supabase;
 import 'package:mani/core/theme/app_theme.dart';
 import 'package:mani/core/di/injection_container.dart';
 import 'package:mani/features/auth/presentation/bloc/auth_cubit.dart';
@@ -17,20 +19,36 @@ import 'package:mani/features/auth/presentation/bloc/auth_cubit.dart';
 /// - Inputs con bordes negros 2px, fondo blanco y placeholder gris
 /// - Botón "INGRESAR A MANI" amarillo con sombra dura de 4px
 /// - Enlaces inferiores: "¿Olvidaste tu contraseña?" • "Registrarme"
+///
+/// SCRUM-1370: la pestaña elegida (Cliente, Aliado o Admin) es solo una ayuda
+/// de presentación. Ni se envía al servidor ni decide el destino: el rol y el
+/// tenant los decide el token (T4) y el router lleva a cada quien al inicio de
+/// SU rol. Si la pestaña no coincide con el rol del token, se avisa.
 class LoginPage extends StatelessWidget {
-  const LoginPage({super.key});
+  const LoginPage({super.key, this.rolDeSesion = rolDeSesionActual});
+
+  /// Rol de la sesión recién abierta, leído del access token. Se inyecta para
+  /// probar la pantalla sin Supabase.
+  final RolUsuario Function() rolDeSesion;
+
+  /// Lee el rol del access token de la sesión abierta (no de la pestaña).
+  static RolUsuario rolDeSesionActual() => rolDesdeAccessToken(
+    Supabase.instance.client.auth.currentSession?.accessToken,
+  );
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (_) => sl<AuthCubit>(),
-      child: const _LoginView(),
+      child: _LoginView(rolDeSesion: rolDeSesion),
     );
   }
 }
 
 class _LoginView extends StatefulWidget {
-  const _LoginView();
+  const _LoginView({required this.rolDeSesion});
+
+  final RolUsuario Function() rolDeSesion;
 
   @override
   State<_LoginView> createState() => _LoginViewState();
@@ -66,6 +84,29 @@ class _LoginViewState extends State<_LoginView> {
     );
   }
 
+  /// Saludo tras iniciar sesión. Si la pestaña elegida no es el rol del token,
+  /// lo dice: la app no le da permisos de la pestaña, lo lleva a su inicio.
+  String _bienvenida(RolUsuario rolDelToken) {
+    final elegido = _rolDeLaPestana(_selectedRole);
+    if (rolDelToken == RolUsuario.desconocido || rolDelToken == elegido) {
+      return '¡Bienvenido a MANI!';
+    }
+    return 'Tu cuenta es de ${_etiquetaDeRol(rolDelToken)}: te llevamos a tu inicio.';
+  }
+
+  static RolUsuario _rolDeLaPestana(String pestana) => switch (pestana) {
+    'aliado' => RolUsuario.aliado,
+    'admin' => RolUsuario.adminTenant,
+    _ => RolUsuario.cliente,
+  };
+
+  static String _etiquetaDeRol(RolUsuario rol) => switch (rol) {
+    RolUsuario.cliente => 'cliente',
+    RolUsuario.aliado => 'aliado',
+    RolUsuario.adminTenant => 'administrador',
+    RolUsuario.desconocido => 'usuario',
+  };
+
   void _showNotification(String message, {bool isError = true}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -92,7 +133,7 @@ class _LoginViewState extends State<_LoginView> {
     return BlocConsumer<AuthCubit, AuthState>(
       listener: (context, state) {
         if (state is AuthAuthenticated) {
-          _showNotification('¡Bienvenido a MANI!', isError: false);
+          _showNotification(_bienvenida(widget.rolDeSesion()), isError: false);
           // US-11.2.3 (SCRUM-1446): todos entran a su inicio. El inicio
           // depende del rol del token, no de la pestaña elegida, que no
           // otorga permisos por sí sola.
@@ -515,13 +556,16 @@ class _LoginViewState extends State<_LoginView> {
               children: [
                 const Icon(Icons.home_outlined, color: AppTheme.dark, size: 18),
                 const SizedBox(width: 8),
-                Text(
-                  'REGISTRARME COMO CLIENTE',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.4,
-                    color: AppTheme.dark,
+                Flexible(
+                  child: Text(
+                    'REGISTRARME COMO CLIENTE',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.4,
+                      color: AppTheme.dark,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
                 ),
               ],
@@ -562,13 +606,16 @@ class _LoginViewState extends State<_LoginView> {
                   size: 18,
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  'REGISTRARME COMO ALIADO TÉCNICO',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.4,
-                    color: AppTheme.dark,
+                Flexible(
+                  child: Text(
+                    'REGISTRARME COMO ALIADO TÉCNICO',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.4,
+                      color: AppTheme.dark,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
                 ),
               ],
@@ -608,13 +655,16 @@ class _LoginViewState extends State<_LoginView> {
           children: [
             Icon(icono, color: AppTheme.dark, size: 18),
             const SizedBox(width: 8),
-            Text(
-              texto,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.4,
-                color: AppTheme.dark,
+            Flexible(
+              child: Text(
+                texto,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.4,
+                  color: AppTheme.dark,
+                ),
+                textAlign: TextAlign.center,
               ),
             ),
           ],
