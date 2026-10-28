@@ -5,11 +5,13 @@ import 'package:mani/core/widgets/mani_button.dart';
 import '../../domain/entities/motivo_rechazo.dart';
 import '../../domain/entities/solicitud_entity.dart';
 
-/// Resultado del diálogo: el motivo es opcional.
-typedef ConfirmacionRechazo = ({MotivoRechazo? motivo});
+/// Resultado del diálogo: el motivo es obligatorio y el detalle solo viene
+/// con «Otro» (SCRUM-1617).
+typedef ConfirmacionRechazo = ({MotivoRechazo motivo, String? detalle});
 
-/// Confirma el rechazo y pide un motivo opcional. Devuelve `null` si el
-/// aliado cancela.
+/// Confirma el rechazo y pide el motivo con un toque, de una lista corta.
+/// «Rechazar» se habilita al elegir uno; «Otro» pide además el texto.
+/// Devuelve `null` si el aliado cancela.
 Future<ConfirmacionRechazo?> confirmarRechazo(
   BuildContext context,
   SolicitudEntity solicitud,
@@ -29,6 +31,29 @@ class _DialogoRechazo extends StatefulWidget {
 
 class _DialogoRechazoState extends State<_DialogoRechazo> {
   MotivoRechazo? _motivo;
+  final _detalle = TextEditingController();
+
+  bool get _listo {
+    final m = _motivo;
+    if (m == null) {
+      return false;
+    }
+    return !m.requiereDetalle || MotivoRechazo.detalleValido(_detalle.text);
+  }
+
+  @override
+  void dispose() {
+    _detalle.dispose();
+    super.dispose();
+  }
+
+  void _confirmar() {
+    final m = _motivo!;
+    Navigator.pop<ConfirmacionRechazo>(context, (
+      motivo: m,
+      detalle: m.requiereDetalle ? _detalle.text.trim() : null,
+    ));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -56,7 +81,7 @@ class _DialogoRechazoState extends State<_DialogoRechazo> {
             ),
             const SizedBox(height: 16),
             const Text(
-              '¿Por qué? (opcional)',
+              '¿Por qué la rechazas?',
               style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 8),
@@ -86,6 +111,32 @@ class _DialogoRechazoState extends State<_DialogoRechazo> {
                   ),
               ],
             ),
+            if (_motivo?.requiereDetalle ?? false) ...[
+              const SizedBox(height: 12),
+              TextField(
+                key: const ValueKey('detalle-rechazo'),
+                controller: _detalle,
+                autofocus: true,
+                minLines: 2,
+                maxLines: 4,
+                maxLength: MotivoRechazo.detalleMaximo,
+                textCapitalization: TextCapitalization.sentences,
+                onChanged: (_) => setState(() {}),
+                decoration: const InputDecoration(
+                  labelText: 'Cuéntanos el motivo',
+                  helperText:
+                      'Mínimo ${MotivoRechazo.detalleMinimo} caracteres',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ] else if (_motivo == null) ...[
+              const SizedBox(height: 10),
+              const Text(
+                'Elige un motivo para continuar.',
+                key: ValueKey('rechazo-sin-motivo'),
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+              ),
+            ],
           ],
         ),
       ),
@@ -106,9 +157,7 @@ class _DialogoRechazoState extends State<_DialogoRechazo> {
               etiqueta: 'Rechazar',
               icono: Icons.close_rounded,
               variante: ManiButtonVariante.peligro,
-              onPressed: () => Navigator.pop<ConfirmacionRechazo>(context, (
-                motivo: _motivo,
-              )),
+              onPressed: _listo ? _confirmar : null,
             ),
           ],
         ),

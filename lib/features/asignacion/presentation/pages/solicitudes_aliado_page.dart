@@ -135,7 +135,11 @@ class _Bandeja extends StatelessWidget {
     }
     final confirmacion = await confirmarRechazo(context, solicitud);
     if (confirmacion != null) {
-      await cubit.rechazar(id, motivo: confirmacion.motivo);
+      await cubit.rechazar(
+        id,
+        motivo: confirmacion.motivo,
+        detalle: confirmacion.detalle,
+      );
     }
   }
 

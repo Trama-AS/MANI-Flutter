@@ -11,7 +11,7 @@ abstract interface class AsignacionRemoteDataSource {
   /// Respuesta de la aceptación: `requestId`, `status` e `isRetry`. No trae
   /// la solicitud; el repositorio la vuelve a leer de la bandeja.
   Future<Map<String, dynamic>> aceptar(String solicitudId);
-  Future<void> rechazar(String solicitudId, String? motivo);
+  Future<void> rechazar(String solicitudId, String motivo, String? detalle);
 
   /// Solo para trazas (log estructurado); nunca se usa para autorizar.
   String? get tenantIdSesion;
@@ -67,10 +67,10 @@ class GatewayAsignacionDataSource implements AsignacionRemoteDataSource {
   /// El rechazo es idempotente en Dispatch (`ON CONFLICT DO NOTHING`), así
   /// que también puede reintentarse con su propia clave.
   @override
-  Future<void> rechazar(String solicitudId, String? motivo) =>
+  Future<void> rechazar(String solicitudId, String motivo, String? detalle) =>
       _gateway.postJson(
         rutaRechazar(solicitudId),
-        {'motivo': motivo},
+        {'motivo': motivo, 'detalle': ?detalle},
         headers: {GatewayClient.headerIdempotencyKey: _generarClave()},
       );
 

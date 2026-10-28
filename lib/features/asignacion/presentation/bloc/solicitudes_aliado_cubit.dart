@@ -100,7 +100,11 @@ class SolicitudesAliadoCubit extends Cubit<SolicitudesAliadoState> {
   }
 
   /// Devuelve `true` si la solicitud quedó rechazada para este aliado.
-  Future<bool> rechazar(String solicitudId, {MotivoRechazo? motivo}) async {
+  Future<bool> rechazar(
+    String solicitudId, {
+    required MotivoRechazo motivo,
+    String? detalle,
+  }) async {
     final solicitud = state.bandeja.porId(solicitudId);
     if (solicitud == null || state.procesando) {
       return false;
@@ -112,7 +116,7 @@ class SolicitudesAliadoCubit extends Cubit<SolicitudesAliadoState> {
       ),
     );
     try {
-      await _rechazar(solicitud, motivo: motivo);
+      await _rechazar(solicitud, motivo: motivo, detalle: detalle);
       if (isClosed) {
         return true;
       }

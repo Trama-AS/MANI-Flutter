@@ -11,6 +11,7 @@ enum AsignacionErrorTipo {
   yaEsTuya, // MANI-DSP-409A
   yaRechazada, // MANI-DSP-409R
   motivoInvalido, // MANI-SOL-422M
+  detalleInvalido, // MANI-SOL-422D
   servicioNoDisponible, // 5xx: Dispatch, Core o la base no responden
   sinConexion,
   desconocido,
@@ -39,7 +40,9 @@ class AsignacionFailure implements Exception {
     AsignacionErrorTipo.yaRechazada =>
       'Ya habías descartado esta solicitud, así que no puedes aceptarla.',
     AsignacionErrorTipo.motivoInvalido =>
-      'Elige un motivo válido para rechazar la solicitud.',
+      'Elige un motivo para rechazar la solicitud.',
+    AsignacionErrorTipo.detalleInvalido =>
+      'Cuéntanos el motivo en 3 a 280 caracteres.',
     AsignacionErrorTipo.servicioNoDisponible =>
       'El servicio de asignación no responde en este momento. Inténtalo en unos minutos.',
     AsignacionErrorTipo.sinConexion =>

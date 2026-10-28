@@ -148,7 +148,7 @@ void main() {
       final repo = repoDe('aliado-a');
       await repo.aceptar(solicitudId);
       await expectLater(
-        repo.rechazar(solicitudId),
+        repo.rechazar(solicitudId, motivo: MotivoRechazo.sinDisponibilidad),
         _falla(AsignacionErrorTipo.yaEsTuya),
       );
     });
@@ -156,8 +156,33 @@ void main() {
     test('rechazar dos veces es idempotente', () async {
       final repo = repoDe('aliado-a');
       await repo.rechazar(solicitudId, motivo: MotivoRechazo.fueraDeZona);
-      await repo.rechazar(solicitudId, motivo: MotivoRechazo.otro);
+      await repo.rechazar(
+        solicitudId,
+        motivo: MotivoRechazo.otro,
+        detalle: 'Tengo otro compromiso',
+      );
       expect(servidor.rechazos[(solicitudId, 'aliado-a')], 'FUERA_DE_ZONA');
+    });
+
+    test('«Otro» llega con su detalle', () async {
+      await repoDe('aliado-a').rechazar(
+        solicitudId,
+        motivo: MotivoRechazo.otro,
+        detalle: 'Mi herramienta está en reparación',
+      );
+      expect(servidor.rechazos[(solicitudId, 'aliado-a')], 'OTRO');
+      expect(
+        servidor.detallesRechazo[(solicitudId, 'aliado-a')],
+        'Mi herramienta está en reparación',
+      );
+    });
+
+    test('un 422D de Dispatch se traduce a detalleInvalido', () async {
+      await expectLater(
+        repoDe('aliado-a').rechazar(solicitudId, motivo: MotivoRechazo.otro),
+        _falla(AsignacionErrorTipo.detalleInvalido),
+      );
+      expect(servidor.rechazos, isEmpty);
     });
   });
 
@@ -246,7 +271,7 @@ void main() {
   group('Errores de Dispatch y Core por el Gateway', () {
     test('aceptar lo que ya rechacé responde yaRechazada (409R)', () async {
       final repo = repoDe('aliado-a');
-      await repo.rechazar(solicitudId);
+      await repo.rechazar(solicitudId, motivo: MotivoRechazo.fueraDeZona);
       await expectLater(
         repo.aceptar(solicitudId),
         _falla(AsignacionErrorTipo.yaRechazada),
@@ -268,6 +293,7 @@ void main() {
         'MANI-DSP-409A': AsignacionErrorTipo.yaEsTuya,
         'MANI-DSP-409R': AsignacionErrorTipo.yaRechazada,
         'MANI-SOL-422M': AsignacionErrorTipo.motivoInvalido,
+        'MANI-SOL-422D': AsignacionErrorTipo.detalleInvalido,
         'CORE_SERVICE_UNAVAILABLE': AsignacionErrorTipo.servicioNoDisponible,
         'DATABASE_UNAVAILABLE': AsignacionErrorTipo.servicioNoDisponible,
       };
@@ -341,7 +367,11 @@ class _DsCaido implements AsignacionRemoteDataSource {
   Future<Map<String, dynamic>> aceptar(String solicitudId) async => _sinRed();
 
   @override
-  Future<void> rechazar(String solicitudId, String? motivo) async => _sinRed();
+  Future<void> rechazar(
+    String solicitudId,
+    String motivo,
+    String? detalle,
+  ) async => _sinRed();
 
   @override
   String? get tenantIdSesion => null;
@@ -362,8 +392,8 @@ class _BandejaCaida implements AsignacionRemoteDataSource {
       _ds.aceptar(solicitudId);
 
   @override
-  Future<void> rechazar(String solicitudId, String? motivo) =>
-      _ds.rechazar(solicitudId, motivo);
+  Future<void> rechazar(String solicitudId, String motivo, String? detalle) =>
+      _ds.rechazar(solicitudId, motivo, detalle);
 
   @override
   String? get tenantIdSesion => _ds.tenantIdSesion;
