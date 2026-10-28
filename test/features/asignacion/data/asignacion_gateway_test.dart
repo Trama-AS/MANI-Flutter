@@ -147,16 +147,27 @@ void main() {
     expect(asignada.direccion, 'Calle 1 # 2-3');
   });
 
-  test('rechazar: POST reject con el código del motivo', () async {
-    responder = (_) => http.Response('{"status":"REJECTED"}', 200);
+  test(
+    'rechazar: POST reject con el código del motivo, y detalle solo con «Otro»',
+    () async {
+      responder = (_) => http.Response('{"status":"REJECTED"}', 200);
 
-    await repo().rechazar(_id, motivo: MotivoRechazo.fueraDeZona);
-    await repo().rechazar(_id);
+      await repo().rechazar(_id, motivo: MotivoRechazo.fueraDeZona);
+      await repo().rechazar(
+        _id,
+        motivo: MotivoRechazo.otro,
+        detalle: 'Mi herramienta está en reparación',
+      );
 
-    expect(alGateway.first.url.path, '/api/v1/dispatch/requests/$_id/reject');
-    expect(cuerpo(alGateway.first), {'motivo': 'FUERA_DE_ZONA'});
-    expect(cuerpo(alGateway.last), {'motivo': null});
-  });
+      expect(alGateway.first.url.path, '/api/v1/dispatch/requests/$_id/reject');
+      // Sin la clave `detalle` (no `detalle: null`) cuando el motivo no es OTRO.
+      expect(cuerpo(alGateway.first), {'motivo': 'FUERA_DE_ZONA'});
+      expect(cuerpo(alGateway.last), {
+        'motivo': 'OTRO',
+        'detalle': 'Mi herramienta está en reparación',
+      });
+    },
+  );
 
   test('los errores de Dispatch se traducen por code', () async {
     final casos = <http.Response, AsignacionErrorTipo>{

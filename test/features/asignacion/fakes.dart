@@ -52,7 +52,8 @@ class FakeAsignacionRepository implements IAsignacionRepository {
     : _datos = {for (final s in iniciales) s.id: s};
 
   final Map<String, SolicitudEntity> _datos;
-  final Map<String, MotivoRechazo?> rechazadas = {};
+  final Map<String, MotivoRechazo> rechazadas = {};
+  final Map<String, String?> detallesRechazo = {};
 
   AsignacionFailure? fallarAlListar;
   AsignacionFailure? fallarAlAceptar;
@@ -114,7 +115,11 @@ class FakeAsignacionRepository implements IAsignacionRepository {
   }
 
   @override
-  Future<void> rechazar(String solicitudId, {MotivoRechazo? motivo}) async {
+  Future<void> rechazar(
+    String solicitudId, {
+    required MotivoRechazo motivo,
+    String? detalle,
+  }) async {
     llamadasRechazar++;
     if (pausa != null) {
       await pausa!.future;
@@ -123,6 +128,7 @@ class FakeAsignacionRepository implements IAsignacionRepository {
       throw fallarAlRechazar!;
     }
     rechazadas[solicitudId] = motivo;
+    detallesRechazo[solicitudId] = detalle;
   }
 
   static SolicitudEntity _copiar(
@@ -188,7 +194,8 @@ class ServidorAsignacionFake {
   final Duration latencia;
   final Map<String, AliadoFake> aliados = {};
   final List<Map<String, dynamic>> solicitudes = [];
-  final Map<(String, String), String?> rechazos = {};
+  final Map<(String, String), String> rechazos = {};
+  final Map<(String, String), String?> detallesRechazo = {};
   final List<Map<String, dynamic>> eventos = [];
   final List<Map<String, dynamic>> notificaciones = [];
 
@@ -362,7 +369,11 @@ class _SesionAliado implements AsignacionRemoteDataSource {
   }
 
   @override
-  Future<void> rechazar(String solicitudId, String? motivo) async {
+  Future<void> rechazar(
+    String solicitudId,
+    String motivo,
+    String? detalle,
+  ) async {
     final a = _aliadoActual();
     _exigirVerificado(a);
     await Future<void>.delayed(_srv.latencia);
@@ -372,8 +383,15 @@ class _SesionAliado implements AsignacionRemoteDataSource {
       'NO_ES_MI_ESPECIALIDAD',
       'OTRO',
     };
-    if (motivo != null && !validos.contains(motivo)) {
+    // Mismas reglas que Dispatch (SCRUM-1617), antes de tocar la solicitud.
+    if (!validos.contains(motivo)) {
       errorGateway(422, 'MANI-SOL-422M');
+    }
+    final texto = detalle?.trim() ?? '';
+    final largoValido = texto.runes.length >= 3 && texto.runes.length <= 280;
+    if ((motivo == 'OTRO') != (detalle != null) ||
+        (motivo == 'OTRO' && !largoValido)) {
+      errorGateway(422, 'MANI-SOL-422D');
     }
     final s = _delTenant(a, solicitudId) ?? errorGateway(404, 'MANI-DSP-404');
     if (s['aliado_id'] == _aliadoId) {
@@ -382,7 +400,11 @@ class _SesionAliado implements AsignacionRemoteDataSource {
     if (s['estado'] != 'PENDIENTE') {
       errorGateway(409, 'MANI-DSP-409E');
     }
-    _srv.rechazos.putIfAbsent((solicitudId, _aliadoId!), () => motivo);
+    final clave = (solicitudId, _aliadoId!);
+    if (!_srv.rechazos.containsKey(clave)) {
+      _srv.rechazos[clave] = motivo;
+      _srv.detallesRechazo[clave] = detalle;
+    }
   }
 
   @override

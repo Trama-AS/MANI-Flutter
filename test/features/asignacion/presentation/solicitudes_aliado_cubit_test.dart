@@ -105,7 +105,10 @@ void main() {
       expect(cubit.state.procesandoId, 's1');
       expect(cubit.state.accion, AccionSolicitud.aceptando);
       expect(await cubit.aceptar('s2'), isFalse);
-      expect(await cubit.rechazar('s2'), isFalse);
+      expect(
+        await cubit.rechazar('s2', motivo: MotivoRechazo.fueraDeZona),
+        isFalse,
+      );
 
       repo.pausa!.complete();
       expect(await primera, isTrue);
@@ -115,7 +118,7 @@ void main() {
 
     test('si ya la había rechazado (409R) la quita y explica', () async {
       // Rechazada desde otro dispositivo: offers/me ya no la trae.
-      repo.rechazadas['s1'] = null;
+      repo.rechazadas['s1'] = MotivoRechazo.fueraDeZona;
       repo.fallarAlAceptar = const AsignacionFailure(
         AsignacionErrorTipo.yaRechazada,
       );
@@ -164,7 +167,7 @@ void main() {
 
     test('marca "rechazando" mientras se envía', () async {
       repo.pausa = Completer<void>();
-      final r = cubit.rechazar('s2');
+      final r = cubit.rechazar('s2', motivo: MotivoRechazo.fueraDeZona);
       expect(cubit.state.accion, AccionSolicitud.rechazando);
       repo.pausa!.complete();
       await r;

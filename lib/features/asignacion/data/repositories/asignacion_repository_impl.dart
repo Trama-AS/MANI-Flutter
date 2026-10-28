@@ -44,15 +44,19 @@ class AsignacionRepositoryImpl implements IAsignacionRepository {
   );
 
   @override
-  Future<void> rechazar(String solicitudId, {MotivoRechazo? motivo}) =>
-      _registrar(
-        evento: _eventoRechazar,
-        solicitudId: solicitudId,
-        exito: 'solicitud_rechazada',
-        fallo: 'solicitud_no_rechazada',
-        extra: {'motivo': motivo?.codigo},
-        op: () => _ds.rechazar(solicitudId, motivo?.codigo),
-      );
+  Future<void> rechazar(
+    String solicitudId, {
+    required MotivoRechazo motivo,
+    String? detalle,
+  }) => _registrar(
+    evento: _eventoRechazar,
+    solicitudId: solicitudId,
+    exito: 'solicitud_rechazada',
+    fallo: 'solicitud_no_rechazada',
+    // El texto libre de «Otro» no va a la traza: puede traer datos personales.
+    extra: {'motivo': motivo.codigo, 'con_detalle': detalle != null},
+    op: () => _ds.rechazar(solicitudId, motivo.codigo, detalle),
+  );
 
   /// La aceptación no devuelve la solicitud, así que se lee de la bandeja, que
   /// ya trae la dirección. La asignación ya quedó en Core: si la bandeja no
@@ -160,6 +164,7 @@ class AsignacionRepositoryImpl implements IAsignacionRepository {
       'MANI-DSP-409A': AsignacionErrorTipo.yaEsTuya,
       'MANI-DSP-409R': AsignacionErrorTipo.yaRechazada,
       'MANI-SOL-422M': AsignacionErrorTipo.motivoInvalido,
+      'MANI-SOL-422D': AsignacionErrorTipo.detalleInvalido,
     };
     final tipo =
         porCodigo[codigo] ??

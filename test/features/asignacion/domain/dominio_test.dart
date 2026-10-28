@@ -86,6 +86,31 @@ void main() {
     });
   });
 
+  test('las etiquetas y el orden son los que aprobó el PO (SCRUM-1617)', () {
+    expect(MotivoRechazo.values.map((m) => m.etiqueta), [
+      'No estoy disponible',
+      'Fuera de mi zona',
+      'No hago este tipo de trabajo',
+      'Otro',
+    ]);
+    expect(MotivoRechazo.values.where((m) => m.requiereDetalle), [
+      MotivoRechazo.otro,
+    ]);
+  });
+
+  test(
+    'el detalle de «Otro» va de 3 a 280 caracteres sin espacios extremos',
+    () {
+      expect(MotivoRechazo.detalleValido('ok'), isFalse);
+      expect(MotivoRechazo.detalleValido('   ok   '), isFalse);
+      expect(MotivoRechazo.detalleValido('abc'), isTrue);
+      expect(MotivoRechazo.detalleValido('a' * 280), isTrue);
+      expect(MotivoRechazo.detalleValido('a' * 281), isFalse);
+      // Se cuentan caracteres, no unidades UTF-16: un emoji cuenta como uno.
+      expect(MotivoRechazo.detalleValido('🔧' * 280), isTrue);
+    },
+  );
+
   group('BandejaSolicitudes', () {
     final bandeja = BandejaSolicitudes.desde([
       solicitud('reciente', minutosAtras: 2),
@@ -163,9 +188,50 @@ void main() {
       expect(
         () => RechazarSolicitud(repo)(
           solicitud('2', estado: EstadoSolicitud.asignada, esMia: true),
+          motivo: MotivoRechazo.fueraDeZona,
         ),
         _falla(AsignacionErrorTipo.yaEsTuya),
       );
+    });
+
+    test(
+      '«Otro» exige detalle válido y lo envía sin espacios extremos',
+      () async {
+        final repo = FakeAsignacionRepository([solicitud('1'), solicitud('2')]);
+        final rechazar = RechazarSolicitud(repo);
+
+        expect(
+          () => rechazar(repo.porId('1')!, motivo: MotivoRechazo.otro),
+          _falla(AsignacionErrorTipo.detalleInvalido),
+        );
+        expect(
+          () => rechazar(
+            repo.porId('1')!,
+            motivo: MotivoRechazo.otro,
+            detalle: ' x ',
+          ),
+          _falla(AsignacionErrorTipo.detalleInvalido),
+        );
+        expect(repo.llamadasRechazar, 0);
+
+        await rechazar(
+          repo.porId('2')!,
+          motivo: MotivoRechazo.otro,
+          detalle: '  Mi herramienta está en reparación ',
+        );
+        expect(repo.rechazadas['2'], MotivoRechazo.otro);
+        expect(repo.detallesRechazo['2'], 'Mi herramienta está en reparación');
+      },
+    );
+
+    test('un motivo distinto de «Otro» nunca envía detalle', () async {
+      final repo = FakeAsignacionRepository([solicitud('1')]);
+      await RechazarSolicitud(repo)(
+        repo.porId('1')!,
+        motivo: MotivoRechazo.sinDisponibilidad,
+        detalle: 'texto que el diálogo no debería mandar',
+      );
+      expect(repo.detallesRechazo['1'], isNull);
     });
 
     test('ListarSolicitudesAliado reparte la bandeja', () async {

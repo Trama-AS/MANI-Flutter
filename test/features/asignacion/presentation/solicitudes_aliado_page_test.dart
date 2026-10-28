@@ -167,20 +167,87 @@ void main() {
     expect(find.bySemanticsLabel('Disponibles: 1'), findsOneWidget);
   });
 
-  testWidgets('rechazar pide confirmación y un motivo opcional', (t) async {
+  testWidgets('rechazar pide confirmación y un motivo obligatorio', (t) async {
     final repo = _repoBase();
     await _montar(t, repo);
 
     await _tocar(t, const ValueKey('btn-rechazar-s2'));
     expect(find.text('¿Rechazar Electricidad?'), findsOneWidget);
     expect(find.textContaining('Seguirá disponible'), findsOneWidget);
+    expect(find.text('¿Por qué la rechazas?'), findsOneWidget);
+    for (final etiqueta in [
+      'No estoy disponible',
+      'Fuera de mi zona',
+      'No hago este tipo de trabajo',
+      'Otro',
+    ]) {
+      expect(find.text(etiqueta), findsOneWidget);
+    }
+
+    // Sin motivo, «Rechazar» está deshabilitado: tocarlo no rechaza nada.
+    expect(find.byKey(const ValueKey('rechazo-sin-motivo')), findsOneWidget);
+    await _tocar(t, const ValueKey('dlg-confirmar-rechazo'));
+    expect(repo.llamadasRechazar, 0);
+    expect(find.text('¿Rechazar Electricidad?'), findsOneWidget);
 
     await _tocar(t, const ValueKey('motivo-SIN_DISPONIBILIDAD'));
     await _tocar(t, const ValueKey('dlg-confirmar-rechazo'));
 
     expect(repo.rechazadas['s2'], MotivoRechazo.sinDisponibilidad);
+    expect(repo.detallesRechazo['s2'], isNull);
     expect(find.byKey(const ValueKey('card-solicitud-s2')), findsNothing);
     expect(find.textContaining('Solicitud descartada'), findsOneWidget);
+  });
+
+  testWidgets(
+    '«Otro» pide el texto y no deja rechazar hasta tener 3 caracteres',
+    (t) async {
+      final repo = _repoBase();
+      await _montar(t, repo);
+
+      await _tocar(t, const ValueKey('btn-rechazar-s2'));
+      expect(find.byKey(const ValueKey('detalle-rechazo')), findsNothing);
+
+      await _tocar(t, const ValueKey('motivo-OTRO'));
+      expect(find.byKey(const ValueKey('detalle-rechazo')), findsOneWidget);
+
+      await t.enterText(find.byKey(const ValueKey('detalle-rechazo')), 'no');
+      await t.pump();
+      await _tocar(t, const ValueKey('dlg-confirmar-rechazo'));
+      expect(repo.llamadasRechazar, 0);
+
+      await t.enterText(
+        find.byKey(const ValueKey('detalle-rechazo')),
+        '  Mi herramienta está en reparación ',
+      );
+      await t.pump();
+      await _tocar(t, const ValueKey('dlg-confirmar-rechazo'));
+
+      expect(repo.rechazadas['s2'], MotivoRechazo.otro);
+      expect(repo.detallesRechazo['s2'], 'Mi herramienta está en reparación');
+      expect(find.byKey(const ValueKey('card-solicitud-s2')), findsNothing);
+    },
+  );
+
+  testWidgets('cambiar de «Otro» a otro motivo no envía el texto escrito', (
+    t,
+  ) async {
+    final repo = _repoBase();
+    await _montar(t, repo);
+
+    await _tocar(t, const ValueKey('btn-rechazar-s2'));
+    await _tocar(t, const ValueKey('motivo-OTRO'));
+    await t.enterText(
+      find.byKey(const ValueKey('detalle-rechazo')),
+      'Texto escrito',
+    );
+    await t.pump();
+    await _tocar(t, const ValueKey('motivo-FUERA_DE_ZONA'));
+    expect(find.byKey(const ValueKey('detalle-rechazo')), findsNothing);
+    await _tocar(t, const ValueKey('dlg-confirmar-rechazo'));
+
+    expect(repo.rechazadas['s2'], MotivoRechazo.fueraDeZona);
+    expect(repo.detallesRechazo['s2'], isNull);
   });
 
   testWidgets('volver del diálogo no rechaza nada', (t) async {
