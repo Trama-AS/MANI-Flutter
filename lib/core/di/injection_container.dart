@@ -208,8 +208,9 @@ Future<void> init() async {
   sl.registerLazySingleton<VerificacionAliadosRepository>(
     () => VerificacionAliadosRepositoryImpl(sl()),
   );
+  // SCRUM-1384: la bandeja habla con Core por el Gateway (ADR-0027).
   sl.registerLazySingleton<VerificacionRemoteDataSource>(
-    () => SupabaseVerificacionDataSource(sl()),
+    () => GatewayVerificacionDataSource(sl(), sesion: sl()),
   );
 
   // Features - Services / Categories (US-03.1.1 / US-03.1.2)

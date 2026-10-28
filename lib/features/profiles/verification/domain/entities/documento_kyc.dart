@@ -47,6 +47,7 @@ class DocumentoKyc extends Equatable {
     required this.rutaStorage,
     required this.estado,
     this.fechaCarga,
+    this.aliadoId,
   });
 
   final String id;
@@ -57,6 +58,10 @@ class DocumentoKyc extends Equatable {
   final String rutaStorage;
   final EstadoDocumentoKyc estado;
   final DateTime? fechaCarga;
+
+  /// Aliado dueño del documento. Core firma la URL en
+  /// `/aliados/:id/documentos/:documentoId/url`, así que se necesita el par.
+  final String? aliadoId;
 
   String get nombreArchivo {
     final partes = rutaStorage.split('/');
@@ -69,5 +74,12 @@ class DocumentoKyc extends Equatable {
   }
 
   @override
-  List<Object?> get props => [id, tipo, rutaStorage, estado, fechaCarga];
+  List<Object?> get props => [
+    id,
+    tipo,
+    rutaStorage,
+    estado,
+    fechaCarga,
+    aliadoId,
+  ];
 }
