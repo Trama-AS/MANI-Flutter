@@ -55,6 +55,38 @@ class SedeEmpresa extends Equatable {
   ];
 }
 
+/// Zona del catálogo de Core (`GET /catalog/zones`, SCRUM-1393). Una sede solo
+/// puede quedar en una zona [seleccionable] con zona padre (barrio o
+/// localidad), igual que la dirección de una solicitud.
+class ZonaSede extends Equatable {
+  const ZonaSede({
+    required this.id,
+    required this.nombre,
+    this.padreId,
+    this.seleccionable = false,
+  });
+
+  final String id;
+  final String nombre;
+  final String? padreId;
+  final bool seleccionable;
+
+  factory ZonaSede.fromJson(Map<String, dynamic> json) {
+    return ZonaSede(
+      id: (json['id'] ?? '').toString(),
+      nombre: (json['name'] ?? '').toString(),
+      padreId: json['parentId']?.toString(),
+      seleccionable: json['selectable'] == true,
+    );
+  }
+
+  /// Se puede elegir para una sede: activa y con zona padre.
+  bool get elegible => seleccionable && padreId != null;
+
+  @override
+  List<Object?> get props => [id, nombre, padreId, seleccionable];
+}
+
 /// Datos para agregar una nueva sucursal o sede al cliente corporativo (SCRUM-852).
 class NuevaSedeEmpresa extends Equatable {
   const NuevaSedeEmpresa({

@@ -4,8 +4,10 @@ import 'package:mani/features/auth/domain/entities/auth_failure.dart';
 import 'package:mani/features/auth/domain/entities/user_entity.dart';
 import 'package:mani/features/auth/domain/usecases/login_usecase.dart';
 import 'package:mani/features/auth/domain/usecases/register_cliente_usecase.dart';
+import 'package:mani/features/auth/domain/usecases/register_cliente_empresa_usecase.dart';
 import 'package:mani/features/auth/domain/usecases/register_aliado_usecase.dart';
 import 'package:mani/features/auth/domain/usecases/register_empresa_usecase.dart';
+import 'package:mani/features/auth/domain/entities/registro_cliente_empresa.dart';
 
 part 'auth_state.dart';
 
@@ -20,12 +22,14 @@ class AuthCubit extends Cubit<AuthState> {
     required this.registerClienteUseCase,
     required this.registerAliadoUseCase,
     required this.registerEmpresaUseCase,
+    required this.registerClienteEmpresaUseCase,
   }) : super(AuthInitial());
 
   final LoginUseCase loginUseCase;
   final RegisterClienteUseCase registerClienteUseCase;
   final RegisterAliadoUseCase registerAliadoUseCase;
   final RegisterEmpresaUseCase registerEmpresaUseCase;
+  final RegisterClienteEmpresaUseCase registerClienteEmpresaUseCase;
 
   Future<void> login(String email, String password) async {
     emit(AuthLoading());
@@ -135,6 +139,27 @@ class AuthCubit extends Cubit<AuthState> {
         categoriaId: categoriaId,
         documentosKYC: documentosKYC,
       );
+      emit(AuthRegistrationSuccess(result: result));
+    } on AuthFailure catch (e) {
+      emit(AuthError(message: e.message));
+    } catch (e) {
+      emit(AuthError(message: 'Error en registro: $e'));
+    }
+  }
+
+  /// Registro de cliente empresa (HU-M02-07). Core registra la aceptación de
+  /// términos en la misma operación, así que sin la casilla no se llama.
+  Future<void> registerClienteEmpresa(
+    RegistroClienteEmpresa datos, {
+    required bool aceptaTerminos,
+  }) async {
+    if (!aceptaTerminos) {
+      emit(const AuthError(message: mensajeTerminosObligatorios));
+      return;
+    }
+    emit(AuthLoading());
+    try {
+      final result = await registerClienteEmpresaUseCase(datos);
       emit(AuthRegistrationSuccess(result: result));
     } on AuthFailure catch (e) {
       emit(AuthError(message: e.message));

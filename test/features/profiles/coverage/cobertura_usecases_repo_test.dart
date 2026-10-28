@@ -7,7 +7,7 @@ import 'package:mani/features/profiles/coverage/domain/entities/seleccion_cobert
 import 'package:mani/features/profiles/coverage/domain/entities/zona.dart';
 import 'package:mani/features/profiles/coverage/domain/failures/cobertura_failure.dart';
 import 'package:mani/features/profiles/coverage/domain/usecases/cobertura_usecases.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:mani/core/network/gateway_exception.dart';
 
 import 'fakes.dart';
 
@@ -140,12 +140,14 @@ void main() {
     });
 
     test(
-      'PostgrestException se convierte en CoberturaFailure y se registra log ERROR',
+      'GatewayException se convierte en CoberturaFailure y se registra log ERROR',
       () async {
         final logs = <String>[];
         final ds = _FakeDs()
-          ..error = PostgrestException(
-            message: 'MANI-COB-422Z: una o más zonas no existen',
+          ..error = const GatewayException(
+            message: 'MANI-COB-422Z: una o más zonas no están disponibles',
+            statusCode: 422,
+            cuerpo: {'code': 'MANI-COB-422Z'},
           );
         final repo = CoberturaRepositoryImpl(
           ds,

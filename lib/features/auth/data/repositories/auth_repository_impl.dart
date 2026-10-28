@@ -5,6 +5,7 @@ import 'package:mani/features/auth/domain/entities/user_entity.dart';
 import 'package:mani/features/auth/domain/repositories/i_auth_repository.dart';
 import 'package:mani/features/auth/data/datasources/auth_remote_data_source.dart';
 import 'package:mani/features/auth/data/models/user_model.dart';
+import 'package:mani/features/auth/domain/entities/registro_cliente_empresa.dart';
 
 /// Implementación del repositorio de autenticación.
 ///
@@ -30,9 +31,10 @@ class AuthRepositoryImpl implements IAuthRepository {
       );
       return UserModel.fromSupabase(user);
     } on AuthException catch (e) {
-      throw AuthFailure(_mapAuthError(e.message));
-    } catch (e) {
-      throw AuthFailure('Error inesperado de conexión: $e');
+      throw AuthFailure(mensajeDeErrorDeLogin(e));
+    } catch (_) {
+      // Sin el texto de la excepción: puede traer detalles internos que no son para el usuario.
+      throw const AuthFailure(mensajeLoginInesperado);
     }
   }
 
@@ -60,6 +62,19 @@ class AuthRepositoryImpl implements IAuthRepository {
       throw AuthFailure(_mapAuthError(e.message));
     } catch (e) {
       throw AuthFailure('Error en registro de cliente: $e');
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>> registrarClienteEmpresa(
+    RegistroClienteEmpresa datos,
+  ) async {
+    try {
+      return await remoteDataSource.registrarClienteEmpresa(datos);
+    } on GatewayException catch (e) {
+      throw AuthFailure(e.message);
+    } catch (e) {
+      throw AuthFailure('Error en registro de cliente empresa: $e');
     }
   }
 
@@ -132,6 +147,30 @@ class AuthRepositoryImpl implements IAuthRepository {
     } on AuthException catch (e) {
       throw AuthFailure(_mapAuthError(e.message));
     }
+  }
+
+  static const mensajeCredencialesInvalidas =
+      'Correo o contraseña incorrectos.';
+  static const mensajeSinConexion =
+      'No pudimos conectar. Revisa tu conexión e inténtalo de nuevo.';
+  static const mensajeDemasiadosIntentos =
+      'Demasiados intentos. Espera un momento.';
+  static const mensajeLoginInesperado =
+      'No pudimos iniciar sesión. Inténtalo de nuevo.';
+
+  /// Mensaje del inicio de sesión (SCRUM-1370, C2). Una credencial inválida,
+  /// un correo que no existe y uno sin confirmar dan EL MISMO mensaje: así el
+  /// login no revela si un correo está registrado. Solo se distinguen los
+  /// fallos que no dicen nada de la cuenta: demasiados intentos y falta de red.
+  static String mensajeDeErrorDeLogin(AuthException e) {
+    if (e is AuthRetryableFetchException) return mensajeSinConexion;
+    final texto = e.message.toLowerCase();
+    if (e.statusCode == '429' ||
+        texto.contains('too many requests') ||
+        texto.contains('rate limit')) {
+      return mensajeDemasiadosIntentos;
+    }
+    return mensajeCredencialesInvalidas;
   }
 
   /// Mapea mensajes de error de Supabase a mensajes legibles en español.

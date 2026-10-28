@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mani/core/session/guardas_ruta.dart';
+import 'package:mani/core/session/rol_usuario.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show Supabase;
 import 'package:mani/core/theme/app_theme.dart';
 import 'package:mani/core/di/injection_container.dart';
 import 'package:mani/features/auth/presentation/bloc/auth_cubit.dart';
@@ -16,20 +19,36 @@ import 'package:mani/features/auth/presentation/bloc/auth_cubit.dart';
 /// - Inputs con bordes negros 2px, fondo blanco y placeholder gris
 /// - Botón "INGRESAR A MANI" amarillo con sombra dura de 4px
 /// - Enlaces inferiores: "¿Olvidaste tu contraseña?" • "Registrarme"
+///
+/// SCRUM-1370: la pestaña elegida (Cliente, Aliado o Admin) es solo una ayuda
+/// de presentación. Ni se envía al servidor ni decide el destino: el rol y el
+/// tenant los decide el token (T4) y el router lleva a cada quien al inicio de
+/// SU rol. Si la pestaña no coincide con el rol del token, se avisa.
 class LoginPage extends StatelessWidget {
-  const LoginPage({super.key});
+  const LoginPage({super.key, this.rolDeSesion = rolDeSesionActual});
+
+  /// Rol de la sesión recién abierta, leído del access token. Se inyecta para
+  /// probar la pantalla sin Supabase.
+  final RolUsuario Function() rolDeSesion;
+
+  /// Lee el rol del access token de la sesión abierta (no de la pestaña).
+  static RolUsuario rolDeSesionActual() => rolDesdeAccessToken(
+    Supabase.instance.client.auth.currentSession?.accessToken,
+  );
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (_) => sl<AuthCubit>(),
-      child: const _LoginView(),
+      child: _LoginView(rolDeSesion: rolDeSesion),
     );
   }
 }
 
 class _LoginView extends StatefulWidget {
-  const _LoginView();
+  const _LoginView({required this.rolDeSesion});
+
+  final RolUsuario Function() rolDeSesion;
 
   @override
   State<_LoginView> createState() => _LoginViewState();
@@ -65,6 +84,29 @@ class _LoginViewState extends State<_LoginView> {
     );
   }
 
+  /// Saludo tras iniciar sesión. Si la pestaña elegida no es el rol del token,
+  /// lo dice: la app no le da permisos de la pestaña, lo lleva a su inicio.
+  String _bienvenida(RolUsuario rolDelToken) {
+    final elegido = _rolDeLaPestana(_selectedRole);
+    if (rolDelToken == RolUsuario.desconocido || rolDelToken == elegido) {
+      return '¡Bienvenido a MANI!';
+    }
+    return 'Tu cuenta es de ${_etiquetaDeRol(rolDelToken)}: te llevamos a tu inicio.';
+  }
+
+  static RolUsuario _rolDeLaPestana(String pestana) => switch (pestana) {
+    'aliado' => RolUsuario.aliado,
+    'admin' => RolUsuario.adminTenant,
+    _ => RolUsuario.cliente,
+  };
+
+  static String _etiquetaDeRol(RolUsuario rol) => switch (rol) {
+    RolUsuario.cliente => 'cliente',
+    RolUsuario.aliado => 'aliado',
+    RolUsuario.adminTenant => 'administrador',
+    RolUsuario.desconocido => 'usuario',
+  };
+
   void _showNotification(String message, {bool isError = true}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -91,20 +133,11 @@ class _LoginViewState extends State<_LoginView> {
     return BlocConsumer<AuthCubit, AuthState>(
       listener: (context, state) {
         if (state is AuthAuthenticated) {
-          _showNotification('¡Bienvenido a MANI!', isError: false);
-          // US-02.1.3: el admin del tenant entra directo a su bandeja de
-          // verificación. Si la cuenta no es ADMIN_TENANT, el servidor
-          // responde 403 y la bandeja lo informa; la pestaña no otorga
-          // permisos por sí sola.
-          if (_selectedRole == 'admin') {
-            context.go('/admin/verificacion-aliados');
-          } else if (_selectedRole == 'aliado') {
-            // US-04.1.4: el aliado entra a su bandeja de solicitudes.
-            context.go('/aliado/solicitudes');
-          } else if (_selectedRole == 'cliente') {
-            // US-04.1.1: el cliente entra a publicar su solicitud.
-            context.go('/cliente/solicitudes/nueva');
-          }
+          _showNotification(_bienvenida(widget.rolDeSesion()), isError: false);
+          // US-11.2.3 (SCRUM-1446): todos entran a su inicio. El inicio
+          // depende del rol del token, no de la pestaña elegida, que no
+          // otorga permisos por sí sola.
+          context.go(rutaInicio);
         } else if (state is AuthError) {
           _showNotification(state.message);
         }
@@ -465,9 +498,7 @@ class _LoginViewState extends State<_LoginView> {
     return Column(
       children: [
         GestureDetector(
-          onTap: () {
-            // TODO: Pantalla de recuperación
-          },
+          onTap: () => context.go('/forgot-password'),
           child: Text(
             '¿Olvidaste tu contraseña?',
             style: GoogleFonts.plusJakartaSans(
@@ -525,18 +556,29 @@ class _LoginViewState extends State<_LoginView> {
               children: [
                 const Icon(Icons.home_outlined, color: AppTheme.dark, size: 18),
                 const SizedBox(width: 8),
-                Text(
-                  'REGISTRARME COMO CLIENTE',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.4,
-                    color: AppTheme.dark,
+                Flexible(
+                  child: Text(
+                    'REGISTRARME COMO CLIENTE',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.4,
+                      color: AppTheme.dark,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
                 ),
               ],
             ),
           ),
+        ),
+        const SizedBox(height: 10),
+
+        // Botón 1b: Registrar mi empresa como cliente (HU-M02-07)
+        _botonRegistroSecundario(
+          icono: Icons.apartment_outlined,
+          texto: 'REGISTRAR MI EMPRESA COMO CLIENTE',
+          ruta: '/register-cliente-empresa',
         ),
         const SizedBox(height: 10),
 
@@ -564,13 +606,16 @@ class _LoginViewState extends State<_LoginView> {
                   size: 18,
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  'REGISTRARME COMO ALIADO TÉCNICO',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.4,
-                    color: AppTheme.dark,
+                Flexible(
+                  child: Text(
+                    'REGISTRARME COMO ALIADO TÉCNICO',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.4,
+                      color: AppTheme.dark,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
                 ),
               ],
@@ -580,39 +625,51 @@ class _LoginViewState extends State<_LoginView> {
         const SizedBox(height: 10),
 
         // Botón 3: Registrar Empresa de Servicios (US-02.1.2)
-        GestureDetector(
-          onTap: () => context.go('/register-empresa'),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-            decoration: BoxDecoration(
-              color: AppTheme.surface,
-              borderRadius: BorderRadius.circular(AppTheme.radiusXl),
-              border: Border.all(color: AppTheme.dark, width: 1.5),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(
-                  Icons.business_outlined,
-                  color: AppTheme.dark,
-                  size: 18,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'REGISTRAR MI EMPRESA DE SERVICIOS',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.4,
-                    color: AppTheme.dark,
-                  ),
-                ),
-              ],
-            ),
-          ),
+        _botonRegistroSecundario(
+          icono: Icons.business_outlined,
+          texto: 'REGISTRAR MI EMPRESA DE SERVICIOS',
+          ruta: '/register-empresa',
         ),
       ],
+    );
+  }
+
+  /// Botón de registro sin resaltar (empresa cliente y empresa de servicios).
+  Widget _botonRegistroSecundario({
+    required IconData icono,
+    required String texto,
+    required String ruta,
+  }) {
+    return GestureDetector(
+      onTap: () => context.go(ruta),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        decoration: BoxDecoration(
+          color: AppTheme.surface,
+          borderRadius: BorderRadius.circular(AppTheme.radiusXl),
+          border: Border.all(color: AppTheme.dark, width: 1.5),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icono, color: AppTheme.dark, size: 18),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                texto,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.4,
+                  color: AppTheme.dark,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

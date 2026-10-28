@@ -219,6 +219,33 @@ void main() {
       expect(cubit.state.paso, PasoSolicitud.ubicacion);
     });
 
+    test(
+      'sin aviso a los aliados, reintentarAviso lo repite una vez',
+      () async {
+        await completar();
+        repo.avisoAlPublicar = false;
+        await cubit.publicar();
+        final id = cubit.state.publicada!.id;
+        expect(cubit.state.publicada!.aliadosAvisados, isFalse);
+
+        repo.fallarAlAvisar = const SolicitudFailure(
+          SolicitudErrorTipo.sinConexion,
+        );
+        expect(await cubit.reintentarAviso(), isFalse);
+        expect(cubit.state.avisando, isFalse);
+        expect(cubit.state.aviso?.esError, isTrue);
+
+        repo.fallarAlAvisar = null;
+        expect(await cubit.reintentarAviso(), isTrue);
+        expect(cubit.state.publicada!.aliadosAvisados, isTrue);
+        expect(cubit.state.publicada!.id, id);
+        expect(repo.avisos, [id]);
+
+        expect(await cubit.reintentarAviso(), isFalse, reason: 'ya avisado');
+        expect(repo.avisos, hasLength(1));
+      },
+    );
+
     test('nuevaSolicitud reinicia el formulario con otra clave', () async {
       await completar();
       await cubit.publicar();

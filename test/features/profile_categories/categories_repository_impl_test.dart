@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mani/features/profile_categories/data/repositories/categories_repository_impl.dart';
 import 'package:mani/features/profile_categories/domain/failures/categories_failure.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:mani/core/network/gateway_exception.dart';
 
 import 'fakes.dart';
 
@@ -37,7 +37,7 @@ void main() {
     expect(guardadas, {'a', 'c'});
   });
 
-  group('traduce los errores de las RPC', () {
+  group('traduce el code MANI-CAT-* del Gateway', () {
     final casos = <String, CategoriesErrorTipo>{
       'MANI-CAT-401: sesión requerida': CategoriesErrorTipo.sinSesion,
       'MANI-CAT-403: solo un aliado activo': CategoriesErrorTipo.noEsAliado,
@@ -50,7 +50,11 @@ void main() {
     };
     for (final c in casos.entries) {
       test(c.key, () async {
-        ds.error = PostgrestException(message: c.key);
+        ds.error = GatewayException(
+          message: c.key,
+          statusCode: 422,
+          cuerpo: {'code': c.key.split(':').first, 'error': c.key},
+        );
         await expectLater(
           repo.saveSelectedCategories({'a'}),
           throwsA(

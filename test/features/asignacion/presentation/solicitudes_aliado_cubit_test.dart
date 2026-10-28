@@ -105,12 +105,37 @@ void main() {
       expect(cubit.state.procesandoId, 's1');
       expect(cubit.state.accion, AccionSolicitud.aceptando);
       expect(await cubit.aceptar('s2'), isFalse);
-      expect(await cubit.rechazar('s2'), isFalse);
+      expect(
+        await cubit.rechazar('s2', motivo: MotivoRechazo.fueraDeZona),
+        isFalse,
+      );
 
       repo.pausa!.complete();
       expect(await primera, isTrue);
       expect(repo.llamadasAceptar, 1);
       expect(repo.llamadasRechazar, 0);
+    });
+
+    test('si ya la había rechazado (409R) la quita y explica', () async {
+      // Rechazada desde otro dispositivo: offers/me ya no la trae.
+      repo.rechazadas['s1'] = MotivoRechazo.fueraDeZona;
+      repo.fallarAlAceptar = const AsignacionFailure(
+        AsignacionErrorTipo.yaRechazada,
+      );
+
+      expect(await cubit.aceptar('s1'), isFalse);
+      expect(cubit.state.bandeja.porId('s1'), isNull);
+      expect(cubit.state.aviso?.mensaje, contains('descartado'));
+    });
+
+    test('Dispatch caído (5xx) conserva la solicitud y lo explica', () async {
+      repo.fallarAlAceptar = const AsignacionFailure(
+        AsignacionErrorTipo.servicioNoDisponible,
+      );
+
+      expect(await cubit.aceptar('s1'), isFalse);
+      expect(cubit.state.bandeja.porId('s1'), isNotNull);
+      expect(cubit.state.aviso?.mensaje, contains('no responde'));
     });
 
     test('un error de red conserva la solicitud para reintentar', () async {
@@ -142,7 +167,7 @@ void main() {
 
     test('marca "rechazando" mientras se envía', () async {
       repo.pausa = Completer<void>();
-      final r = cubit.rechazar('s2');
+      final r = cubit.rechazar('s2', motivo: MotivoRechazo.fueraDeZona);
       expect(cubit.state.accion, AccionSolicitud.rechazando);
       repo.pausa!.complete();
       await r;
