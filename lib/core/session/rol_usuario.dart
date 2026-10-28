@@ -43,6 +43,17 @@ RolUsuario rolDesdeAccessToken(String? accessToken) {
   return rolDesdeClaim(claim is String ? claim : null);
 }
 
+/// Lee el `tenant_id` del payload del access token (T4): el tenant sale del
+/// claim emitido por el servidor, nunca de `user_metadata`, que el propio
+/// usuario puede editar. Sirve para trazas y para decidir qué se pinta; la
+/// autorización la hace el Gateway con el token verificado.
+String? tenantDesdeAccessToken(String? accessToken) {
+  final appMetadata = _payload(accessToken)?['app_metadata'];
+  if (appMetadata is! Map) return null;
+  final tenant = appMetadata['tenant_id'];
+  return tenant is String && tenant.isNotEmpty ? tenant : null;
+}
+
 Map<String, dynamic>? _payload(String? token) {
   if (token == null) return null;
   final partes = token.split('.');

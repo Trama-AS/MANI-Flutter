@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:mani/core/network/gateway_client.dart';
 
 import '../../domain/entities/foto_adjunta.dart';
+import 'package:mani/core/session/tenant_sesion.dart';
 
 /// Acceso remoto de US-04.1.1. Ni `tenant_id` ni `cliente_id` viajan desde la
 /// app: Core los toma del JWT.
@@ -201,9 +202,5 @@ class SolicitudesClienteRemoteDataSourceImpl
   String? get usuarioId => _client.auth.currentUser?.id;
 
   @override
-  String? get tenantIdSesion {
-    final user = _client.auth.currentUser;
-    return (user?.appMetadata['tenant_id'] ?? user?.userMetadata?['tenant_id'])
-        as String?;
-  }
+  String? get tenantIdSesion => tenantIdDeSesion(_client.auth);
 }
