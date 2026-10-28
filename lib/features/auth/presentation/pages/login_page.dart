@@ -55,6 +55,31 @@ class _LoginView extends StatefulWidget {
   State<_LoginView> createState() => _LoginViewState();
 }
 
+/// Resuelve la lista de empresas/tenants que se presentan en el login.
+/// En ambiente QA (slug `acme-servicios` o URL de Supabase de QA), ofrece
+/// los tenants de prueba de QA. En producción ofrece las empresas de producción.
+List<String> resolverTenantsLogin({String? slug, String? supabaseUrl}) {
+  String s = slug ?? '';
+  String u = supabaseUrl ?? '';
+  if (slug == null || supabaseUrl == null) {
+    try {
+      if (dotenv.isInitialized) {
+        if (slug == null) s = dotenv.maybeGet('TENANT_SLUG') ?? '';
+        if (supabaseUrl == null) u = dotenv.maybeGet('SUPABASE_URL') ?? '';
+      }
+    } catch (_) {}
+  }
+  final esQa =
+      s.trim() == 'acme-servicios' || u.contains('hpsxdotaizzclkeufzct');
+  return esQa
+      ? const ['ACME Servicios', 'Nova Mantenimiento']
+      : const [
+          'Plomería Express CDMX SA',
+          'Electricistas Pro Monterrey',
+          'Cerrajería Total GDL',
+        ];
+}
+
 class _LoginViewState extends State<_LoginView> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
@@ -69,23 +94,7 @@ class _LoginViewState extends State<_LoginView> {
   @override
   void initState() {
     super.initState();
-    var esQa = false;
-    try {
-      if (dotenv.isInitialized) {
-        final slug = dotenv.maybeGet('TENANT_SLUG') ?? '';
-        final url = dotenv.maybeGet('SUPABASE_URL') ?? '';
-        esQa = slug == 'acme-servicios' || url.contains('hpsxdotaizzclkeufzct');
-      }
-    } catch (_) {
-      esQa = false;
-    }
-    _tenants = esQa
-        ? const ['ACME Servicios', 'Nova Mantenimiento']
-        : const [
-            'Plomería Express CDMX SA',
-            'Electricistas Pro Monterrey',
-            'Cerrajería Total GDL',
-          ];
+    _tenants = resolverTenantsLogin();
     _selectedTenant = _tenants.first;
   }
 
