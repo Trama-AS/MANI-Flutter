@@ -16,6 +16,8 @@ import 'package:mani/core/shell/datos_sesion.dart';
 import 'package:mani/core/shell/menu_por_rol.dart';
 import 'package:mani/features/auth/domain/repositories/i_auth_repository.dart';
 import 'package:mani/features/home/data/resumen_inicio.dart';
+import 'package:mani/features/catalog/data/zonas_catalogo_remote_datasource.dart';
+import 'package:mani/features/catalog/domain/entities/zona_catalogo.dart';
 import 'package:mani/features/home/presentation/pages/inicio_page.dart';
 import 'package:mani/features/profiles/coverage/presentation/controllers/cobertura_controller.dart';
 import 'package:mani/features/profiles/own_profile/data/datasources/perfil_propio_remote_datasource.dart';
@@ -139,6 +141,17 @@ const _rutasConSesion = {
   '/admin/categorias',
 };
 
+class _ZonasDelCatalogoFijas implements IZonasCatalogoRemoteDataSource {
+  @override
+  Future<Map<String, String>> opcionesSeleccionables({String? nivel}) async =>
+      const {'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a13': 'Bogotá D.C. · Chapinero'};
+
+  @override
+  Future<List<ZonaCatalogo>> consultarJerarquia({
+    bool soloActivas = true,
+  }) async => const [];
+}
+
 void main() {
   late _AuthFalso auth;
 
@@ -161,6 +174,10 @@ void main() {
     sl.registerSingleton<SelectorFotos>(_SelectorSinFotos());
     sl.registerSingleton<FuenteResumenInicio>(_ResumenFijo());
     sl.registerFactory(() => CoberturaController(FakeCoberturaRepository()));
+    // La ruta de sedes toma las zonas del catálogo de Core (HU-M04-04).
+    sl.registerSingleton<IZonasCatalogoRemoteDataSource>(
+      _ZonasDelCatalogoFijas(),
+    );
   });
 
   tearDownAll(sl.reset);

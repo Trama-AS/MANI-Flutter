@@ -1,7 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart'
-    show AppBar, CircularProgressIndicator, Icons, Scaffold;
+import 'package:flutter/material.dart' show Icons;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -50,9 +49,8 @@ import 'package:mani/features/services/events/presentation/eventos_cubit.dart';
 import 'package:mani/features/services/events/presentation/eventos_seccion.dart';
 import 'package:mani/features/profiles/site_rules/presentation/bloc/reglas_sitio_cubit.dart';
 import 'package:mani/features/profiles/site_rules/presentation/pages/reglas_sitio_page.dart';
-import 'package:mani/features/catalog/data/zonas_catalogo_remote_datasource.dart';
+import 'package:mani/features/catalog/presentation/sedes_con_zonas_del_catalogo.dart';
 import 'package:mani/features/profiles/company_sites/presentation/bloc/sedes_empresa_cubit.dart';
-import 'package:mani/features/profiles/company_sites/presentation/pages/gestion_sedes_empresa_page.dart';
 import 'package:mani/features/profiles/direct_employees/presentation/bloc/empleado_directo_cubit.dart';
 import 'package:mani/features/profiles/direct_employees/presentation/pages/registrar_empleado_directo_page.dart';
 import 'package:mani/features/profiles/own_profile/presentation/pages/editar_perfil_page.dart';
@@ -342,7 +340,10 @@ final appRouter = GoRouter(
               // Las zonas del desplegable salen del catálogo de Core
               // (HU-M04-04), no de una lista fija: un id inventado haría que
               // el alta de la sede se rechazara por zona inexistente.
-              child: _SedesEmpresaConZonasReales(clienteId: clienteId),
+              child: SedesConZonasDelCatalogo(
+                clienteId: clienteId,
+                zonasDataSource: sl(),
+              ),
             );
           },
         ),
@@ -484,50 +485,3 @@ final appRouter = GoRouter(
     ),
   ],
 );
-
-/// Carga el catálogo geográfico antes de abrir la gestión de sedes
-/// (HU-M04-04, C1: las zonas activas se pueden seleccionar en las interfaces
-/// que consumen el catálogo).
-///
-/// Mientras responde el Gateway se muestra un indicador; si el catálogo falla
-/// o llega vacío se muestra el error en lugar de caer a una lista fija, porque
-/// una zona inventada se rechaza al crear la sede.
-class _SedesEmpresaConZonasReales extends StatelessWidget {
-  const _SedesEmpresaConZonasReales({required this.clienteId});
-
-  final String clienteId;
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<Map<String, String>>(
-      future: sl<IZonasCatalogoRemoteDataSource>().opcionesSeleccionables(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        }
-        final zonas = snapshot.data;
-        if (snapshot.hasError || zonas == null || zonas.isEmpty) {
-          return Scaffold(
-            appBar: AppBar(title: const Text('Sedes de la empresa')),
-            body: const Center(
-              child: Padding(
-                padding: EdgeInsets.all(24),
-                child: Text(
-                  'No se pudo cargar el catálogo de zonas. '
-                  'Sin zonas no es posible registrar una sede.',
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            ),
-          );
-        }
-        return GestionSedesEmpresaPage(
-          clienteId: clienteId,
-          zonasDisponibles: zonas,
-        );
-      },
-    );
-  }
-}
