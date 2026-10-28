@@ -179,22 +179,22 @@ void main() {
     });
   });
 
-  group('SolicitudModel.fromJson', () {
-    test('mapea el JSON de _sol_json', () {
-      final m = SolicitudModel.fromJson({
+  group('SolicitudModel.fromGateway', () {
+    test('mapea un elemento de offers/me (AllyOffer)', () {
+      final m = SolicitudModel.fromGateway({
         'id': 's1',
         'estado': 'ASIGNADA',
-        'es_mia': true,
+        'esMia': true,
         'categoria': 'Plomería',
-        'flujo_operativo': 'TARIFA_ESTANDAR',
+        'flujoOperativo': 'TARIFA_ESTANDAR',
         'zona': 'Roma Norte',
-        'zona_padre': 'Cuauhtémoc',
-        'reglas_sitio': {'mascotas': false},
+        'zonaPadre': 'Cuauhtémoc',
+        'reglasSitio': {'mascotas': false},
         'descripcion': 'Gotea la llave del lavamanos desde ayer.',
         'fotos': 3,
         'direccion': 'Calle Colima 120',
-        'created_at': '2026-09-23T10:00:00Z',
-        'asignada_at': '2026-09-23T10:05:00Z',
+        'creadaEn': '2026-09-23T10:00:00Z',
+        'asignadaEn': '2026-09-23T10:05:00Z',
       });
       expect(m.estado, EstadoSolicitud.asignada);
       expect(m.esMia, isTrue);
@@ -207,7 +207,7 @@ void main() {
     });
 
     test('tolera campos ausentes', () {
-      final m = SolicitudModel.fromJson({'id': 's1', 'estado': 'PENDIENTE'});
+      final m = SolicitudModel.fromGateway({'id': 's1', 'estado': 'PENDIENTE'});
       expect(m.reglasSitio, isEmpty);
       expect(m.direccion, isNull);
       expect(m.modalidad, ModalidadServicio.desconocida);

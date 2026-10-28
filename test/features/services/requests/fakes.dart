@@ -76,6 +76,11 @@ class FakeSolicitudesClienteRepository implements SolicitudesClienteRepository {
   int llamadasBuscar = 0;
   final List<NuevaSolicitud> publicadas = [];
 
+  /// Si es `false`, [publicar] devuelve la solicitud sin aviso a los aliados.
+  bool avisoAlPublicar = true;
+  SolicitudFailure? fallarAlAvisar;
+  final List<String> avisos = [];
+
   @override
   Future<List<CategoriaDisponible>> categoriasDisponibles() async {
     if (fallarAlCargar != null) {
@@ -131,7 +136,16 @@ class FakeSolicitudesClienteRepository implements SolicitudesClienteRepository {
       zonaPadre: padre,
       cantidadFotos: solicitud.fotos.length,
       fechaCreacion: DateTime.now(),
+      aliadosAvisados: avisoAlPublicar,
     );
+  }
+
+  @override
+  Future<void> avisarAliados(String solicitudId) async {
+    if (fallarAlAvisar != null) {
+      throw fallarAlAvisar!;
+    }
+    avisos.add(solicitudId);
   }
 }
 
@@ -158,6 +172,7 @@ CrearSolicitudCubit crearCubit(
     cargarCatalogo: CargarCatalogoSolicitud(repo),
     buscarZonas: BuscarZonas(repo),
     publicar: PublicarSolicitud(repo),
+    avisarAliados: AvisarAliados(repo),
     generarClave:
         generarClave ?? () => '00000000-0000-4000-8000-00000000000${++n}',
   );
@@ -190,6 +205,12 @@ class ServidorSolicitudesFake implements SolicitudesClienteRemoteDataSource {
 
   Object? errorDeRed;
   int llamadasCrear = 0;
+
+  /// Avisos a los aliados recibidos (solicitud, Idempotency-Key).
+  final List<(String, String)> avisos = [];
+
+  /// Si se asigna, `avisarAliados` falla con esta excepción (Dispatch caído).
+  GatewayException? fallarAviso;
 
   /// Si se asigna, `crear` falla con un 422 cuyo mensaje es este.
   String? fallarCrearCon;
@@ -297,7 +318,7 @@ class ServidorSolicitudesFake implements SolicitudesClienteRemoteDataSource {
           (c) => {
             'id': c['id'],
             'nombre': c['nombre'],
-            'flujo_operativo': c['flujo_operativo'],
+            'flujoOperativo': c['flujo_operativo'],
           },
         )
         .toList();
@@ -312,7 +333,7 @@ class ServidorSolicitudesFake implements SolicitudesClienteRemoteDataSource {
         'id': s['id'],
         'direccion': s['direccion'],
         'zona': z['nombre'],
-        'zona_padre': z['padre'],
+        'zonaPadre': z['padre'],
       };
     }).toList();
   }
@@ -331,7 +352,7 @@ class ServidorSolicitudesFake implements SolicitudesClienteRemoteDataSource {
           (z) => {
             'id': z['id'],
             'nombre': z['nombre'],
-            'zona_padre': z['padre'],
+            'zonaPadre': z['padre'],
           },
         )
         .toList();
@@ -394,6 +415,17 @@ class ServidorSolicitudesFake implements SolicitudesClienteRemoteDataSource {
       }
       rethrow;
     }
+  }
+
+  @override
+  Future<void> avisarAliados(
+    String solicitudId, {
+    required String clave,
+  }) async {
+    if (fallarAviso != null) {
+      throw fallarAviso!;
+    }
+    avisos.add((solicitudId, clave));
   }
 
   int _subidasTotales = 0;

@@ -1,8 +1,8 @@
-import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mani/core/logging/structured_logger.dart';
+import 'package:mani/core/network/gateway_exception.dart';
 import 'package:mani/features/asignacion/data/datasources/asignacion_remote_datasource.dart';
 import 'package:mani/features/asignacion/data/repositories/asignacion_repository_impl.dart';
 import 'package:mani/features/asignacion/domain/entities/motivo_rechazo.dart';
@@ -243,42 +243,128 @@ void main() {
     });
   });
 
-  test('mapearMensaje traduce cada código MANI-SOL-* (sufijos primero)', () {
-    const casos = {
-      'MANI-SOL-401: x': AsignacionErrorTipo.sinSesion,
-      'MANI-SOL-403V: x': AsignacionErrorTipo.aliadoNoVerificado,
-      'MANI-SOL-403E: x': AsignacionErrorTipo.noElegible,
-      'MANI-SOL-403: x': AsignacionErrorTipo.noEsAliado,
-      'MANI-SOL-404: x': AsignacionErrorTipo.noEncontrada,
-      'MANI-SOL-409A: x': AsignacionErrorTipo.yaEsTuya,
-      'MANI-SOL-409: ya_no_disponible': AsignacionErrorTipo.yaNoDisponible,
-      'MANI-SOL-422M: x': AsignacionErrorTipo.motivoInvalido,
-      'JWT expired': AsignacionErrorTipo.sinSesion,
-      'algo raro': AsignacionErrorTipo.desconocido,
-    };
-    casos.forEach((mensaje, tipo) {
+  group('Errores de Dispatch y Core por el Gateway', () {
+    test('aceptar lo que ya rechacé responde yaRechazada (409R)', () async {
+      final repo = repoDe('aliado-a');
+      await repo.rechazar(solicitudId);
+      await expectLater(
+        repo.aceptar(solicitudId),
+        _falla(AsignacionErrorTipo.yaRechazada),
+      );
+      expect(servidor.fila(solicitudId)['aliado_id'], isNull);
+    });
+
+    test('mapearGateway usa el code y, sin él, el status', () {
+      const porCodigo = {
+        'MANI-DSP-401': AsignacionErrorTipo.sinSesion,
+        'MANI-SOL-403V': AsignacionErrorTipo.aliadoNoVerificado,
+        'MANI-SOL-403E': AsignacionErrorTipo.noElegible,
+        'MANI-SOL-403O': AsignacionErrorTipo.noElegible,
+        'MANI-DSP-403': AsignacionErrorTipo.noEsAliado,
+        'MANI-DSP-404': AsignacionErrorTipo.noEncontrada,
+        'MANI-SOL-409': AsignacionErrorTipo.yaNoDisponible,
+        'MANI-SOL-409E': AsignacionErrorTipo.yaNoDisponible,
+        'MANI-DSP-409E': AsignacionErrorTipo.yaNoDisponible,
+        'MANI-DSP-409A': AsignacionErrorTipo.yaEsTuya,
+        'MANI-DSP-409R': AsignacionErrorTipo.yaRechazada,
+        'MANI-SOL-422M': AsignacionErrorTipo.motivoInvalido,
+        'CORE_SERVICE_UNAVAILABLE': AsignacionErrorTipo.servicioNoDisponible,
+        'DATABASE_UNAVAILABLE': AsignacionErrorTipo.servicioNoDisponible,
+      };
+      porCodigo.forEach((code, tipo) {
+        final status = switch (code) {
+          'CORE_SERVICE_UNAVAILABLE' || 'DATABASE_UNAVAILABLE' => 503,
+          _ => int.parse(code.replaceAll(RegExp(r'\D'), '')),
+        };
+        expect(
+          AsignacionRepositoryImpl.mapearGateway(
+            GatewayException.fromStatus(status, cuerpo: {'code': code}),
+          ).tipo,
+          tipo,
+          reason: code,
+        );
+      });
+
+      const porStatus = {
+        401: AsignacionErrorTipo.sinSesion,
+        403: AsignacionErrorTipo.noEsAliado,
+        404: AsignacionErrorTipo.noEncontrada,
+        409: AsignacionErrorTipo.yaNoDisponible,
+        422: AsignacionErrorTipo.motivoInvalido,
+        502: AsignacionErrorTipo.servicioNoDisponible,
+        418: AsignacionErrorTipo.desconocido,
+      };
+      porStatus.forEach((status, tipo) {
+        expect(
+          AsignacionRepositoryImpl.mapearGateway(
+            GatewayException.fromStatus(status),
+          ).tipo,
+          tipo,
+          reason: '$status',
+        );
+      });
       expect(
-        AsignacionRepositoryImpl.mapearMensaje(mensaje).tipo,
-        tipo,
-        reason: mensaje,
+        AsignacionRepositoryImpl.mapearGateway(
+          const GatewayException(message: 'sin red'),
+        ).tipo,
+        AsignacionErrorTipo.sinConexion,
       );
     });
+
+    test(
+      'si la bandeja no responde tras ganar, igual informa la asignación',
+      () async {
+        final repo = AsignacionRepositoryImpl(
+          _BandejaCaida(servidor.sesion('aliado-a')),
+          logger: StructuredLogger(canal: 'test', sink: (_) {}),
+        );
+
+        final asignada = await repo.aceptar(solicitudId);
+
+        expect(asignada.id, solicitudId);
+        expect(asignada.esMia, isTrue);
+        expect(asignada.estado, EstadoSolicitud.asignada);
+        expect(servidor.fila(solicitudId)['aliado_id'], 'aliado-a');
+      },
+    );
   });
 }
 
-/// Datasource sin red: toda llamada vence por timeout.
+/// Datasource sin red: el `GatewayClient` responde sin status.
 class _DsCaido implements AsignacionRemoteDataSource {
-  Never _timeout() => throw TimeoutException('sin red');
+  Never _sinRed() => throw const GatewayException(message: 'sin red');
 
   @override
-  Future<List<Map<String, dynamic>>> listar() async => _timeout();
+  Future<List<Map<String, dynamic>>> listar() async => _sinRed();
 
   @override
-  Future<Map<String, dynamic>> aceptar(String solicitudId) async => _timeout();
+  Future<Map<String, dynamic>> aceptar(String solicitudId) async => _sinRed();
 
   @override
-  Future<void> rechazar(String solicitudId, String? motivo) async => _timeout();
+  Future<void> rechazar(String solicitudId, String? motivo) async => _sinRed();
 
   @override
   String? get tenantIdSesion => null;
+}
+
+/// Acepta de verdad, pero la bandeja falla justo después.
+class _BandejaCaida implements AsignacionRemoteDataSource {
+  _BandejaCaida(this._ds);
+
+  final AsignacionRemoteDataSource _ds;
+
+  @override
+  Future<List<Map<String, dynamic>>> listar() async =>
+      errorGateway(503, 'CORE_SERVICE_UNAVAILABLE');
+
+  @override
+  Future<Map<String, dynamic>> aceptar(String solicitudId) =>
+      _ds.aceptar(solicitudId);
+
+  @override
+  Future<void> rechazar(String solicitudId, String? motivo) =>
+      _ds.rechazar(solicitudId, motivo);
+
+  @override
+  String? get tenantIdSesion => _ds.tenantIdSesion;
 }
