@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mani/core/session/guardas_ruta.dart';
@@ -60,14 +61,26 @@ class _LoginViewState extends State<_LoginView> {
   final _passwordController = TextEditingController();
 
   String _selectedRole = 'cliente'; // 'cliente', 'aliado', 'admin'
-  String _selectedTenant = 'Plomería Express CDMX SA';
+  late String _selectedTenant;
   bool _showPassword = false;
 
-  final List<String> _tenants = const [
-    'Plomería Express CDMX SA',
-    'Electricistas Pro Monterrey',
-    'Cerrajería Total GDL',
-  ];
+  late final List<String> _tenants;
+
+  @override
+  void initState() {
+    super.initState();
+    final slug = dotenv.maybeGet('TENANT_SLUG') ?? '';
+    final url = dotenv.maybeGet('SUPABASE_URL') ?? '';
+    final esQa = slug == 'acme-servicios' || url.contains('hpsxdotaizzclkeufzct');
+    _tenants = esQa
+        ? const ['ACME Servicios', 'Nova Mantenimiento']
+        : const [
+            'Plomería Express CDMX SA',
+            'Electricistas Pro Monterrey',
+            'Cerrajería Total GDL',
+          ];
+    _selectedTenant = _tenants.first;
+  }
 
   @override
   void dispose() {
