@@ -46,13 +46,14 @@ class GatewayResumenInicio implements FuenteResumenInicio {
     }
   }
 
-  /// Las sedes se piden con el alias `me` (MANI-Node#60): Core resuelve el
-  /// cliente empresa por el usuario del token. El id del usuario no sirve
-  /// aquí porque no es el id del cliente en Core (daba 404).
+  /// Las sedes salen de `GET /solicitudes/sitios` (MANI-Node#67): Core
+  /// resuelve el cliente por el usuario del token y responde a cualquier
+  /// cliente activo. `/clients/me/sites` solo encuentra clientes empresa y a
+  /// un cliente persona natural le respondía 404.
   Future<List<IndicadorResumen>> _cliente() async {
     final sedes = await _leer(
-      '/api/v1/core/clients/me/sites',
-      (r) => '${r['totalSitios'] ?? _largo(r['sitios']) ?? 0}',
+      '/api/v1/core/solicitudes/sitios',
+      (r) => '${_largo(r['sitios']) ?? 0}',
     );
     return [
       IndicadorResumen(
