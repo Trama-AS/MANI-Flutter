@@ -69,10 +69,16 @@ class _LoginViewState extends State<_LoginView> {
   @override
   void initState() {
     super.initState();
-    final slug = dotenv.maybeGet('TENANT_SLUG') ?? '';
-    final url = dotenv.maybeGet('SUPABASE_URL') ?? '';
-    final esQa =
-        slug == 'acme-servicios' || url.contains('hpsxdotaizzclkeufzct');
+    var esQa = false;
+    try {
+      if (dotenv.isInitialized) {
+        final slug = dotenv.maybeGet('TENANT_SLUG') ?? '';
+        final url = dotenv.maybeGet('SUPABASE_URL') ?? '';
+        esQa = slug == 'acme-servicios' || url.contains('hpsxdotaizzclkeufzct');
+      }
+    } catch (_) {
+      esQa = false;
+    }
     _tenants = esQa
         ? const ['ACME Servicios', 'Nova Mantenimiento']
         : const [
