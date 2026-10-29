@@ -40,7 +40,6 @@ class _CalificacionCierreSeccionState extends State<CalificacionCierreSeccion> {
         final otraCalificacion = widget.esAliado
             ? resumen?.clienteAAliado
             : resumen?.aliadoACliente;
-        final cierre = resumen?.cierre;
 
         return Card(
           key: const Key('m08-calificacion-cierre-card'),
@@ -56,98 +55,24 @@ class _CalificacionCierreSeccionState extends State<CalificacionCierreSeccion> {
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const SizedBox(height: 8),
-                if (cierre != null)
-                  Container(
-                    key: const Key('m08-estado-cierre-banner'),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: cierre.cierreCompleto
-                          ? Colors.green.withValues(alpha: 0.12)
-                          : Colors.amber.withValues(alpha: 0.16),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          cierre.cierreCompleto
-                              ? Icons.verified_outlined
-                              : Icons.hourglass_bottom_outlined,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            cierre.etiquetaEstadoCierre,
-                            key: const Key('m08-estado-cierre-texto'),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                if (state.error != null) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    state.error!,
-                    key: const Key('m08-calificacion-error'),
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                    ),
-                  ),
-                ],
-                if (state.mensajeExito != null) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    state.mensajeExito!,
-                    key: const Key('m08-calificacion-exito'),
-                  ),
-                ],
+                if (resumen != null)
+                  _BannerEstadoCierre(cierre: resumen.cierre),
+                _MensajesFeedback(
+                  error: state.error,
+                  mensajeExito: state.mensajeExito,
+                ),
                 const SizedBox(height: 12),
-                if (miCalificacion != null) ...[
-                  Text(
-                    'Tu calificación enviada: ★ ${miCalificacion.puntaje}/5',
-                    key: const Key('m08-mi-calificacion-registrada'),
+                _CuerpoCalificacionPropia(
+                  miCalificacion: miCalificacion,
+                  puntajeSeleccionado: _puntaje,
+                  comentarioCtrl: _comentarioCtrl,
+                  enviando: state.enviando,
+                  onSeleccionarPuntaje: (v) => setState(() => _puntaje = v),
+                  onEnviar: () => cubit.calificar(
+                    puntaje: _puntaje,
+                    comentario: _comentarioCtrl.text,
                   ),
-                  if (miCalificacion.comentario != null &&
-                      miCalificacion.comentario!.isNotEmpty)
-                    Text('Comentario: ${miCalificacion.comentario}'),
-                ] else ...[
-                  const Text('Selecciona un puntaje de 1 a 5 estrellas:'),
-                  Row(
-                    children: [
-                      for (var i = 1; i <= 5; i++)
-                        IconButton(
-                          key: Key('m08-estrella-$i'),
-                          icon: Icon(
-                            i <= _puntaje ? Icons.star : Icons.star_border,
-                            color: Colors.amber.shade700,
-                          ),
-                          onPressed: state.enviando
-                              ? null
-                              : () => setState(() => _puntaje = i),
-                        ),
-                    ],
-                  ),
-                  TextField(
-                    key: const Key('m08-comentario-input'),
-                    controller: _comentarioCtrl,
-                    maxLength: 500,
-                    maxLines: 2,
-                    decoration: const InputDecoration(
-                      labelText: 'Comentario (opcional)',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  FilledButton(
-                    key: const Key('m08-enviar-calificacion-btn'),
-                    onPressed: state.enviando
-                        ? null
-                        : () => cubit.calificar(
-                            puntaje: _puntaje,
-                            comentario: _comentarioCtrl.text,
-                          ),
-                    child: const Text('Enviar calificación'),
-                  ),
-                ],
+                ),
                 if (otraCalificacion != null) ...[
                   const Divider(height: 24),
                   Text(
@@ -166,6 +91,143 @@ class _CalificacionCierreSeccionState extends State<CalificacionCierreSeccion> {
           ),
         );
       },
+    );
+  }
+}
+
+class _BannerEstadoCierre extends StatelessWidget {
+  const _BannerEstadoCierre({required this.cierre});
+
+  final EstadoCierreSolicitud cierre;
+
+  @override
+  Widget build(BuildContext context) {
+    final completo = cierre.cierreCompleto;
+    return Container(
+      key: const Key('m08-estado-cierre-banner'),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: completo
+            ? Colors.green.withValues(alpha: 0.12)
+            : Colors.amber.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            completo
+                ? Icons.verified_outlined
+                : Icons.hourglass_bottom_outlined,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              cierre.etiquetaEstadoCierre,
+              key: const Key('m08-estado-cierre-texto'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MensajesFeedback extends StatelessWidget {
+  const _MensajesFeedback({this.error, this.mensajeExito});
+
+  final String? error;
+  final String? mensajeExito;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (error != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            error!,
+            key: const Key('m08-calificacion-error'),
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
+        ],
+        if (mensajeExito != null) ...[
+          const SizedBox(height: 8),
+          Text(mensajeExito!, key: const Key('m08-calificacion-exito')),
+        ],
+      ],
+    );
+  }
+}
+
+class _CuerpoCalificacionPropia extends StatelessWidget {
+  const _CuerpoCalificacionPropia({
+    required this.miCalificacion,
+    required this.puntajeSeleccionado,
+    required this.comentarioCtrl,
+    required this.enviando,
+    required this.onSeleccionarPuntaje,
+    required this.onEnviar,
+  });
+
+  final CalificacionServicio? miCalificacion;
+  final int puntajeSeleccionado;
+  final TextEditingController comentarioCtrl;
+  final bool enviando;
+  final ValueChanged<int> onSeleccionarPuntaje;
+  final VoidCallback onEnviar;
+
+  @override
+  Widget build(BuildContext context) {
+    final calif = miCalificacion;
+    if (calif != null) {
+      final comentario = calif.comentario ?? '';
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Tu calificación enviada: ★ ${calif.puntaje}/5',
+            key: const Key('m08-mi-calificacion-registrada'),
+          ),
+          if (comentario.isNotEmpty) Text('Comentario: $comentario'),
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Selecciona un puntaje de 1 a 5 estrellas:'),
+        Row(
+          children: [
+            for (var i = 1; i <= 5; i++)
+              IconButton(
+                key: Key('m08-estrella-$i'),
+                icon: Icon(
+                  i <= puntajeSeleccionado ? Icons.star : Icons.star_border,
+                  color: Colors.amber.shade700,
+                ),
+                onPressed: enviando ? null : () => onSeleccionarPuntaje(i),
+              ),
+          ],
+        ),
+        TextField(
+          key: const Key('m08-comentario-input'),
+          controller: comentarioCtrl,
+          maxLength: 500,
+          maxLines: 2,
+          decoration: const InputDecoration(
+            labelText: 'Comentario (opcional)',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 8),
+        FilledButton(
+          key: const Key('m08-enviar-calificacion-btn'),
+          onPressed: enviando ? null : onEnviar,
+          child: const Text('Enviar calificación'),
+        ),
+      ],
     );
   }
 }
@@ -238,6 +300,7 @@ class _TarjetaHistorialItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final etiquetaContraparte = esAliado ? 'Cliente' : 'Aliado';
     return Card(
       key: Key('m08-historial-item-${item.id}'),
       child: Padding(
@@ -263,11 +326,7 @@ class _TarjetaHistorialItem extends StatelessWidget {
             Text(item.descripcion),
             Text('Zona: ${item.zona} · Dirección: ${item.direccion}'),
             if (item.nombreContraparte != null)
-              Text(
-                esAliado
-                    ? 'Cliente: ${item.nombreContraparte}'
-                    : 'Aliado: ${item.nombreContraparte}',
-              ),
+              Text('$etiquetaContraparte: ${item.nombreContraparte}'),
             if (item.valorTotal != null)
               Text('Valor total: \$${item.valorTotal!.toStringAsFixed(0)}'),
             if (item.penalizacionAplicada)

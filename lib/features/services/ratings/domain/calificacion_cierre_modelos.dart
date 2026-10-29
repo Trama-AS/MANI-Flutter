@@ -305,12 +305,23 @@ class RegistroHistorialServicio extends Equatable {
     this.cerradaEn,
   });
 
-  factory RegistroHistorialServicio.desdeHistorialCliente(
-    Map<String, dynamic> json,
+  static CalificacionServicio? _leerCalificacion(
+    Map<String, dynamic> califs,
+    String clave,
   ) {
-    final aliado = json['aliado'] is Map
-        ? Map<String, dynamic>.from(json['aliado'] as Map)
+    final valor = califs[clave];
+    return valor is Map
+        ? CalificacionServicio.fromJson(Map<String, dynamic>.from(valor))
         : null;
+  }
+
+  static RegistroHistorialServicio _desdeJsonComun(
+    Map<String, dynamic> json, {
+    required String categoriaPorDefecto,
+    required String? nombreContraparte,
+    required String claveEmitida,
+    required String claveRecibida,
+  }) {
     final pen = json['penalizacion'] is Map
         ? Map<String, dynamic>.from(json['penalizacion'] as Map)
         : const <String, dynamic>{};
@@ -321,25 +332,17 @@ class RegistroHistorialServicio extends Equatable {
       id: (json['id'] as String?) ?? '',
       estado: (json['estado'] as String?) ?? '',
       categoriaId: (json['categoriaId'] as String?) ?? '',
-      categoria: (json['categoria'] as String?) ?? 'Servicio',
+      categoria: (json['categoria'] as String?) ?? categoriaPorDefecto,
       descripcion: (json['descripcion'] as String?) ?? '',
       direccion: (json['direccion'] as String?) ?? '',
       zona: (json['zona'] as String?) ?? '',
       zonaPadre: json['zonaPadre'] as String?,
-      nombreContraparte: aliado?['nombreRazonSocial'] as String?,
+      nombreContraparte: nombreContraparte,
       valorTotal: (json['valorTotal'] as num?)?.toDouble(),
       penalizacionAplicada: pen['aplicada'] == true,
       penalizacionMonto: (pen['monto'] as num?)?.toDouble() ?? 0,
-      calificacionEmitida: califs['emitidaAlAliado'] is Map
-          ? CalificacionServicio.fromJson(
-              Map<String, dynamic>.from(califs['emitidaAlAliado'] as Map),
-            )
-          : null,
-      calificacionRecibida: califs['recibidaDelAliado'] is Map
-          ? CalificacionServicio.fromJson(
-              Map<String, dynamic>.from(califs['recibidaDelAliado'] as Map),
-            )
-          : null,
+      calificacionEmitida: _leerCalificacion(califs, claveEmitida),
+      calificacionRecibida: _leerCalificacion(califs, claveRecibida),
       creadaEn:
           DateTime.tryParse((json['creadaEn'] as String?) ?? '')?.toLocal() ??
           DateTime.fromMillisecondsSinceEpoch(0),
@@ -349,42 +352,33 @@ class RegistroHistorialServicio extends Equatable {
     );
   }
 
+  factory RegistroHistorialServicio.desdeHistorialCliente(
+    Map<String, dynamic> json,
+  ) {
+    final aliado = json['aliado'] is Map
+        ? Map<String, dynamic>.from(json['aliado'] as Map)
+        : null;
+    return _desdeJsonComun(
+      json,
+      categoriaPorDefecto: 'Servicio',
+      nombreContraparte: aliado?['nombreRazonSocial'] as String?,
+      claveEmitida: 'emitidaAlAliado',
+      claveRecibida: 'recibidaDelAliado',
+    );
+  }
+
   factory RegistroHistorialServicio.desdeHistorialAliado(
     Map<String, dynamic> json,
   ) {
     final cliente = json['cliente'] is Map
         ? Map<String, dynamic>.from(json['cliente'] as Map)
         : null;
-    final califs = json['calificaciones'] is Map
-        ? Map<String, dynamic>.from(json['calificaciones'] as Map)
-        : const <String, dynamic>{};
-    return RegistroHistorialServicio(
-      id: (json['id'] as String?) ?? '',
-      estado: (json['estado'] as String?) ?? '',
-      categoriaId: (json['categoriaId'] as String?) ?? '',
-      categoria: (json['categoria'] as String?) ?? 'Trabajo',
-      descripcion: (json['descripcion'] as String?) ?? '',
-      direccion: (json['direccion'] as String?) ?? '',
-      zona: (json['zona'] as String?) ?? '',
-      zonaPadre: json['zonaPadre'] as String?,
+    return _desdeJsonComun(
+      json,
+      categoriaPorDefecto: 'Trabajo',
       nombreContraparte: cliente?['nombre'] as String?,
-      valorTotal: (json['valorTotal'] as num?)?.toDouble(),
-      calificacionEmitida: califs['emitidaAlCliente'] is Map
-          ? CalificacionServicio.fromJson(
-              Map<String, dynamic>.from(califs['emitidaAlCliente'] as Map),
-            )
-          : null,
-      calificacionRecibida: califs['recibidaDelCliente'] is Map
-          ? CalificacionServicio.fromJson(
-              Map<String, dynamic>.from(califs['recibidaDelCliente'] as Map),
-            )
-          : null,
-      creadaEn:
-          DateTime.tryParse((json['creadaEn'] as String?) ?? '')?.toLocal() ??
-          DateTime.fromMillisecondsSinceEpoch(0),
-      cerradaEn: json['cerradaEn'] is String
-          ? DateTime.tryParse(json['cerradaEn'] as String)?.toLocal()
-          : null,
+      claveEmitida: 'emitidaAlCliente',
+      claveRecibida: 'recibidaDelCliente',
     );
   }
 

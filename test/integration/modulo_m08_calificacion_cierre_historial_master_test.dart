@@ -1,6 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:mani/core/network/gateway_client.dart';
 import 'package:mani/core/network/gateway_exception.dart';
 import 'package:mani/features/services/eligible_allies/domain/aliado_elegible.dart';
 import 'package:mani/features/services/eligible_allies/presentation/aliados_elegibles_cubit.dart';
@@ -10,6 +15,7 @@ import 'package:mani/features/services/ratings/data/calificacion_cierre_datasour
 import 'package:mani/features/services/ratings/domain/calificacion_cierre_modelos.dart';
 import 'package:mani/features/services/ratings/presentation/calificacion_cierre_cubit.dart';
 import 'package:mani/features/services/ratings/presentation/calificacion_cierre_widgets.dart';
+import 'package:mani/features/services/tracking/domain/solicitud_seguimiento.dart';
 
 class _FuenteModuloM08EnMemoria implements FuenteModuloM08 {
   _FuenteModuloM08EnMemoria({required this.rolActual});
@@ -479,6 +485,323 @@ void main() {
           ),
         );
         expect(f409c.tipo, ModuloM08ErrorTipo.cierreIncompleto);
+
+        expect(
+          GatewayFuenteModuloM08.mapearGateway(
+            const GatewayException(message: 'Sin red'),
+          ).tipo,
+          ModuloM08ErrorTipo.sinConexion,
+        );
+        expect(
+          GatewayFuenteModuloM08.mapearGateway(
+            const GatewayException(
+              message: 'Comentario largo',
+              statusCode: 422,
+              cuerpo: {'code': 'MANI-CAL-422C'},
+            ),
+          ).tipo,
+          ModuloM08ErrorTipo.comentarioInvalido,
+        );
+        expect(
+          GatewayFuenteModuloM08.mapearGateway(
+            const GatewayException(
+              message: 'No ejecutado',
+              statusCode: 409,
+              cuerpo: {'code': 'MANI-CAL-409E'},
+            ),
+          ).tipo,
+          ModuloM08ErrorTipo.servicioNoEjecutado,
+        );
+        expect(
+          GatewayFuenteModuloM08.mapearGateway(
+            const GatewayException(
+              message: 'No autorizado',
+              statusCode: 401,
+              cuerpo: {'code': 'MANI-CAL-401'},
+            ),
+          ).tipo,
+          ModuloM08ErrorTipo.sinSesion,
+        );
+        expect(
+          GatewayFuenteModuloM08.mapearGateway(
+            const GatewayException(
+              message: 'Sin permiso',
+              statusCode: 403,
+              cuerpo: {'code': 'MANI-CAL-403P'},
+            ),
+          ).tipo,
+          ModuloM08ErrorTipo.sinPermiso,
+        );
+        expect(
+          GatewayFuenteModuloM08.mapearGateway(
+            const GatewayException(
+              message: 'No encontrado',
+              statusCode: 404,
+              cuerpo: {'code': 'MANI-CAL-404'},
+            ),
+          ).tipo,
+          ModuloM08ErrorTipo.noEncontrado,
+        );
+        expect(
+          GatewayFuenteModuloM08.mapearGateway(
+            const GatewayException(message: 'Caído', statusCode: 503),
+          ).tipo,
+          ModuloM08ErrorTipo.servicioNoDisponible,
+        );
+        expect(
+          GatewayFuenteModuloM08.mapearGateway(
+            const GatewayException(message: 'Otro', statusCode: 400),
+          ).tipo,
+          ModuloM08ErrorTipo.desconocido,
+        );
+        for (final tipo in ModuloM08ErrorTipo.values) {
+          expect(ModuloM08Failure(tipo).mensajeUsuario, isNotEmpty);
+          expect(
+            ModuloM08Failure(tipo, 'detalle').toString(),
+            contains(tipo.name),
+          );
+        }
+      },
+    );
+
+    test(
+      'GatewayFuenteModuloM08 ejecuta todas las rutas HTTP contra el Gateway (/api/v1/core/...)',
+      () async {
+        final client = MockClient((req) async {
+          final path = req.url.path;
+          if (req.method == 'POST' && path.endsWith('/calificaciones')) {
+            return http.Response(
+              jsonEncode({
+                'calificacion': {
+                  'id': 'c-1',
+                  'solicitudId': 'sol-1',
+                  'autorId': 'u-1',
+                  'destinatarioId': 'u-2',
+                  'rolAutor': 'CLIENT',
+                  'puntaje': 5,
+                  'comentario': 'Muy bien',
+                  'creadaEn': '2026-10-28T18:00:00Z',
+                },
+                'cierre': {
+                  'cerrada': false,
+                  'estadoSolicitud': 'COMPLETADA',
+                  'tieneCalificacionCliente': true,
+                  'tieneCalificacionAliado': false,
+                  'pendientes': ['CALIFICACION_ALIADO'],
+                },
+              }),
+              201,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+          if (req.method == 'GET' &&
+              path.endsWith('/calificaciones') &&
+              path.contains('/solicitudes/')) {
+            return http.Response(
+              jsonEncode({
+                'solicitudId': 'sol-1',
+                'estado': 'CERRADA',
+                'cierre': {
+                  'cerrada': true,
+                  'estadoSolicitud': 'CERRADA',
+                  'cerradaEn': '2026-10-28T19:00:00Z',
+                  'tieneCalificacionCliente': true,
+                  'tieneCalificacionAliado': true,
+                  'pendientes': <String>[],
+                },
+                'calificaciones': {
+                  'clienteAAliado': {
+                    'id': 'c-1',
+                    'solicitudId': 'sol-1',
+                    'autorId': 'u-1',
+                    'destinatarioId': 'u-2',
+                    'rolAutor': 'CLIENT',
+                    'puntaje': 5,
+                    'creadaEn': '2026-10-28T18:00:00Z',
+                  },
+                  'aliadoACliente': {
+                    'id': 'c-2',
+                    'solicitudId': 'sol-1',
+                    'autorId': 'u-2',
+                    'destinatarioId': 'u-1',
+                    'rolAutor': 'ALLY',
+                    'puntaje': 4,
+                    'creadaEn': '2026-10-28T18:30:00Z',
+                  },
+                },
+              }),
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+          if (req.method == 'POST' && path.endsWith('/cerrar')) {
+            return http.Response(
+              jsonEncode({
+                'cierre': {
+                  'cerrada': true,
+                  'estadoSolicitud': 'CERRADA',
+                  'cerradaEn': '2026-10-28T19:00:00Z',
+                  'tieneCalificacionCliente': true,
+                  'tieneCalificacionAliado': true,
+                  'pendientes': <String>[],
+                },
+              }),
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+          if (req.method == 'GET' && path.endsWith('/aliados/calificaciones')) {
+            return http.Response(
+              jsonEncode({
+                'aliados': [
+                  {
+                    'aliadoId': 'ali-1',
+                    'nombreRazonSocial': 'Ana Pérez',
+                    'tipo': 'PERSONA_NATURAL',
+                    'estadoVerificacion': 'VERIFICADO',
+                    'calificacionPromedio': 4.9,
+                    'totalCalificaciones': 8,
+                    'etiquetaCalificacion': '4.9',
+                  },
+                  {
+                    'aliadoId': 'ali-2',
+                    'nombreRazonSocial': 'Nuevo',
+                    'tipo': 'PERSONA_NATURAL',
+                    'estadoVerificacion': 'VERIFICADO',
+                    'calificacionPromedio': null,
+                    'totalCalificaciones': 0,
+                    'etiquetaCalificacion': 'Sin valorar',
+                  },
+                ],
+                'totalCount': 2,
+              }),
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+          if (req.method == 'GET' && path.endsWith('/cancelacion-preview')) {
+            return http.Response(
+              jsonEncode({
+                'solicitudId': 'sol-1',
+                'estadoActual': 'ASIGNADA',
+                'cancelable': true,
+                'penalizacion': {
+                  'aplica': true,
+                  'monto': 15000,
+                  'motivo': 'Cancelación tardía',
+                  'modoCalculo': 'MONTO_FIJO',
+                },
+                'politicaVigente': {'activa': true},
+              }),
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+          if (req.method == 'GET' &&
+              path.endsWith('/solicitudes/me/historial')) {
+            return http.Response(
+              jsonEncode({
+                'historial': [
+                  {
+                    'id': 'sol-1',
+                    'estado': 'CERRADA',
+                    'categoriaId': 'cat-1',
+                    'categoria': 'Plomería',
+                    'descripcion': 'Fuga de agua',
+                    'direccion': 'Calle 10',
+                    'zona': 'Chapinero',
+                    'penalizacion': {'aplicada': false, 'monto': 0},
+                    'calificaciones': {},
+                    'creadaEn': '2026-10-28T10:00:00Z',
+                  },
+                ],
+                'total': 1,
+              }),
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+          if (req.method == 'GET' && path.endsWith('/allies/me/history')) {
+            return http.Response(
+              jsonEncode({
+                'trabajos': [
+                  {
+                    'id': 'sol-1',
+                    'estado': 'CERRADA',
+                    'categoriaId': 'cat-1',
+                    'categoria': 'Plomería',
+                    'descripcion': 'Fuga de agua',
+                    'direccion': 'Calle 10',
+                    'zona': 'Chapinero',
+                    'cliente': {'id': 'cli-1', 'nombre': 'Cliente Uno'},
+                    'calificaciones': {},
+                    'creadaEn': '2026-10-28T10:00:00Z',
+                  },
+                ],
+                'total': 1,
+              }),
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+          return http.Response(jsonEncode({'error': 'no'}), 404);
+        });
+
+        final gateway = GatewayClient(
+          baseUrl: 'http://localhost',
+          tokenProvider: () async => 'jwt-test',
+          httpClient: client,
+          maxRetries: 0,
+        );
+        final ds = GatewayFuenteModuloM08(gateway);
+
+        final reg = await ds.registrarCalificacion(
+          solicitudId: 'sol-1',
+          puntaje: 5,
+          comentario: 'Muy bien',
+        );
+        expect(reg.clienteAAliado?.puntaje, 5);
+        expect(reg.cierre.etiquetaEstadoCierre, contains('aliado'));
+
+        final obt = await ds.obtenerCalificaciones('sol-1');
+        expect(obt.cierre.cierreCompleto, isTrue);
+
+        final cer = await ds.cerrarSolicitud('sol-1');
+        expect(cer.cerrada, isTrue);
+
+        final aliados = await ds.listarCalificacionesAliados(
+          categoriaId: 'cat-1',
+          zonaId: 'zon-1',
+        );
+        expect(aliados.first.textoVisible, '★ 4.9 (8)');
+        expect(aliados.last.textoVisible, 'Sin valorar');
+
+        final prev = await ds.previsualizarCancelacion('sol-1');
+        expect(prev.aplicaPenalizacion, isTrue);
+        expect(prev.montoPenalizacion, 15000);
+
+        final histC = await ds.listarHistorialCliente();
+        expect(histC.single.id, 'sol-1');
+
+        final histA = await ds.listarHistorialAliado();
+        expect(histA.single.nombreContraparte, 'Cliente Uno');
+
+        final seg = SolicitudSeguimiento.fromJson({
+          'id': 'sol-seg-1',
+          'estado': 'CANCELADA',
+          'categoria': 'Plomería',
+          'zonaDeclarada': {'nombre': 'Chapinero', 'nivel': 'LOCALIDAD'},
+          'creadaEn': '2026-10-28T10:00:00Z',
+          'actualizadaEn': '2026-10-28T11:00:00Z',
+          'penalizacion': {
+            'aplicada': true,
+            'monto': 20000,
+            'motivo': 'Cancelación tardía',
+          },
+        });
+        expect(seg.penalizacionAplicada, isTrue);
+        expect(seg.penalizacionMonto, 20000);
+        expect(seg.penalizacionMotivo, 'Cancelación tardía');
       },
     );
   });
