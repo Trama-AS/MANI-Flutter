@@ -8,6 +8,7 @@ import 'package:mani/features/services/requests/domain/failures/solicitud_failur
 import 'package:mani/features/services/tracking/presentation/mis_solicitudes_page.dart'
     show formatearFecha;
 
+import '../data/cola_eventos.dart';
 import '../data/eventos_datasource.dart';
 import 'eventos_cubit.dart';
 
@@ -18,6 +19,9 @@ import 'eventos_cubit.dart';
 /// - Cliente (US-04.3.3 / SCRUM-870): la consulta en solo lectura.
 ///
 /// En los eventos con foto, «Ver foto» pide a Core una URL temporal y la abre.
+///
+/// Sin conexión (SCRUM-873), los eventos del aliado que esperan envío se ven
+/// arriba de la bitácora como «Pendiente de enviar», con la hora de captura.
 class EventosSeccion extends StatelessWidget {
   const EventosSeccion({
     super.key,
@@ -68,6 +72,7 @@ class EventosSeccion extends StatelessWidget {
                     enviando: state.enviando,
                     selectorFotos: selectorFotos!,
                   ),
+                if (state.pendientes.isNotEmpty) _Pendientes(state.pendientes),
                 if (state.cargando && state.eventos.isEmpty)
                   const LinearProgressIndicator()
                 else if (state.error != null && state.eventos.isEmpty)
@@ -125,7 +130,13 @@ class _Evento extends StatelessWidget {
       subtitle: Text(
         [
           if ((e.descripcion ?? '').trim().isNotEmpty) e.descripcion!.trim(),
-          formatearFecha(e.registradoEn),
+          // La hora de captura es la oficial (SCRUM-873); si el evento llegó
+          // después, también se muestra cuándo lo recibió Core.
+          if (e.llegoTarde)
+            'Tomado: ${formatearFecha(e.ocurridoEn)} · '
+                'Enviado: ${formatearFecha(e.registradoEn)}'
+          else
+            formatearFecha(e.ocurridoEn),
         ].join('\n'),
       ),
       trailing: e.tieneEvidencia
@@ -135,6 +146,70 @@ class _Evento extends StatelessWidget {
               child: const Text('Ver foto'),
             )
           : null,
+    );
+  }
+}
+
+class _Pendientes extends StatelessWidget {
+  const _Pendientes(this.pendientes);
+
+  final List<EventoPendiente> pendientes;
+
+  @override
+  Widget build(BuildContext context) {
+    final colores = Theme.of(context).colorScheme;
+    return Container(
+      key: const Key('eventos-pendientes'),
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: colores.secondaryContainer,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.cloud_off_outlined,
+                color: colores.onSecondaryContainer,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  pendientes.length == 1
+                      ? '1 evento pendiente de enviar'
+                      : '${pendientes.length} eventos pendientes de enviar',
+                  style: TextStyle(color: colores.onSecondaryContainer),
+                ),
+              ),
+              TextButton(
+                key: const Key('btn-enviar-pendientes'),
+                onPressed: context.read<EventosCubit>().sincronizar,
+                child: const Text('Enviar ahora'),
+              ),
+            ],
+          ),
+          for (final e in pendientes)
+            ListTile(
+              key: Key('pendiente-${e.clave}'),
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(
+                e.foto != null
+                    ? Icons.photo_camera_outlined
+                    : Icons.schedule_outlined,
+                size: 20,
+              ),
+              title: Text('${e.tipo.etiqueta} · Pendiente de enviar'),
+              subtitle: Text(
+                '${e.observacion}\nTomado: '
+                '${formatearFecha(e.ocurridoEn.toLocal())}',
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

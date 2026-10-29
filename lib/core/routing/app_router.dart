@@ -47,6 +47,7 @@ import 'package:mani/features/services/additions/presentation/adiciones_cubit.da
 import 'package:mani/features/services/additions/presentation/adiciones_seccion.dart';
 import 'package:mani/features/services/execution/presentation/ejecucion_cubit.dart';
 import 'package:mani/features/services/execution/presentation/ejecucion_seccion.dart';
+import 'package:mani/features/services/events/data/cola_eventos.dart';
 import 'package:mani/features/services/events/presentation/eventos_cubit.dart';
 import 'package:mani/features/services/events/presentation/eventos_seccion.dart';
 import 'package:mani/features/profiles/site_rules/presentation/bloc/reglas_sitio_cubit.dart';
@@ -102,8 +103,8 @@ Widget _pantallaChat(String solicitudId) => BlocProvider(
 );
 
 /// Pantalla del servicio de una solicitud: la cotización (SCRUM-865 y 867), la
-/// ejecución (SCRUM-868), las adiciones (SCRUM-872) y la bitácora (SCRUM-869 y
-/// 870). Cada parte tiene su Cubit y consulta a Core por su lado.
+/// ejecución (SCRUM-868), las adiciones (SCRUM-872) y la bitácora (SCRUM-869,
+/// 870 y 873). Cada parte tiene su Cubit y consulta a Core por su lado.
 Widget _pantallaServicio(
   String solicitudId, {
   required bool esAliado,
@@ -112,7 +113,16 @@ Widget _pantallaServicio(
     BlocProvider(create: (_) => CotizacionCubit(sl(), solicitudId)..cargar()),
     BlocProvider(create: (_) => EjecucionCubit(sl(), solicitudId)..cargar()),
     BlocProvider(create: (_) => AdicionesCubit(sl(), solicitudId)..cargar()),
-    BlocProvider(create: (_) => EventosCubit(sl(), solicitudId)..cargar()),
+    BlocProvider(
+      create: (_) => EventosCubit(
+        sl(),
+        solicitudId,
+        // Solo el aliado registra eventos, y solo él los deja en la cola sin
+        // conexión (SCRUM-873).
+        cola: esAliado && sl.isRegistered<ColaEventos>() ? sl() : null,
+        usuarioActual: () => sl<SupabaseClient>().auth.currentUser?.id,
+      )..cargar(),
+    ),
   ],
   child: Builder(
     builder: (context) => CotizacionPage(

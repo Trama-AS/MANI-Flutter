@@ -64,6 +64,7 @@ class _FuenteFake implements FuenteEventos {
     required String observacion,
     required String claveIdempotencia,
     FotoAdjunta? foto,
+    DateTime? ocurridoEn,
   }) async {
     claves.add(claveIdempotencia);
     if (falloRegistrar != null) throw falloRegistrar!;
@@ -174,6 +175,32 @@ void main() {
         expect(e.tieneEvidencia, isTrue);
       },
     );
+
+    test('SCRUM-873: un evento de la cola envía su hora de captura en UTC y la '
+        'respuesta trae las dos horas', () async {
+      responder = (_) => http.Response(
+        jsonEncode({
+          'evento': {
+            ..._eventoJson('e1', 'EJECUCION_AVANCE'),
+            'ocurridoEn': '2026-10-27T15:10:00Z',
+          },
+        }),
+        201,
+        headers: _json,
+      );
+      final e = await fuente().registrar(
+        'sol-1',
+        tipo: TipoEventoAliado.avance,
+        observacion: 'Sin señal',
+        claveIdempotencia: 'clave-1',
+        ocurridoEn: DateTime.utc(2026, 10, 27, 15, 10, 0, 120),
+      );
+      final r = peticiones.single as http.MultipartRequest;
+      expect(r.fields['ocurridoEn'], '2026-10-27T15:10:00.120Z');
+      expect(e.ocurridoEn, DateTime.utc(2026, 10, 27, 15, 10).toLocal());
+      expect(e.registradoEn, DateTime.utc(2026, 10, 27, 16).toLocal());
+      expect(e.llegoTarde, isTrue);
+    });
 
     test(
       'un 503 se reintenta con la misma clave: el registro es idempotente',
