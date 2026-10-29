@@ -7,10 +7,7 @@ import 'calificacion_cierre_cubit.dart';
 /// Sección de calificación bidireccional (SCRUM-874 y SCRUM-875) y cierre
 /// condicionado (SCRUM-1418).
 class CalificacionCierreSeccion extends StatefulWidget {
-  const CalificacionCierreSeccion({
-    super.key,
-    required this.esAliado,
-  });
+  const CalificacionCierreSeccion({super.key, required this.esAliado});
 
   /// `false` cuando califica el cliente (SCRUM-874); `true` cuando califica el
   /// aliado (SCRUM-875).
@@ -234,10 +231,7 @@ class HistorialServiciosPage extends StatelessWidget {
 }
 
 class _TarjetaHistorialItem extends StatelessWidget {
-  const _TarjetaHistorialItem({
-    required this.item,
-    required this.esAliado,
-  });
+  const _TarjetaHistorialItem({required this.item, required this.esAliado});
 
   final RegistroHistorialServicio item;
   final bool esAliado;
@@ -323,4 +317,3 @@ class ResumenPenalizacionCancelacionBanner extends StatelessWidget {
     );
   }
 }
-

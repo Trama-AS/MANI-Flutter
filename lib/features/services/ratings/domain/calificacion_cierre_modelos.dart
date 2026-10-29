@@ -180,8 +180,7 @@ class CalificacionAgregadaAliado extends Equatable {
     final total = (json['totalCalificaciones'] as num?)?.toInt() ?? 0;
     final promedio = (json['calificacionPromedio'] as num?)?.toDouble();
     return CalificacionAgregadaAliado(
-      aliadoId:
-          (json['aliadoId'] as String?) ?? (json['id'] as String?) ?? '',
+      aliadoId: (json['aliadoId'] as String?) ?? (json['id'] as String?) ?? '',
       nombreRazonSocial: (json['nombreRazonSocial'] as String?) ?? '',
       tipo: (json['tipo'] as String?) ?? '',
       estadoVerificacion:
@@ -475,4 +474,3 @@ class ModuloM08Failure implements Exception {
   @override
   String toString() => 'ModuloM08Failure(${tipo.name}, $detalle)';
 }
-

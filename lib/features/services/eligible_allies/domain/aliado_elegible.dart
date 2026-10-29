@@ -44,7 +44,11 @@ class AliadoElegible extends Equatable {
     final total = (json['totalCalificaciones'] as num?)?.toInt() ?? 0;
     final etiquetaCruda = (json['etiquetaCalificacion'] as String?)?.trim();
     return AliadoElegible(
-      id: (json['allyId'] as String?) ?? (json['aliadoId'] as String?) ?? (json['id'] as String?) ?? '',
+      id:
+          (json['allyId'] as String?) ??
+          (json['aliadoId'] as String?) ??
+          (json['id'] as String?) ??
+          '',
       nombre: (json['nombreRazonSocial'] as String?) ?? '',
       tipoCrudo: (json['tipo'] as String?) ?? '',
       posicion: (json['posicion'] as num?)?.toInt(),

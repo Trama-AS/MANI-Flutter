@@ -158,10 +158,8 @@ class _FuenteElegiblesMock implements FuenteElegibles {
   final ListaElegibles lista;
 
   @override
-  Future<ListaElegibles> listar(
-    String solicitudId, {
-    TipoAliado? tipo,
-  }) async => lista;
+  Future<ListaElegibles> listar(String solicitudId, {TipoAliado? tipo}) async =>
+      lista;
 }
 
 void main() {
@@ -170,10 +168,7 @@ void main() {
       'SCRUM-874, SCRUM-875 y SCRUM-1418: flujo bidireccional completo y cierre condicionado',
       (tester) async {
         final fuente = _FuenteModuloM08EnMemoria(rolActual: 'CLIENT');
-        final cubit = CalificacionCierreCubit(
-          fuente,
-          solicitudId: 'sol-1001',
-        );
+        final cubit = CalificacionCierreCubit(fuente, solicitudId: 'sol-1001');
         await cubit.cargar();
 
         await tester.pumpWidget(
@@ -193,10 +188,7 @@ void main() {
         // 1. Sin ambas calificaciones, verificar cierre definitivo informa error (SCRUM-1418 C2)
         await tester.tap(find.byKey(const Key('m08-cerrar-solicitud-btn')));
         await tester.pumpAndSettle();
-        expect(
-          find.byKey(const Key('m08-calificacion-error')),
-          findsOneWidget,
-        );
+        expect(find.byKey(const Key('m08-calificacion-error')), findsOneWidget);
         expect(
           find.textContaining('no puede declararse cerrado'),
           findsOneWidget,
@@ -205,10 +197,7 @@ void main() {
         // 2. Puntaje inválido (0 estrellas seleccionadas) es rechazado (SCRUM-874 C3)
         await tester.tap(find.byKey(const Key('m08-enviar-calificacion-btn')));
         await tester.pumpAndSettle();
-        expect(
-          find.textContaining('entre 1 y 5 estrellas'),
-          findsOneWidget,
-        );
+        expect(find.textContaining('entre 1 y 5 estrellas'), findsOneWidget);
 
         // 3. Cliente selecciona 5 estrellas y comentario y envía (SCRUM-874 C1)
         await tester.tap(find.byKey(const Key('m08-estrella-5')));
@@ -248,10 +237,7 @@ void main() {
         // 5. Intento de doble calificación del aliado es rechazado con 409 (SCRUM-875 C2)
         final duplicada = await cubit.calificar(puntaje: 5);
         expect(duplicada, isFalse);
-        expect(
-          cubit.state.error,
-          contains('Ya registraste tu calificación'),
-        );
+        expect(cubit.state.error, contains('Ya registraste tu calificación'));
       },
     );
 
@@ -497,4 +483,3 @@ void main() {
     );
   });
 }
-

@@ -20,13 +20,7 @@ class CalificacionCierreState extends Equatable {
   final String? mensajeExito;
 
   @override
-  List<Object?> get props => [
-    cargando,
-    enviando,
-    resumen,
-    error,
-    mensajeExito,
-  ];
+  List<Object?> get props => [cargando, enviando, resumen, error, mensajeExito];
 }
 
 /// Estado de calificación bidireccional y cierre condicionado (SCRUM-874,
@@ -181,12 +175,7 @@ class HistorialServiciosCubit extends Cubit<HistorialServiciosState> {
   final bool esAliado;
 
   Future<void> cargar() async {
-    emit(
-      HistorialServiciosState(
-        cargando: true,
-        registros: state.registros,
-      ),
-    );
+    emit(HistorialServiciosState(cargando: true, registros: state.registros));
     try {
       final registros = esAliado
           ? await _fuente.listarHistorialAliado()
@@ -214,4 +203,3 @@ class HistorialServiciosCubit extends Cubit<HistorialServiciosState> {
     }
   }
 }
-

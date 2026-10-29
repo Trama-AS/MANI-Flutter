@@ -49,7 +49,8 @@ class GatewayFuenteModuloM08 implements FuenteModuloM08 {
   static String rutaCerrarSolicitud(String solicitudId) =>
       '/api/v1/core/solicitudes/${Uri.encodeComponent(solicitudId)}/cerrar';
 
-  static const rutaCalificacionesAliados = '/api/v1/core/aliados/calificaciones';
+  static const rutaCalificacionesAliados =
+      '/api/v1/core/aliados/calificaciones';
 
   static String rutaPreviewCancelacion(String solicitudId) =>
       '/api/v1/core/solicitudes/me/${Uri.encodeComponent(solicitudId)}/cancelacion-preview';
@@ -66,14 +67,12 @@ class GatewayFuenteModuloM08 implements FuenteModuloM08 {
     String? comentario,
   }) async {
     try {
-      final res = await _gateway.postJson(
-        rutaCalificacionesSolicitud(solicitudId),
-        {
-          'puntaje': puntaje,
-          if (comentario != null && comentario.trim().isNotEmpty)
-            'comentario': comentario.trim(),
-        },
-      );
+      final res = await _gateway
+          .postJson(rutaCalificacionesSolicitud(solicitudId), {
+            'puntaje': puntaje,
+            if (comentario != null && comentario.trim().isNotEmpty)
+              'comentario': comentario.trim(),
+          });
       final califRaw = res['calificacion'];
       final cierreRaw = res['cierre'];
       if (califRaw is! Map || cierreRaw is! Map) {
@@ -138,8 +137,7 @@ class GatewayFuenteModuloM08 implements FuenteModuloM08 {
       final query = <String, String>{
         if (categoriaId != null && categoriaId.trim().isNotEmpty)
           'categoriaId': categoriaId.trim(),
-        if (zonaId != null && zonaId.trim().isNotEmpty)
-          'zonaId': zonaId.trim(),
+        if (zonaId != null && zonaId.trim().isNotEmpty) 'zonaId': zonaId.trim(),
       };
       final ruta = query.isEmpty
           ? rutaCalificacionesAliados
@@ -283,4 +281,3 @@ class GatewayFuenteModuloM08 implements FuenteModuloM08 {
     return ModuloM08Failure(ModuloM08ErrorTipo.desconocido, e.message);
   }
 }
-
