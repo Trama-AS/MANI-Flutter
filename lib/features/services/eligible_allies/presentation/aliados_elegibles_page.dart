@@ -150,6 +150,11 @@ class _TarjetaAliado extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(aliado.etiquetaTipo),
+            Text(
+              aliado.textoCalificacionAgregada,
+              key: Key('elegible-calificacion-${aliado.id}'),
+              style: tema.bodySmall,
+            ),
             if (puesto != null)
               for (final r in aliado.razones)
                 Text('• $r', style: tema.bodySmall),

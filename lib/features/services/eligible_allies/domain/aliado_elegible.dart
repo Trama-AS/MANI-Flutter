@@ -33,12 +33,22 @@ class AliadoElegible extends Equatable {
     this.posicion,
     this.puntaje,
     this.razones = const [],
+    this.calificacionPromedio,
+    this.totalCalificaciones = 0,
+    this.etiquetaCalificacion,
   });
 
   factory AliadoElegible.fromJson(Map<String, dynamic> json) {
     final razones = json['razones'];
+    final promedio = (json['calificacionPromedio'] as num?)?.toDouble();
+    final total = (json['totalCalificaciones'] as num?)?.toInt() ?? 0;
+    final etiquetaCruda = (json['etiquetaCalificacion'] as String?)?.trim();
     return AliadoElegible(
-      id: json['allyId'] as String,
+      id:
+          (json['allyId'] as String?) ??
+          (json['aliadoId'] as String?) ??
+          (json['id'] as String?) ??
+          '',
       nombre: (json['nombreRazonSocial'] as String?) ?? '',
       tipoCrudo: (json['tipo'] as String?) ?? '',
       posicion: (json['posicion'] as num?)?.toInt(),
@@ -46,6 +56,11 @@ class AliadoElegible extends Equatable {
       razones: razones is List
           ? razones.whereType<String>().toList(growable: false)
           : const [],
+      calificacionPromedio: total > 0 ? promedio : null,
+      totalCalificaciones: total < 0 ? 0 : total,
+      etiquetaCalificacion: etiquetaCruda != null && etiquetaCruda.isNotEmpty
+          ? etiquetaCruda
+          : null,
     );
   }
 
@@ -55,11 +70,26 @@ class AliadoElegible extends Equatable {
   final int? posicion;
   final double? puntaje;
   final List<String> razones;
+  final double? calificacionPromedio;
+  final int totalCalificaciones;
+  final String? etiquetaCalificacion;
 
   TipoAliado? get tipo => TipoAliado.desde(tipoCrudo);
 
   /// Texto del tipo; si la app no lo conoce, el valor que envió Dispatch.
   String get etiquetaTipo => tipo?.etiqueta ?? tipoCrudo;
+
+  /// SCRUM-876 (C1/C2): un aliado sin calificaciones muestra «Sin valorar»
+  /// (nunca un `0.0` engañoso); con calificaciones muestra promedio y total.
+  bool get tieneCalificaciones =>
+      totalCalificaciones > 0 && calificacionPromedio != null;
+
+  String get textoCalificacionAgregada {
+    if (!tieneCalificaciones) {
+      return etiquetaCalificacion ?? 'Sin valorar';
+    }
+    return '★ ${calificacionPromedio!.toStringAsFixed(1)} ($totalCalificaciones)';
+  }
 
   @override
   List<Object?> get props => [
@@ -69,6 +99,9 @@ class AliadoElegible extends Equatable {
     posicion,
     puntaje,
     razones,
+    calificacionPromedio,
+    totalCalificaciones,
+    etiquetaCalificacion,
   ];
 }
 
