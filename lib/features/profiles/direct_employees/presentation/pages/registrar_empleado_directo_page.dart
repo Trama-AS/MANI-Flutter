@@ -2,14 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:mani/core/di/injection_container.dart';
+import 'package:mani/core/platform/selector_documento.dart';
 import 'package:mani/core/theme/app_theme.dart';
+import 'package:mani/features/profiles/direct_employees/domain/entities/empleado_directo.dart';
 import 'package:mani/features/profiles/direct_employees/presentation/bloc/empleado_directo_cubit.dart';
 import 'package:mani/features/services/categories/data/datasources/categorias_remote_datasource.dart';
 
 /// Pantalla de administración del Tenant para registrar empleados directos
-/// que quedan con estado `VERIFICADO` inmediato sin pasar por cola KYC (US-02.1.5 / SCRUM-850).
+/// que quedan con estado `VERIFICADO` inmediato sin pasar por cola KYC (US-02.1.5 / SCRUM-850 / SCRUM-1376).
+/// Datos obligatorios (PO, 26-oct): nombre, tipo y número de documento, correo, teléfono, categorías y la copia del
+/// documento de identidad (PDF, JPG o PNG, hasta 5 MB).
 class RegistrarEmpleadoDirectoPage extends StatefulWidget {
-  const RegistrarEmpleadoDirectoPage({super.key, this.categoriasDisponibles});
+  const RegistrarEmpleadoDirectoPage({
+    super.key,
+    this.categoriasDisponibles,
+    this.selectorDocumento = const FilePickerSelectorDocumento(),
+  });
+
+  /// Selector de la copia del documento; se inyecta en las pruebas.
+  final SelectorDocumento selectorDocumento;
 
   /// Categorías a mostrar (id -> nombre). Si es `null`, se cargan las
   /// categorías activas del catálogo del tenant de la sesión
@@ -29,6 +40,11 @@ class _RegistrarEmpleadoDirectoPageState
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _telefonoController = TextEditingController();
+  final _numeroDocumentoController = TextEditingController();
+
+  String? _tipoDocumento;
+  DocumentoIdentidad? _documento;
+  String? _errorDocumento;
 
   final Set<String> _categoriasSeleccionadas = {};
   late Future<Map<String, String>> _categorias = _cargarCategorias();
@@ -50,16 +66,51 @@ class _RegistrarEmpleadoDirectoPageState
     _emailController.dispose();
     _passwordController.dispose();
     _telefonoController.dispose();
+    _numeroDocumentoController.dispose();
     super.dispose();
   }
 
+  Future<void> _elegirDocumento() async {
+    try {
+      final archivo = await widget.selectorDocumento.seleccionar();
+      if (archivo == null || !mounted) return;
+      final doc = DocumentoIdentidad(
+        nombre: archivo.nombre,
+        bytes: archivo.bytes,
+      );
+      setState(() {
+        _documento = doc;
+        _errorDocumento = _validarDocumento(doc);
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _errorDocumento = 'No pudimos leer el archivo elegido.');
+    }
+  }
+
+  String? _validarDocumento(DocumentoIdentidad? doc) {
+    if (doc == null) return 'Adjunta la copia del documento de identidad';
+    if (doc.tipoContenido == null) return 'Debe ser PDF, JPG o PNG';
+    if (doc.bytes.isEmpty) return 'El archivo está vacío';
+    if (doc.bytes.length > maxBytesDocumentoIdentidad) {
+      return 'El archivo no puede superar 5 MB';
+    }
+    return null;
+  }
+
   void _enviar() {
-    if (!(_formKey.currentState?.validate() ?? false)) return;
+    final formularioValido = _formKey.currentState?.validate() ?? false;
+    final errorDocumento = _validarDocumento(_documento);
+    setState(() => _errorDocumento = errorDocumento);
+    if (!formularioValido || errorDocumento != null) return;
     context.read<EmpleadoDirectoCubit>().registrar(
       email: _emailController.text,
       password: _passwordController.text,
       nombreCompleto: _nombreController.text,
       telefono: _telefonoController.text,
+      tipoDocumento: _tipoDocumento!,
+      numeroDocumento: _numeroDocumentoController.text,
+      documento: _documento!,
       categoriaIds: _categoriasSeleccionadas.toList(),
     );
   }
@@ -152,7 +203,7 @@ class _RegistrarEmpleadoDirectoPageState
                   ),
                 ),
                 Text(
-                  'Los empleados directos creados por el administrador del tenant no pasan por la bandeja de revisión KYC y quedan habilitados de inmediato para recibir servicios.',
+                  'Los empleados directos creados por el administrador del tenant no pasan por la bandeja de verificación: quedan habilitados de inmediato, con la copia de su documento de identidad como único documento.',
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -250,10 +301,65 @@ class _RegistrarEmpleadoDirectoPageState
           TextFormField(
             key: const Key('input_telefono_empleado_directo'),
             controller: _telefonoController,
+            keyboardType: TextInputType.phone,
             decoration: const InputDecoration(
-              labelText: 'Teléfono de contacto (opcional)',
+              labelText: 'Teléfono de contacto',
+            ),
+            validator: (v) => (v == null || v.trim().length < 7)
+                ? 'El teléfono es obligatorio'
+                : null,
+          ),
+          const SizedBox(height: 14),
+          DropdownButtonFormField<String>(
+            key: const Key('input_tipo_documento_empleado_directo'),
+            initialValue: _tipoDocumento,
+            decoration: const InputDecoration(
+              labelText: 'Tipo de documento de identidad',
+            ),
+            items: const [
+              DropdownMenuItem(
+                value: 'CC',
+                child: Text('Cédula de ciudadanía'),
+              ),
+              DropdownMenuItem(
+                value: 'CE',
+                child: Text('Cédula de extranjería'),
+              ),
+              DropdownMenuItem(value: 'PASSPORT', child: Text('Pasaporte')),
+            ],
+            onChanged: (v) => setState(() => _tipoDocumento = v),
+            validator: (v) =>
+                v == null ? 'Selecciona el tipo de documento' : null,
+          ),
+          const SizedBox(height: 14),
+          TextFormField(
+            key: const Key('input_numero_documento_empleado_directo'),
+            controller: _numeroDocumentoController,
+            decoration: const InputDecoration(labelText: 'Número de documento'),
+            validator: (v) => (v == null || v.trim().isEmpty)
+                ? 'El número de documento es obligatorio'
+                : null,
+          ),
+          const SizedBox(height: 14),
+          OutlinedButton.icon(
+            key: const Key('btn_adjuntar_documento_empleado_directo'),
+            onPressed: _elegirDocumento,
+            icon: const Icon(Icons.attach_file_rounded),
+            label: Text(
+              _documento == null
+                  ? 'Adjuntar copia del documento (PDF, JPG o PNG, máx. 5 MB)'
+                  : _documento!.nombre,
             ),
           ),
+          if (_errorDocumento != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                _errorDocumento!,
+                key: const Key('error_documento_empleado_directo'),
+                style: const TextStyle(color: AppTheme.error, fontSize: 12),
+              ),
+            ),
           const SizedBox(height: 20),
           Text(
             'Categorías Operativas Asignadas',
