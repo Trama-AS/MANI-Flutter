@@ -75,6 +75,8 @@ import 'package:mani/features/profiles/direct_employees/presentation/bloc/emplea
 import 'package:mani/features/services/quotes/data/cotizaciones_datasource.dart';
 import 'package:mani/features/services/additions/data/adiciones_datasource.dart';
 import 'package:mani/features/services/execution/data/ejecucion_datasource.dart';
+import 'package:mani/features/services/events/data/almacen_cola_eventos.dart';
+import 'package:mani/features/services/events/data/cola_eventos.dart';
 import 'package:mani/features/services/events/data/eventos_datasource.dart';
 import 'package:mani/core/session/tenant_sesion.dart';
 
@@ -279,6 +281,20 @@ Future<void> init() async {
   sl.registerLazySingleton<FuenteAdiciones>(() => GatewayFuenteAdiciones(sl()));
   // Bitácora del servicio (US-04.3.2 / SCRUM-869), en la misma pantalla.
   sl.registerLazySingleton<FuenteEventos>(() => GatewayFuenteEventos(sl()));
+  // Cola de eventos sin conexión (US-04.3.6 / SCRUM-873), solo en el móvil.
+  // Es del usuario de la sesión: se borra al cerrarla, también cuando la
+  // cierra el vencimiento del token (decisión del PO).
+  sl.registerLazySingleton<ColaEventos>(() {
+    final auth = sl<SupabaseClient>().auth;
+    final cola = ColaEventos(
+      crearAlmacenColaEventos(),
+      usuarioActual: () => auth.currentUser?.id,
+    );
+    auth.onAuthStateChange.listen((cambio) {
+      if (cambio.event == AuthChangeEvent.signedOut) cola.vaciar();
+    });
+    return cola;
+  });
 
   // Features - Services / Requests: crear solicitud (US-04.1.1)
   sl.registerFactory(
