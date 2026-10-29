@@ -804,5 +804,212 @@ void main() {
         expect(seg.penalizacionMotivo, 'Cancelación tardía');
       },
     );
+
+    test(
+      'Modelos y Cubits M-08 cubren igualdad Equatable, validaciones y ramas de error',
+      () async {
+        // 1. Igualdad Equatable y getters de todos los modelos M-08
+        final cal1 = CalificacionServicio.fromJson(const {
+          'id': 'c-1',
+          'solicitudId': 's-1',
+          'autorId': 'u-1',
+          'destinatarioId': 'u-2',
+          'rolAutor': 'CLIENT',
+          'puntaje': 5,
+          'comentario': 'Excelente',
+          'creadaEn': '2026-10-28T10:00:00Z',
+        });
+        final cal2 = CalificacionServicio.fromJson(const {
+          'id': 'c-1',
+          'solicitudId': 's-1',
+          'autorId': 'u-1',
+          'destinatarioId': 'u-2',
+          'rolAutor': 'CLIENT',
+          'puntaje': 5,
+          'comentario': 'Excelente',
+          'creadaEn': '2026-10-28T10:00:00Z',
+        });
+        expect(cal1, equals(cal2));
+        expect(cal1.esDeCliente, isTrue);
+        expect(cal1.esDeAliado, isFalse);
+
+        final cierreAmbosPend = EstadoCierreSolicitud.fromJson(const {
+          'cerrada': false,
+          'tieneCalificacionCliente': false,
+          'tieneCalificacionAliado': false,
+        });
+        final cierreClientePend = EstadoCierreSolicitud.fromJson(const {
+          'cerrada': false,
+          'tieneCalificacionCliente': false,
+          'tieneCalificacionAliado': true,
+        });
+        final cierreAliadoPend = EstadoCierreSolicitud.fromJson(const {
+          'cerrada': false,
+          'tieneCalificacionCliente': true,
+          'tieneCalificacionAliado': false,
+        });
+        expect(
+          cierreAmbosPend.etiquetaEstadoCierre,
+          'Pendiente de calificación de cliente y aliado',
+        );
+        expect(
+          cierreClientePend.etiquetaEstadoCierre,
+          'Pendiente de calificación del cliente',
+        );
+        expect(
+          cierreAliadoPend.etiquetaEstadoCierre,
+          'Pendiente de calificación del aliado',
+        );
+        expect(cierreAmbosPend.props, isNotEmpty);
+
+        final res1 = ResumenCalificacionesSolicitud(
+          solicitudId: 's-1',
+          estado: 'COMPLETADA',
+          cierre: cierreAmbosPend,
+          clienteAAliado: cal1,
+        );
+        expect(res1.props, isNotEmpty);
+
+        final agr1 = CalificacionAgregadaAliado.fromJson(const {
+          'id': 'a-1',
+          'nombreRazonSocial': 'Aliado',
+          'tipo': 'PERSONA_NATURAL',
+          'totalCalificaciones': -2,
+        });
+        expect(agr1.totalCalificaciones, 0);
+        expect(agr1.textoVisible, 'Sin valorar');
+        expect(agr1.props, isNotEmpty);
+
+        final prev1 = VistaPreviaPenalizacion.fromJson(const {
+          'solicitudId': 's-1',
+          'estadoActual': 'PUBLICADA',
+          'cancelable': true,
+        });
+        expect(prev1.resumenUsuario, contains('\$0'));
+        expect(prev1.props, isNotEmpty);
+
+        final reg1 = RegistroHistorialServicio.desdeHistorialCliente(const {
+          'id': 's-1',
+          'estado': 'CERRADA',
+          'cerradaEn': '2026-10-28T12:00:00Z',
+        });
+        expect(reg1.props, isNotEmpty);
+
+        for (final tipo in ModuloM08ErrorTipo.values) {
+          final f = ModuloM08Failure(tipo);
+          expect(f.mensajeUsuario, isNotEmpty);
+          expect(f.toString(), contains(tipo.name));
+        }
+
+        // 2. Cubits en escenarios de validación y fallo (ModuloM08Failure y Exception genérica)
+        final fuenteFallaM08 = _FuenteConError(
+          const ModuloM08Failure(ModuloM08ErrorTipo.cierreIncompleto),
+        );
+        final cubitFalla = CalificacionCierreCubit(
+          fuenteFallaM08,
+          solicitudId: 's-1',
+        );
+        expect(await cubitFalla.calificar(puntaje: 0), isFalse);
+        expect(cubitFalla.state.error, contains('1 y 5'));
+
+        expect(
+          await cubitFalla.calificar(puntaje: 5, comentario: 'x' * 501),
+          isFalse,
+        );
+        expect(cubitFalla.state.error, contains('500 caracteres'));
+
+        await cubitFalla.cargar();
+        expect(cubitFalla.state.error, isNotNull);
+
+        expect(await cubitFalla.calificar(puntaje: 5), isFalse);
+        expect(await cubitFalla.cerrarSolicitud(), isFalse);
+        expect(cubitFalla.state.props, isNotEmpty);
+        await cubitFalla.close();
+
+        final fuenteExcepcion = _FuenteConError(Exception('red caida'));
+        final cubitExc = CalificacionCierreCubit(
+          fuenteExcepcion,
+          solicitudId: 's-1',
+        );
+        await cubitExc.cargar();
+        expect(cubitExc.state.error, isNotNull);
+        expect(await cubitExc.calificar(puntaje: 4), isFalse);
+        await cubitExc.close();
+
+        final fuenteOk = _FuenteModuloM08EnMemoria(rolActual: 'CLIENT');
+        await fuenteOk.registrarCalificacion(
+          solicitudId: 'sol-100',
+          puntaje: 5,
+        );
+        fuenteOk.rolActual = 'ALLY';
+        await fuenteOk.registrarCalificacion(
+          solicitudId: 'sol-100',
+          puntaje: 5,
+        );
+        final cubitCerrarOk = CalificacionCierreCubit(
+          fuenteOk,
+          solicitudId: 'sol-100',
+        );
+        expect(await cubitCerrarOk.cerrarSolicitud(), isTrue);
+        await cubitCerrarOk.close();
+
+        final histCubitFalla = HistorialServiciosCubit(
+          fuenteFallaM08,
+          esAliado: true,
+        );
+        await histCubitFalla.cargar();
+        expect(histCubitFalla.state.error, isNotNull);
+        expect(histCubitFalla.state.props, isNotEmpty);
+        await histCubitFalla.close();
+
+        final histCubitExc = HistorialServiciosCubit(
+          fuenteExcepcion,
+          esAliado: false,
+        );
+        await histCubitExc.cargar();
+        expect(histCubitExc.state.error, isNotNull);
+        await histCubitExc.close();
+      },
+    );
   });
+}
+
+class _FuenteConError implements FuenteModuloM08 {
+  _FuenteConError(this.error);
+  final Object error;
+
+  @override
+  Future<EstadoCierreSolicitud> cerrarSolicitud(String solicitudId) =>
+      Future.error(error);
+
+  @override
+  Future<List<CalificacionAgregadaAliado>> listarCalificacionesAliados({
+    String? categoriaId,
+    String? zonaId,
+  }) => Future.error(error);
+
+  @override
+  Future<List<RegistroHistorialServicio>> listarHistorialAliado() =>
+      Future.error(error);
+
+  @override
+  Future<List<RegistroHistorialServicio>> listarHistorialCliente() =>
+      Future.error(error);
+
+  @override
+  Future<ResumenCalificacionesSolicitud> obtenerCalificaciones(
+    String solicitudId,
+  ) => Future.error(error);
+
+  @override
+  Future<VistaPreviaPenalizacion> previsualizarCancelacion(
+    String solicitudId,
+  ) => Future.error(error);
+
+  @override
+  Future<ResumenCalificacionesSolicitud> registrarCalificacion({
+    required String solicitudId,
+    required int puntaje,
+    String? comentario,
+  }) => Future.error(error);
 }
