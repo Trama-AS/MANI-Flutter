@@ -47,11 +47,17 @@ class SolicitudSeguimiento extends Equatable {
     required this.actualizadaEn,
     this.zonaPadre,
     this.creadaEn,
+    this.penalizacionAplicada = false,
+    this.penalizacionMonto = 0,
+    this.penalizacionMotivo,
   });
 
   factory SolicitudSeguimiento.fromJson(Map<String, dynamic> json) {
     final zona = json['zonaDeclarada'] is Map
         ? Map<String, dynamic>.from(json['zonaDeclarada'] as Map)
+        : const <String, dynamic>{};
+    final penalizacion = json['penalizacion'] is Map
+        ? Map<String, dynamic>.from(json['penalizacion'] as Map)
         : const <String, dynamic>{};
     return SolicitudSeguimiento(
       id: json['id'] as String,
@@ -64,6 +70,9 @@ class SolicitudSeguimiento extends Equatable {
           _fecha(json['actualizadaEn']) ??
           _fecha(json['creadaEn']) ??
           DateTime.fromMillisecondsSinceEpoch(0),
+      penalizacionAplicada: penalizacion['aplicada'] == true,
+      penalizacionMonto: (penalizacion['monto'] as num?)?.toDouble() ?? 0,
+      penalizacionMotivo: penalizacion['motivo'] as String?,
     );
   }
 
@@ -74,6 +83,9 @@ class SolicitudSeguimiento extends Equatable {
   final String? zonaPadre;
   final DateTime? creadaEn;
   final DateTime actualizadaEn;
+  final bool penalizacionAplicada;
+  final double penalizacionMonto;
+  final String? penalizacionMotivo;
 
   EstadoSeguimiento get estado => EstadoSeguimiento.desde(estadoCrudo);
 
@@ -118,6 +130,9 @@ class SolicitudSeguimiento extends Equatable {
     zonaPadre,
     creadaEn,
     actualizadaEn,
+    penalizacionAplicada,
+    penalizacionMonto,
+    penalizacionMotivo,
   ];
 }
 
