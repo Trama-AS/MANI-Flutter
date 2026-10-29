@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:mani/core/network/gateway_client.dart';
 import 'package:mani/core/network/gateway_exception.dart';
 import 'package:mani/features/profiles/direct_employees/domain/entities/empleado_directo.dart';
@@ -10,7 +12,7 @@ abstract class IEmpleadosDirectosRemoteDataSource {
 }
 
 /// Datasource HTTP que comunica con Core Node a través del API Gateway
-/// (`POST /api/v1/allies/direct-employees`) para US-02.1.5 (SCRUM-850).
+/// (`POST /api/v1/core/allies/employees`, multipart) para US-02.1.5 (SCRUM-850 / SCRUM-1376).
 /// Cumple ADR-0027: cero acceso directo a PostgREST o Supabase Storage.
 class EmpleadosDirectosRemoteDataSource
     implements IEmpleadosDirectosRemoteDataSource {
@@ -24,21 +26,31 @@ class EmpleadosDirectosRemoteDataSource
   Future<EmpleadoDirectoCreado> registrarEmpleadoDirecto(
     NuevoEmpleadoDirecto nuevoEmpleado,
   ) async {
-    final payload = <String, dynamic>{
+    final nombre = nuevoEmpleado.nombreCompleto.trim();
+    // El Gateway recibe multipart: la copia del documento viaja como archivo y las categorías como lista JSON.
+    final campos = <String, String>{
       'email': nuevoEmpleado.email.trim(),
       'password': nuevoEmpleado.password,
-      'nombreCompleto': nuevoEmpleado.nombreCompleto.trim(),
-      'fullName': nuevoEmpleado.nombreCompleto.trim(),
-      'nombre': nuevoEmpleado.nombreCompleto.trim(),
-      'categoriaIds': nuevoEmpleado.categoriaIds,
-      if (nuevoEmpleado.categoriaIds.isNotEmpty)
-        'categoriaId': nuevoEmpleado.categoriaIds.first,
-      if (nuevoEmpleado.telefono != null &&
-          nuevoEmpleado.telefono!.trim().isNotEmpty)
-        'telefono': nuevoEmpleado.telefono!.trim(),
+      'fullName': nombre,
+      'phone': nuevoEmpleado.telefono.trim(),
+      'documentType': nuevoEmpleado.tipoDocumento,
+      'documentNumber': nuevoEmpleado.numeroDocumento.trim(),
+      'categoriaIds': jsonEncode(nuevoEmpleado.categoriaIds),
     };
+    final documento = nuevoEmpleado.documento;
 
-    final respuesta = await gateway.postJson(rutaEmpleadosDirectos, payload);
+    final respuesta = await gateway.postMultipart(
+      rutaEmpleadosDirectos,
+      campos: campos,
+      archivos: [
+        ArchivoMultipart(
+          campo: 'documento_identidad',
+          nombre: documento.nombre,
+          bytes: documento.bytes,
+          tipoContenido: documento.tipoContenido,
+        ),
+      ],
+    );
     return EmpleadoDirectoCreado.fromJson(respuesta);
   }
 }
