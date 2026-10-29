@@ -17,19 +17,23 @@ enum TipoEventoAliado {
   final String etiqueta;
 }
 
-/// Un evento de la línea de tiempo del servicio. El autor y la hora los pone
-/// Core; la app no envía fechas.
+/// Un evento de la línea de tiempo del servicio. El autor y la hora de
+/// registro los pone Core. Un evento tomado sin conexión trae además la hora
+/// de captura ([ocurridoEn], SCRUM-873), que es la oficial.
 class EventoServicio extends Equatable {
   const EventoServicio({
     required this.id,
     required this.tipo,
     required this.registradoEn,
+    DateTime? ocurridoEn,
     required this.autorRol,
     this.descripcion,
     this.tieneEvidencia = false,
-  });
+  }) : ocurridoEn = ocurridoEn ?? registradoEn;
 
   factory EventoServicio.fromJson(Map<String, dynamic> json) {
+    DateTime? fecha(String campo) =>
+        DateTime.tryParse((json[campo] as String?) ?? '')?.toLocal();
     final autor = json['autor'] is Map
         ? Map<String, dynamic>.from(json['autor'] as Map)
         : const <String, dynamic>{};
@@ -38,10 +42,8 @@ class EventoServicio extends Equatable {
       tipo: (json['tipo'] as String?) ?? '',
       descripcion: json['descripcion'] as String?,
       registradoEn:
-          DateTime.tryParse(
-            (json['registradoEn'] as String?) ?? '',
-          )?.toLocal() ??
-          DateTime.fromMillisecondsSinceEpoch(0),
+          fecha('registradoEn') ?? DateTime.fromMillisecondsSinceEpoch(0),
+      ocurridoEn: fecha('ocurridoEn'),
       autorRol: (autor['rol'] as String?) ?? '',
       tieneEvidencia: json['tieneEvidencia'] == true,
     );
@@ -51,6 +53,13 @@ class EventoServicio extends Equatable {
   final String tipo;
   final String? descripcion;
   final DateTime registradoEn;
+
+  /// Hora de captura: la que se muestra. Igual a [registradoEn] si el evento
+  /// no la trajo.
+  final DateTime ocurridoEn;
+
+  /// Se tomó sin conexión y llegó más de un minuto después.
+  bool get llegoTarde => registradoEn.difference(ocurridoEn).inMinutes >= 1;
   final String autorRol;
   final bool tieneEvidencia;
 
@@ -75,6 +84,7 @@ class EventoServicio extends Equatable {
     tipo,
     descripcion,
     registradoEn,
+    ocurridoEn,
     autorRol,
     tieneEvidencia,
   ];
@@ -89,6 +99,7 @@ abstract interface class FuenteEventos {
     required String observacion,
     required String claveIdempotencia,
     FotoAdjunta? foto,
+    DateTime? ocurridoEn,
   });
 
   /// URL temporal de la foto de un evento (SCRUM-870). Vence en minutos: se
@@ -135,6 +146,7 @@ class GatewayFuenteEventos implements FuenteEventos {
     required String observacion,
     required String claveIdempotencia,
     FotoAdjunta? foto,
+    DateTime? ocurridoEn,
   }) async {
     try {
       final res = await _gateway.postMultipart(
@@ -143,6 +155,10 @@ class GatewayFuenteEventos implements FuenteEventos {
           'tipo': tipo.valor,
           'observacion': observacion,
           'claveIdempotencia': claveIdempotencia,
+          // Solo los eventos de la cola sin conexión (SCRUM-873); en línea la
+          // hora la pone Core, así un reloj desajustado no los rechaza.
+          if (ocurridoEn != null)
+            'ocurridoEn': ocurridoEn.toUtc().toIso8601String(),
         },
         archivos: [
           if (foto != null)

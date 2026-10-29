@@ -145,6 +145,7 @@ class _Eventos implements FuenteEventos {
     required String observacion,
     required String claveIdempotencia,
     FotoAdjunta? foto,
+    DateTime? ocurridoEn,
   }) => throw UnimplementedError();
 
   @override
