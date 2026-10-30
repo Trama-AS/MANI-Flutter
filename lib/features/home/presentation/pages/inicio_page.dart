@@ -122,6 +122,8 @@ class _InicioPageState extends State<InicioPage> {
         return 'Revisa las solicitudes y mantén al día tu cobertura.';
       case RolUsuario.adminTenant:
         return 'Verifica aliados y administra el catálogo de tu empresa.';
+      case RolUsuario.adminPlataforma:
+        return 'Habilita o suspende los tenants de la plataforma.';
       case RolUsuario.desconocido:
         return 'Solo puedes consultar tu perfil por ahora.';
     }

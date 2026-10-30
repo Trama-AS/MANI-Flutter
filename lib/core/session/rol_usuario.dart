@@ -5,7 +5,10 @@ import 'dart:convert';
 /// Solo gobierna la presentación: la autorización real la aplican el Gateway
 /// y los servicios con el token verificado (T4, T7). Un rol que no se
 /// reconoce cae en [desconocido] y no abre ninguna entrada de negocio.
-enum RolUsuario { cliente, aliado, adminTenant, desconocido }
+///
+/// [adminPlataforma] es el permiso global de la plataforma (claim
+/// `admin_plataforma`, SCRUM-1364 y SCRUM-901): ningún rol de tenant lo incluye.
+enum RolUsuario { cliente, aliado, adminTenant, adminPlataforma, desconocido }
 
 /// Traduce el claim `app_metadata.user_role` (o `rol`) al rol de la app.
 ///
@@ -23,6 +26,9 @@ RolUsuario rolDesdeClaim(String? claim) {
     case 'admin_tenant':
     case 'admin':
       return RolUsuario.adminTenant;
+    case 'admin_plataforma':
+    case 'platform_admin':
+      return RolUsuario.adminPlataforma;
     default:
       return RolUsuario.desconocido;
   }

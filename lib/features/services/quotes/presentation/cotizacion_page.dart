@@ -35,12 +35,16 @@ class CotizacionPage extends StatelessWidget {
   const CotizacionPage({
     super.key,
     required this.esAliado,
+    this.encabezado,
     this.pie,
     this.alRefrescar,
     this.alPagar,
   });
 
   final bool esAliado;
+
+  /// Sección bajo el título (p. ej. la tarifa de referencia, SCRUM-886).
+  final Widget? encabezado;
 
   /// Sección que va al final de la pantalla (p. ej. la ejecución, SCRUM-868).
   final Widget? pie;
@@ -82,6 +86,10 @@ class CotizacionPage extends StatelessWidget {
                 style: Theme.of(context).textTheme.headlineSmall,
               ),
               const SizedBox(height: 12),
+              if (encabezado != null) ...[
+                encabezado!,
+                const SizedBox(height: 12),
+              ],
               if (state.cargando && state.cotizaciones.isEmpty)
                 const Center(child: CircularProgressIndicator())
               else if (state.error != null)

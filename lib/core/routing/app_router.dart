@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart' show Icons;
+import 'package:flutter/material.dart' show Icons, ScaffoldMessenger, SnackBar;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -57,6 +57,17 @@ import 'package:mani/features/profiles/company_sites/presentation/pages/gestion_
 import 'package:mani/features/profiles/direct_employees/presentation/bloc/empleado_directo_cubit.dart';
 import 'package:mani/features/profiles/direct_employees/presentation/pages/registrar_empleado_directo_page.dart';
 import 'package:mani/features/profiles/own_profile/presentation/pages/editar_perfil_page.dart';
+import 'package:mani/features/tariffs/data/tarifas_datasource.dart';
+import 'package:mani/features/tariffs/presentation/tarifario_cubit.dart';
+import 'package:mani/features/tariffs/presentation/tarifario_page.dart';
+import 'package:mani/features/tariffs/presentation/referencia_tarifa_seccion.dart';
+import 'package:mani/features/tariffs/presentation/reporte_fuera_rango_page.dart';
+import 'package:mani/features/complaints/data/quejas_datasource.dart';
+import 'package:mani/features/complaints/presentation/dialogo_queja.dart';
+import 'package:mani/features/complaints/presentation/quejas_cubit.dart';
+import 'package:mani/features/complaints/presentation/quejas_page.dart';
+import 'package:mani/features/metrics/presentation/metricas_page.dart';
+import 'package:mani/features/platform/presentation/tenants_page.dart';
 
 /// Notifica a go_router cada vez que cambia el estado de autenticación de
 /// Supabase, para que el `redirect` de abajo se reevalúe automáticamente
@@ -127,6 +138,11 @@ Widget _pantallaServicio(
   child: Builder(
     builder: (context) => CotizacionPage(
       esAliado: esAliado,
+      // Tarifa de referencia vigente de la categoría (HU-M10-02 / SCRUM-886).
+      encabezado: ReferenciaTarifaSeccion(
+        fuente: sl<FuenteTarifas>(),
+        solicitudId: solicitudId,
+      ),
       // El pago cobra el total vigente: cotización aceptada + adiciones
       // aceptadas (SCRUM-872). Sin resumen, el total de la cotización.
       alPagar: esAliado
@@ -403,6 +419,23 @@ final appRouter = GoRouter(
                   context.push('/cliente/solicitudes/$id/cotizacion'),
               onVerAliados: (id) =>
                   context.push('/cliente/solicitudes/$id/aliados'),
+              onPresentarQueja: (id) async {
+                final queja = await presentarQueja(
+                  context,
+                  fuente: sl<FuenteQuejas>(),
+                  solicitudId: id,
+                );
+                if (queja != null && context.mounted) {
+                  ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+                    const SnackBar(
+                      key: Key('queja-registrada'),
+                      content: Text(
+                        'Registramos tu queja. La verás en «Mis quejas».',
+                      ),
+                    ),
+                  );
+                }
+              },
             ),
           ),
         ),
@@ -493,6 +526,62 @@ final appRouter = GoRouter(
             child: BandejaVerificacionPage(
               onAbrirCategorias: () => context.push('/admin/categorias'),
             ),
+          ),
+        ),
+        // Quejas del cliente (HU-M12-01 / SCRUM-895): solo las suyas.
+        GoRoute(
+          path: '/cliente/quejas',
+          name: 'mis-quejas',
+          builder: (context, state) => BlocProvider(
+            create: (_) => QuejasCubit(sl(), esAdmin: false)..cargar(),
+            child: const QuejasPage(),
+          ),
+        ),
+        // Tarifario de referencia (HU-M10-01 / SCRUM-885). Core exige
+        // ADMIN_TENANT; el tenant y el actor salen del token.
+        GoRoute(
+          path: '/admin/tarifas',
+          name: 'tarifario',
+          builder: (context, state) => BlocProvider(
+            create: (_) => TarifarioCubit(sl(), sl())..cargar(),
+            child: const TarifarioPage(),
+          ),
+        ),
+        // Cotizaciones fuera de rango evaluadas por Rules (HU-M10-03 / SCRUM-887).
+        GoRoute(
+          path: '/admin/reportes/cotizaciones-fuera-de-rango',
+          name: 'reporte-fuera-de-rango',
+          builder: (context, state) => BlocProvider(
+            create: (_) => ReporteFueraDeRangoCubit(sl())..consultar(),
+            child: const ReporteFueraDeRangoPage(),
+          ),
+        ),
+        // Gestión de quejas del tenant (HU-M12-02 / SCRUM-896).
+        GoRoute(
+          path: '/admin/quejas',
+          name: 'quejas-tenant',
+          builder: (context, state) => BlocProvider(
+            create: (_) => QuejasCubit(sl(), esAdmin: true)..cargar(),
+            child: const QuejasPage(),
+          ),
+        ),
+        // Métricas operativas del tenant (HU-M12-06 / SCRUM-900).
+        GoRoute(
+          path: '/admin/metricas',
+          name: 'metricas',
+          builder: (context, state) => BlocProvider(
+            create: (_) => MetricasCubit(sl())..consultar(),
+            child: const MetricasPage(),
+          ),
+        ),
+        // Administración de tenants (HU-M12-07 / SCRUM-901). Core exige el
+        // permiso PLATFORM_ADMIN del token.
+        GoRoute(
+          path: '/plataforma/tenants',
+          name: 'tenants-plataforma',
+          builder: (context, state) => BlocProvider(
+            create: (_) => TenantsCubit(sl())..cargar(),
+            child: const TenantsPage(),
           ),
         ),
         // Catálogo de categorías de servicio (US-03.1.1). Las RPC exigen rol

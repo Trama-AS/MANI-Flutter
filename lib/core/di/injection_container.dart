@@ -79,6 +79,10 @@ import 'package:mani/features/services/events/data/almacen_cola_eventos.dart';
 import 'package:mani/features/services/events/data/cola_eventos.dart';
 import 'package:mani/features/services/events/data/eventos_datasource.dart';
 import 'package:mani/core/session/tenant_sesion.dart';
+import 'package:mani/features/tariffs/data/tarifas_datasource.dart';
+import 'package:mani/features/complaints/data/quejas_datasource.dart';
+import 'package:mani/features/metrics/data/metricas_datasource.dart';
+import 'package:mani/features/platform/data/tenants_datasource.dart';
 
 final sl = GetIt.instance; // sl = service locator
 
@@ -272,6 +276,13 @@ Future<void> init() async {
   // Pago en el sandbox (HU-M11-01 / SCRUM-1432), por el Gateway a Core. El Cubit
   // se crea por cotización en la ruta.
   sl.registerLazySingleton<FuentePagos>(() => GatewayFuentePagos(sl()));
+  // Tarifario de referencia (M-10: SCRUM-885, 886 y 887), por el Gateway a Core.
+  sl.registerLazySingleton<FuenteTarifas>(() => GatewayFuenteTarifas(sl()));
+  // Quejas, métricas y tenants (M-12: SCRUM-895, 896, 900 y 901), por el
+  // Gateway a Core. Los Cubits se crean en cada ruta.
+  sl.registerLazySingleton<FuenteQuejas>(() => GatewayFuenteQuejas(sl()));
+  sl.registerLazySingleton<FuenteMetricas>(() => GatewayFuenteMetricas(sl()));
+  sl.registerLazySingleton<FuenteTenants>(() => GatewayFuenteTenants(sl()));
   // Mensajería cliente-aliado (HU-M09-02 / SCRUM-881), por el Gateway a Core. El
   // Cubit se crea por solicitud en la ruta y consulta cada pocos segundos.
   sl.registerLazySingleton<FuenteMensajes>(() => GatewayFuenteMensajes(sl()));

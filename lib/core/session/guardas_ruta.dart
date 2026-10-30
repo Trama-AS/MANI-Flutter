@@ -11,6 +11,7 @@ const _todosLosRoles = {
   RolUsuario.cliente,
   RolUsuario.aliado,
   RolUsuario.adminTenant,
+  RolUsuario.adminPlataforma,
   RolUsuario.desconocido,
 };
 
@@ -23,6 +24,8 @@ const _todosLosRoles = {
 const _rolesPorPrefijo = <String, Set<RolUsuario>>{
   rutaInicio: _todosLosRoles,
   '/admin/': {RolUsuario.adminTenant},
+  // Administración global de tenants (SCRUM-901): solo el permiso de plataforma.
+  '/plataforma/': {RolUsuario.adminPlataforma},
   '/aliado/': {RolUsuario.aliado},
   '/categories': {RolUsuario.aliado},
   '/cliente/': {RolUsuario.cliente},

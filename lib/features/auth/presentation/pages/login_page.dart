@@ -133,6 +133,7 @@ class _LoginViewState extends State<_LoginView> {
     RolUsuario.cliente => 'cliente',
     RolUsuario.aliado => 'aliado',
     RolUsuario.adminTenant => 'administrador',
+    RolUsuario.adminPlataforma => 'administración de plataforma',
     RolUsuario.desconocido => 'usuario',
   };
 

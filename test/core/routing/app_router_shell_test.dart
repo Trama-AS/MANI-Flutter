@@ -137,6 +137,13 @@ const _rutasConSesion = {
   '/aliado/disponibilidad',
   '/admin/verificacion-aliados',
   '/admin/categorias',
+  // M-10 y M-12 (SCRUM-885, 887, 895, 896, 900 y 901).
+  '/cliente/quejas',
+  '/admin/tarifas',
+  '/admin/reportes/cotizaciones-fuera-de-rango',
+  '/admin/quejas',
+  '/admin/metricas',
+  '/plataforma/tenants',
 };
 
 void main() {
