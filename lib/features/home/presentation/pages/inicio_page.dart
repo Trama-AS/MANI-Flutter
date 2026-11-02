@@ -15,12 +15,14 @@ class InicioPage extends StatefulWidget {
     required this.fuenteSesion,
     required this.fuenteResumen,
     required this.onNavegar,
+    this.onCerrarSesion,
   });
 
   final RolUsuario rol;
   final FuenteDatosSesion fuenteSesion;
   final FuenteResumenInicio fuenteResumen;
   final ValueChanged<String> onNavegar;
+  final Future<void> Function()? onCerrarSesion;
 
   @override
   State<InicioPage> createState() => _InicioPageState();
@@ -109,6 +111,41 @@ class _InicioPageState extends State<InicioPage> {
                 onTap: () => widget.onNavegar(e.ruta),
               ),
             ),
+          if (widget.onCerrarSesion != null) ...[
+            const SizedBox(height: 24),
+            Card(
+              key: const Key('inicio-card-sesion'),
+              color: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                  width: 1.5,
+                ),
+              ),
+              child: ListTile(
+                key: const Key('inicio-cerrar-sesion'),
+                leading: const Icon(Icons.logout, color: Colors.redAccent),
+                title: const Text(
+                  'Cerrar sesión',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: Colors.redAccent,
+                  ),
+                ),
+                subtitle: const Text(
+                  'Finaliza la sesión actual en este dispositivo',
+                ),
+                trailing: const Icon(
+                  Icons.chevron_right,
+                  color: Colors.redAccent,
+                ),
+                onTap: () async {
+                  await widget.onCerrarSesion!();
+                },
+              ),
+            ),
+          ],
         ],
       ),
     );

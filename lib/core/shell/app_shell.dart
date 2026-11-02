@@ -87,7 +87,13 @@ class _AppShellState extends State<AppShell> {
       key: const Key('menu-compacto'),
       tooltip: 'Menú',
       icon: const Icon(Icons.menu),
-      onSelected: widget.onNavegar,
+      onSelected: (val) {
+        if (val == '__logout__') {
+          _cerrarSesion();
+        } else {
+          widget.onNavegar(val);
+        }
+      },
       itemBuilder: (context) => [
         for (final e in entradas)
           PopupMenuItem<String>(
@@ -100,6 +106,22 @@ class _AppShellState extends State<AppShell> {
               contentPadding: EdgeInsets.zero,
             ),
           ),
+        const PopupMenuDivider(),
+        const PopupMenuItem<String>(
+          key: Key('menu-compacto-cerrar-sesion'),
+          value: '__logout__',
+          child: ListTile(
+            leading: Icon(Icons.logout, color: Colors.redAccent),
+            title: Text(
+              'Cerrar sesión',
+              style: TextStyle(
+                color: Colors.redAccent,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
       ],
     );
   }
