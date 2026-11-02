@@ -328,6 +328,12 @@ final appRouter = GoRouter(
             fuenteSesion: sl<FuenteDatosSesion>(),
             fuenteResumen: sl<FuenteResumenInicio>(),
             onNavegar: (ruta) => context.go(ruta),
+            onCerrarSesion: () async {
+              await sl<IAuthRepository>().signOut();
+              if (context.mounted) {
+                context.go('/login');
+              }
+            },
           ),
         ),
         // Ruta independiente: Selección de categorías del aliado (US-03.1.3)
