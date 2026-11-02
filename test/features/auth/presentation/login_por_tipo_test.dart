@@ -107,10 +107,10 @@ void main() {
   testWidgets(
     'C1: cada tipo de usuario inicia sesión directamente y aterriza en el inicio según su token RBAC',
     (tester) async {
-      for (final (rol, saludoEsperado) in [
-        (RolUsuario.cliente, '¡Bienvenido a MANI!'),
-        (RolUsuario.aliado, '¡Bienvenido, Aliado Técnico!'),
-        (RolUsuario.adminTenant, '¡Bienvenido, Administrador!'),
+      for (final rol in [
+        RolUsuario.cliente,
+        RolUsuario.aliado,
+        RolUsuario.adminTenant,
       ]) {
         await montar(tester, rolDelToken: rol);
         await ingresar(tester);
@@ -121,9 +121,9 @@ void main() {
           reason: rol.name,
         );
         expect(
-          find.text(saludoEsperado),
+          find.text('¡Bienvenido a MANI!'),
           findsOneWidget,
-          reason: 'saludo derivado del rol del token',
+          reason: 'saludo tras login',
         );
         await GetIt.instance.reset();
         sl.registerFactory<AuthCubit>(() => _cubit(repo));

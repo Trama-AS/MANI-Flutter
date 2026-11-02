@@ -50,9 +50,6 @@ class _AppShellState extends State<AppShell> {
 
   Future<void> _cerrarSesion() async {
     await widget.onCerrarSesion();
-    if (mounted) {
-      widget.onNavegar('/login');
-    }
   }
 
   @override

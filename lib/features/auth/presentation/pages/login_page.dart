@@ -100,13 +100,8 @@ class _LoginViewState extends State<_LoginView> {
     );
   }
 
-  /// Saludo tras iniciar sesión según el rol verificado en el token (RBAC).
-  String _bienvenida(RolUsuario rolDelToken) => switch (rolDelToken) {
-    RolUsuario.adminTenant => '¡Bienvenido, Administrador!',
-    RolUsuario.aliado => '¡Bienvenido, Aliado Técnico!',
-    RolUsuario.cliente => '¡Bienvenido a MANI!',
-    RolUsuario.desconocido => '¡Bienvenido a MANI!',
-  };
+  /// Saludo tras iniciar sesión (RBAC).
+  String _bienvenida(RolUsuario rolDelToken) => '¡Bienvenido a MANI!';
 
   void _showNotification(String message, {bool isError = true}) {
     ScaffoldMessenger.of(context).showSnackBar(
