@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mani/core/session/guardas_ruta.dart';
@@ -15,7 +14,6 @@ import 'package:mani/features/auth/presentation/bloc/auth_cubit.dart';
 /// - Fondo crema: #FDFBF7
 /// - Logo amarillo con M gruesa y hard-shadow
 /// - Título MANI con tracking tight
-/// - Selector de Empresa / Tenant con borde negro
 /// - Selector de rol con 3 pestañas: Soy Cliente, Soy Aliado, Admin
 /// - Inputs con bordes negros 2px, fondo blanco y placeholder gris
 /// - Botón "INGRESAR A MANI" amarillo con sombra dura de 4px
@@ -23,7 +21,7 @@ import 'package:mani/features/auth/presentation/bloc/auth_cubit.dart';
 ///
 /// SCRUM-1370: la pestaña elegida (Cliente, Aliado o Admin) es solo una ayuda
 /// de presentación. Ni se envía al servidor ni decide el destino: el rol y el
-/// tenant los decide el token (T4) y el router lleva a cada quien al inicio de
+/// tenant los decide el token (T4); por eso el login no pide la empresa y el router lleva a cada quien al inicio de
 /// SU rol. Si la pestaña no coincide con el rol del token, se avisa.
 class LoginPage extends StatelessWidget {
   const LoginPage({super.key, this.rolDeSesion = rolDeSesionActual});
@@ -55,48 +53,13 @@ class _LoginView extends StatefulWidget {
   State<_LoginView> createState() => _LoginViewState();
 }
 
-/// Resuelve la lista de empresas/tenants que se presentan en el login.
-/// En ambiente QA (slug `acme-servicios` o URL de Supabase de QA), ofrece
-/// los tenants de prueba de QA. En producción ofrece las empresas de producción.
-List<String> resolverTenantsLogin({String? slug, String? supabaseUrl}) {
-  String s = slug ?? '';
-  String u = supabaseUrl ?? '';
-  if (slug == null || supabaseUrl == null) {
-    try {
-      if (dotenv.isInitialized) {
-        if (slug == null) s = dotenv.maybeGet('TENANT_SLUG') ?? '';
-        if (supabaseUrl == null) u = dotenv.maybeGet('SUPABASE_URL') ?? '';
-      }
-    } catch (_) {}
-  }
-  final esQa =
-      s.trim() == 'acme-servicios' || u.contains('hpsxdotaizzclkeufzct');
-  return esQa
-      ? const ['ACME Servicios', 'Nova Mantenimiento']
-      : const [
-          'Plomería Express CDMX SA',
-          'Electricistas Pro Monterrey',
-          'Cerrajería Total GDL',
-        ];
-}
-
 class _LoginViewState extends State<_LoginView> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
   String _selectedRole = 'cliente'; // 'cliente', 'aliado', 'admin'
-  late String _selectedTenant;
   bool _showPassword = false;
-
-  late final List<String> _tenants;
-
-  @override
-  void initState() {
-    super.initState();
-    _tenants = resolverTenantsLogin();
-    _selectedTenant = _tenants.first;
-  }
 
   @override
   void dispose() {
@@ -193,10 +156,6 @@ class _LoginViewState extends State<_LoginView> {
                         _buildLogoHeader(),
                         const SizedBox(height: 24),
 
-                        // ── Selector de Tenant ─────────────────────────────
-                        _buildTenantSelector(),
-                        const SizedBox(height: 16),
-
                         // ── Selector de Rol (Tabs) ─────────────────────────
                         _buildRoleTabs(),
                         const SizedBox(height: 18),
@@ -263,53 +222,6 @@ class _LoginViewState extends State<_LoginView> {
             fontSize: 14,
             fontWeight: FontWeight.w600,
             color: AppTheme.textSecondary,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTenantSelector() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'EMPRESA / TENANT',
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 11,
-            fontWeight: FontWeight.w800,
-            color: AppTheme.dark,
-            letterSpacing: 0.5,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Container(
-          decoration: BoxDecoration(
-            color: AppTheme.surface,
-            borderRadius: BorderRadius.circular(AppTheme.radiusXl),
-            border: Border.all(color: AppTheme.dark, width: 2),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: _selectedTenant,
-              isExpanded: true,
-              icon: const Icon(Icons.arrow_drop_down, color: AppTheme.dark),
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.dark,
-              ),
-              items: _tenants.map((tenant) {
-                return DropdownMenuItem<String>(
-                  value: tenant,
-                  child: Text(tenant),
-                );
-              }).toList(),
-              onChanged: (val) {
-                if (val != null) setState(() => _selectedTenant = val);
-              },
-            ),
           ),
         ),
       ],

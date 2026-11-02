@@ -93,15 +93,17 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('C1: el login ofrece los tres tipos de usuario y la empresa', (
-    tester,
-  ) async {
-    await montar(tester, rolDelToken: RolUsuario.cliente);
-    expect(find.text('Soy Cliente'), findsOneWidget);
-    expect(find.text('Soy Aliado'), findsOneWidget);
-    expect(find.text('Admin'), findsOneWidget);
-    expect(find.text('EMPRESA / TENANT'), findsOneWidget);
-  });
+  testWidgets(
+    'C1: el login ofrece los tres tipos de usuario y no pide la empresa (sale del token)',
+    (tester) async {
+      await montar(tester, rolDelToken: RolUsuario.cliente);
+      expect(find.text('Soy Cliente'), findsOneWidget);
+      expect(find.text('Soy Aliado'), findsOneWidget);
+      expect(find.text('Admin'), findsOneWidget);
+      expect(find.text('EMPRESA / TENANT'), findsNothing);
+      expect(find.byType(DropdownButton<String>), findsNothing);
+    },
+  );
 
   testWidgets(
     'C1: cada tipo de usuario inicia sesión por su pestaña y aterriza en el inicio',
