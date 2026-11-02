@@ -81,11 +81,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  Future<void> ingresar(WidgetTester tester, {String? pestana}) async {
-    if (pestana != null) {
-      await tester.tap(find.text(pestana));
-      await tester.pump();
-    }
+  Future<void> ingresar(WidgetTester tester) async {
     final campos = find.byType(TextFormField);
     await tester.enterText(campos.at(0), 'ana@mani.app');
     await tester.enterText(campos.at(1), 'Password123');
@@ -93,36 +89,40 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('C1: el login ofrece los tres tipos de usuario y la empresa', (
+  testWidgets('C1: el login RBAC presenta formulario directo de credenciales sin selectores de rol redundantes', (
     tester,
   ) async {
     await montar(tester, rolDelToken: RolUsuario.cliente);
-    expect(find.text('Soy Cliente'), findsOneWidget);
-    expect(find.text('Soy Aliado'), findsOneWidget);
-    expect(find.text('Admin'), findsOneWidget);
-    expect(find.text('EMPRESA / TENANT'), findsOneWidget);
+    expect(find.text('CORREO ELECTRÓNICO'), findsOneWidget);
+    expect(find.text('CONTRASEÑA'), findsOneWidget);
+    expect(find.text('INGRESAR A MANI'), findsOneWidget);
+    // Sin pestañas ni selectores confusos
+    expect(find.text('Soy Cliente'), findsNothing);
+    expect(find.text('Soy Aliado'), findsNothing);
+    expect(find.text('Admin'), findsNothing);
+    expect(find.text('EMPRESA / TENANT'), findsNothing);
   });
 
   testWidgets(
-    'C1: cada tipo de usuario inicia sesión por su pestaña y aterriza en el inicio',
+    'C1: cada tipo de usuario inicia sesión directamente y aterriza en el inicio según su token RBAC',
     (tester) async {
-      for (final (pestana, rol) in [
-        ('Soy Cliente', RolUsuario.cliente),
-        ('Soy Aliado', RolUsuario.aliado),
-        ('Admin', RolUsuario.adminTenant),
+      for (final (rol, saludoEsperado) in [
+        (RolUsuario.cliente, '¡Bienvenido a MANI!'),
+        (RolUsuario.aliado, '¡Bienvenido, Aliado Técnico!'),
+        (RolUsuario.adminTenant, '¡Bienvenido, Administrador!'),
       ]) {
         await montar(tester, rolDelToken: rol);
-        await ingresar(tester, pestana: pestana);
+        await ingresar(tester);
 
         expect(
           find.text('pantalla-de-inicio'),
           findsOneWidget,
-          reason: pestana,
+          reason: rol.name,
         );
         expect(
-          find.text('¡Bienvenido a MANI!'),
+          find.text(saludoEsperado),
           findsOneWidget,
-          reason: 'la pestaña coincide con el rol del token',
+          reason: 'saludo derivado del rol del token',
         );
         await GetIt.instance.reset();
         sl.registerFactory<AuthCubit>(() => _cubit(repo));
@@ -131,44 +131,9 @@ void main() {
   );
 
   testWidgets(
-    'C3: un cliente que entra por la pestaña Admin aterriza en el inicio de cliente y se le avisa',
+    'C3: al servidor solo llegan el correo y la contraseña',
     (tester) async {
       await montar(tester, rolDelToken: RolUsuario.cliente);
-      await ingresar(tester, pestana: 'Admin');
-
-      expect(find.text('pantalla-de-inicio'), findsOneWidget);
-      expect(
-        find.text('pantalla-admin'),
-        findsNothing,
-        reason: 'la pestaña no abre la pantalla de administrador',
-      );
-      expect(
-        find.text('Tu cuenta es de cliente: te llevamos a tu inicio.'),
-        findsOneWidget,
-      );
-      expect(find.text('¡Bienvenido a MANI!'), findsNothing);
-    },
-  );
-
-  testWidgets(
-    'C3: un aliado por la pestaña Cliente tampoco cambia de rol: se le avisa de su rol real',
-    (tester) async {
-      await montar(tester, rolDelToken: RolUsuario.aliado);
-      await ingresar(tester, pestana: 'Soy Cliente');
-      expect(
-        find.text('Tu cuenta es de aliado: te llevamos a tu inicio.'),
-        findsOneWidget,
-      );
-      expect(find.text('pantalla-de-inicio'), findsOneWidget);
-    },
-  );
-
-  testWidgets(
-    'C3: al servidor solo llegan el correo y la contraseña; ni la pestaña ni la empresa elegidas',
-    (tester) async {
-      await montar(tester, rolDelToken: RolUsuario.cliente);
-      await tester.tap(find.text('Admin'));
-      await tester.pump();
       await ingresar(tester);
 
       expect(repo.intentos, [(email: 'ana@mani.app', password: 'Password123')]);
