@@ -296,6 +296,30 @@ void main() {
       expect(destino, '/cliente/sedes');
     });
 
+    testWidgets(
+      'en móvil el menú desplegable incluye cerrar sesión y ejecuta onCerrarSesion',
+      (tester) async {
+        var cerro = false;
+        await _montar(
+          tester,
+          ancho: 390,
+          rol: RolUsuario.cliente,
+          onCerrarSesion: () async => cerro = true,
+        );
+
+        await tester.tap(find.byKey(const Key('menu-compacto')));
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const Key('menu-compacto-cerrar-sesion')),
+          findsOneWidget,
+        );
+
+        await tester.tap(find.byKey(const Key('menu-compacto-cerrar-sesion')));
+        await tester.pumpAndSettle();
+        expect(cerro, isTrue);
+      },
+    );
+
     testWidgets('si Core no responde, el menú sigue usable con el rol', (
       tester,
     ) async {

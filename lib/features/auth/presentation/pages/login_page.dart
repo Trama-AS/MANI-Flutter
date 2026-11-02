@@ -10,19 +10,18 @@ import 'package:mani/core/di/injection_container.dart';
 import 'package:mani/features/auth/presentation/bloc/auth_cubit.dart';
 
 /// Pantalla de inicio de sesión de MANI.
-/// Replicada pixel-perfect del prototipo oficial en Figma:
+/// Replicada con diseño limpio y robusto (RBAC Puro):
 /// - Fondo crema: #FDFBF7
 /// - Logo amarillo con M gruesa y hard-shadow
 /// - Título MANI con tracking tight
-/// - Selector de rol con 3 pestañas: Soy Cliente, Soy Aliado, Admin
 /// - Inputs con bordes negros 2px, fondo blanco y placeholder gris
 /// - Botón "INGRESAR A MANI" amarillo con sombra dura de 4px
-/// - Enlaces inferiores: "¿Olvidaste tu contraseña?" • "Registrarme"
+/// - Enlaces inferiores: "¿Olvidaste tu contraseña?" • Registros independientes
 ///
-/// SCRUM-1370: la pestaña elegida (Cliente, Aliado o Admin) es solo una ayuda
-/// de presentación. Ni se envía al servidor ni decide el destino: el rol y el
-/// tenant los decide el token (T4); por eso el login no pide la empresa y el router lleva a cada quien al inicio de
-/// SU rol. Si la pestaña no coincide con el rol del token, se avisa.
+/// HU-M02-01 / RF-03: Autenticación por RBAC (Role-Based Access Control).
+/// El usuario ingresa credenciales directas (correo y contraseña); el rol y
+/// el tenant son derivados criptográficamente desde los claims verificados del
+/// token JWT ES256 (T4), garantizando aislamiento y enrutamiento seguro.
 class LoginPage extends StatelessWidget {
   const LoginPage({super.key, this.rolDeSesion = rolDeSesionActual});
 
@@ -58,7 +57,6 @@ class _LoginViewState extends State<_LoginView> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
-  String _selectedRole = 'cliente'; // 'cliente', 'aliado', 'admin'
   bool _showPassword = false;
 
   @override
@@ -76,28 +74,8 @@ class _LoginViewState extends State<_LoginView> {
     );
   }
 
-  /// Saludo tras iniciar sesión. Si la pestaña elegida no es el rol del token,
-  /// lo dice: la app no le da permisos de la pestaña, lo lleva a su inicio.
-  String _bienvenida(RolUsuario rolDelToken) {
-    final elegido = _rolDeLaPestana(_selectedRole);
-    if (rolDelToken == RolUsuario.desconocido || rolDelToken == elegido) {
-      return '¡Bienvenido a MANI!';
-    }
-    return 'Tu cuenta es de ${_etiquetaDeRol(rolDelToken)}: te llevamos a tu inicio.';
-  }
-
-  static RolUsuario _rolDeLaPestana(String pestana) => switch (pestana) {
-    'aliado' => RolUsuario.aliado,
-    'admin' => RolUsuario.adminTenant,
-    _ => RolUsuario.cliente,
-  };
-
-  static String _etiquetaDeRol(RolUsuario rol) => switch (rol) {
-    RolUsuario.cliente => 'cliente',
-    RolUsuario.aliado => 'aliado',
-    RolUsuario.adminTenant => 'administrador',
-    RolUsuario.desconocido => 'usuario',
-  };
+  /// Saludo tras iniciar sesión (RBAC).
+  String _bienvenida(RolUsuario rolDelToken) => '¡Bienvenido a MANI!';
 
   void _showNotification(String message, {bool isError = true}) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -126,9 +104,7 @@ class _LoginViewState extends State<_LoginView> {
       listener: (context, state) {
         if (state is AuthAuthenticated) {
           _showNotification(_bienvenida(widget.rolDeSesion()), isError: false);
-          // US-11.2.3 (SCRUM-1446): todos entran a su inicio. El inicio
-          // depende del rol del token, no de la pestaña elegida, que no
-          // otorga permisos por sí sola.
+          // US-11.2.3 (SCRUM-1446): enrutamiento RBAC puro según el token.
           context.go(rutaInicio);
         } else if (state is AuthError) {
           _showNotification(state.message);
@@ -154,13 +130,9 @@ class _LoginViewState extends State<_LoginView> {
                       children: [
                         // ── Header (Logo + Títulos) ───────────────────────
                         _buildLogoHeader(),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 28),
 
-                        // ── Selector de Rol (Tabs) ─────────────────────────
-                        _buildRoleTabs(),
-                        const SizedBox(height: 18),
-
-                        // ── Inputs ─────────────────────────────────────────
+                        // ── Inputs (Email y Contraseña) ───────────────────
                         _buildInputs(),
                         const SizedBox(height: 24),
 
@@ -225,48 +197,6 @@ class _LoginViewState extends State<_LoginView> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildRoleTabs() {
-    final roles = [
-      {'key': 'cliente', 'label': 'Soy Cliente'},
-      {'key': 'aliado', 'label': 'Soy Aliado'},
-      {'key': 'admin', 'label': 'Admin'},
-    ];
-
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(AppTheme.radiusXl),
-        border: Border.all(color: AppTheme.dark, width: 2),
-        boxShadow: const [AppTheme.hardShadowMd],
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Row(
-        children: roles.map((role) {
-          final isSelected = _selectedRole == role['key'];
-          return Expanded(
-            child: InkWell(
-              onTap: () => setState(() => _selectedRole = role['key']!),
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                color: isSelected ? AppTheme.primary : AppTheme.surface,
-                alignment: Alignment.center,
-                child: Text(
-                  role['label']!,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.3,
-                    color: isSelected ? AppTheme.dark : AppTheme.textSecondary,
-                  ),
-                ),
-              ),
-            ),
-          );
-        }).toList(),
-      ),
     );
   }
 
@@ -434,8 +364,6 @@ class _LoginViewState extends State<_LoginView> {
   }
 
   Widget _buildFooterLinks() {
-    final isAliado = _selectedRole == 'aliado';
-
     return Column(
       children: [
         GestureDetector(
@@ -484,13 +412,10 @@ class _LoginViewState extends State<_LoginView> {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
             decoration: BoxDecoration(
-              color: !isAliado ? Colors.white : AppTheme.surface,
+              color: Colors.white,
               borderRadius: BorderRadius.circular(AppTheme.radiusXl),
-              border: Border.all(
-                color: AppTheme.dark,
-                width: !isAliado ? 2 : 1.5,
-              ),
-              boxShadow: !isAliado ? const [AppTheme.hardShadowSm] : [],
+              border: Border.all(color: AppTheme.dark, width: 2),
+              boxShadow: const [AppTheme.hardShadowSm],
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -530,13 +455,9 @@ class _LoginViewState extends State<_LoginView> {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
             decoration: BoxDecoration(
-              color: isAliado ? Colors.white : AppTheme.surface,
+              color: AppTheme.surface,
               borderRadius: BorderRadius.circular(AppTheme.radiusXl),
-              border: Border.all(
-                color: AppTheme.dark,
-                width: isAliado ? 2 : 1.5,
-              ),
-              boxShadow: isAliado ? const [AppTheme.hardShadowSm] : [],
+              border: Border.all(color: AppTheme.dark, width: 1.5),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
