@@ -445,10 +445,7 @@ class _LoginViewState extends State<_LoginView> {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(AppTheme.radiusXl),
-              border: Border.all(
-                color: AppTheme.dark,
-                width: 2,
-              ),
+              border: Border.all(color: AppTheme.dark, width: 2),
               boxShadow: const [AppTheme.hardShadowSm],
             ),
             child: Row(
@@ -491,10 +488,7 @@ class _LoginViewState extends State<_LoginView> {
             decoration: BoxDecoration(
               color: AppTheme.surface,
               borderRadius: BorderRadius.circular(AppTheme.radiusXl),
-              border: Border.all(
-                color: AppTheme.dark,
-                width: 1.5,
-              ),
+              border: Border.all(color: AppTheme.dark, width: 1.5),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,

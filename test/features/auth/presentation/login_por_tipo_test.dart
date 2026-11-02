@@ -89,19 +89,20 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('C1: el login RBAC presenta formulario directo de credenciales sin selectores de rol redundantes', (
-    tester,
-  ) async {
-    await montar(tester, rolDelToken: RolUsuario.cliente);
-    expect(find.text('CORREO ELECTRÓNICO'), findsOneWidget);
-    expect(find.text('CONTRASEÑA'), findsOneWidget);
-    expect(find.text('INGRESAR A MANI'), findsOneWidget);
-    // Sin pestañas ni selectores confusos
-    expect(find.text('Soy Cliente'), findsNothing);
-    expect(find.text('Soy Aliado'), findsNothing);
-    expect(find.text('Admin'), findsNothing);
-    expect(find.text('EMPRESA / TENANT'), findsNothing);
-  });
+  testWidgets(
+    'C1: el login RBAC presenta formulario directo de credenciales sin selectores de rol redundantes',
+    (tester) async {
+      await montar(tester, rolDelToken: RolUsuario.cliente);
+      expect(find.text('CORREO ELECTRÓNICO'), findsOneWidget);
+      expect(find.text('CONTRASEÑA'), findsOneWidget);
+      expect(find.text('INGRESAR A MANI'), findsOneWidget);
+      // Sin pestañas ni selectores confusos
+      expect(find.text('Soy Cliente'), findsNothing);
+      expect(find.text('Soy Aliado'), findsNothing);
+      expect(find.text('Admin'), findsNothing);
+      expect(find.text('EMPRESA / TENANT'), findsNothing);
+    },
+  );
 
   testWidgets(
     'C1: cada tipo de usuario inicia sesión directamente y aterriza en el inicio según su token RBAC',
@@ -130,15 +131,14 @@ void main() {
     },
   );
 
-  testWidgets(
-    'C3: al servidor solo llegan el correo y la contraseña',
-    (tester) async {
-      await montar(tester, rolDelToken: RolUsuario.cliente);
-      await ingresar(tester);
+  testWidgets('C3: al servidor solo llegan el correo y la contraseña', (
+    tester,
+  ) async {
+    await montar(tester, rolDelToken: RolUsuario.cliente);
+    await ingresar(tester);
 
-      expect(repo.intentos, [(email: 'ana@mani.app', password: 'Password123')]);
-    },
-  );
+    expect(repo.intentos, [(email: 'ana@mani.app', password: 'Password123')]);
+  });
 
   testWidgets(
     'C2: credenciales inválidas muestran el mensaje genérico, no navegan y no crean sesión',
