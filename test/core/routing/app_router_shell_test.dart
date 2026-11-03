@@ -137,6 +137,7 @@ const _rutasConSesion = {
   '/aliado/disponibilidad',
   '/admin/verificacion-aliados',
   '/admin/categorias',
+  '/catalogo/mapa',
 };
 
 void main() {

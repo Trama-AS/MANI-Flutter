@@ -96,6 +96,13 @@ List<EntradaMenu> entradasMenuPara(RolUsuario rol) {
           icono: Icons.category_outlined,
           ruta: '/admin/categorias',
         ),
+        // Consulta del catálogo geográfico: muestra los límites de zonas y
+        // barrios. No declara cobertura ni usa GPS (HU-M04-07).
+        EntradaMenu(
+          etiqueta: 'Mapa de zonas',
+          icono: Icons.map_outlined,
+          ruta: '/catalogo/mapa',
+        ),
         _miPerfil,
       ];
     case RolUsuario.desconocido:
