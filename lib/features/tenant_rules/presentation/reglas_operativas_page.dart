@@ -220,7 +220,7 @@ class _ReglasOperativasPageState extends State<ReglasOperativasPage> {
           const SizedBox(height: 8),
           DropdownButtonFormField<String>(
             key: const Key('dropdown_criterio_orden'),
-            value: _criterioOrden,
+            initialValue: _criterioOrden,
             decoration: const InputDecoration(
               border: OutlineInputBorder(borderSide: BorderSide(width: 2)),
               contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -386,7 +386,7 @@ class _ReglasOperativasPageState extends State<ReglasOperativasPage> {
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: historial.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              separatorBuilder: (_, _) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
                 final item = historial[index];
                 final esVigente = item.estado == 'VIGENTE';
