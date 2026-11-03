@@ -65,6 +65,8 @@ import 'package:mani/features/tariffs/presentation/referencia_tarifa_seccion.dar
 import 'package:mani/features/tariffs/presentation/reporte_fuera_rango_page.dart';
 import 'package:mani/features/tariffs/presentation/tarifario_cubit.dart';
 import 'package:mani/features/tariffs/presentation/tarifario_page.dart';
+import 'package:mani/features/tenant_rules/presentation/tenant_rules_cubit.dart';
+import 'package:mani/features/tenant_rules/presentation/reglas_operativas_page.dart';
 
 /// Notifica a go_router cada vez que cambia el estado de autenticación de
 /// Supabase, para que el `redirect` de abajo se reevalúe automáticamente
@@ -542,6 +544,15 @@ final appRouter = GoRouter(
           builder: (context, state) => BlocProvider(
             create: (_) => ReporteFueraDeRangoCubit(sl())..consultar(),
             child: const ReporteFueraDeRangoPage(),
+          ),
+        ),
+        // Reglas operativas propias por tenant (HU-M01-03 / SCRUM-1366).
+        GoRoute(
+          path: '/admin/reglas',
+          name: 'reglas-tenant',
+          builder: (context, state) => BlocProvider(
+            create: (_) => sl<TenantRulesCubit>()..cargar(),
+            child: const ReglasOperativasPage(),
           ),
         ),
         // Catálogo de categorías de servicio (US-03.1.1). Las RPC exigen rol
