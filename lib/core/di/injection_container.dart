@@ -20,6 +20,8 @@ import 'package:mani/features/auth/domain/repositories/i_recuperacion_contrasena
 import 'package:mani/features/auth/domain/usecases/recuperar_contrasena_usecases.dart';
 import 'package:mani/features/auth/presentation/bloc/recuperacion_contrasena_cubit.dart';
 import 'package:mani/features/messaging/data/mensajes_datasource.dart';
+import 'package:mani/core/platform/guardador_archivo.dart';
+import 'package:mani/features/payments/data/cobros_datasource.dart';
 import 'package:mani/features/payments/data/pagos_datasource.dart';
 import 'package:mani/features/auth/presentation/bloc/auth_cubit.dart';
 import 'package:mani/features/availability/data/datasources/disponibilidad_remote_datasource.dart';
@@ -272,6 +274,10 @@ Future<void> init() async {
   // Pago en el sandbox (HU-M11-01 / SCRUM-1432), por el Gateway a Core. El Cubit
   // se crea por cotización en la ruta.
   sl.registerLazySingleton<FuentePagos>(() => GatewayFuentePagos(sl()));
+  sl.registerLazySingleton<FuenteCobros>(() => GatewayFuenteCobros(sl()));
+  sl.registerLazySingleton<GuardadorArchivo>(
+    () => const FilePickerGuardadorArchivo(),
+  );
   // Mensajería cliente-aliado (HU-M09-02 / SCRUM-881), por el Gateway a Core. El
   // Cubit se crea por solicitud en la ruta y consulta cada pocos segundos.
   sl.registerLazySingleton<FuenteMensajes>(() => GatewayFuenteMensajes(sl()));
