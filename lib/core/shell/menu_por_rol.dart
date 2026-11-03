@@ -72,6 +72,11 @@ List<EntradaMenu> entradasMenuPara(RolUsuario rol) {
           ruta: '/categories',
         ),
         EntradaMenu(
+          etiqueta: 'Mis cobros',
+          icono: Icons.payments_outlined,
+          ruta: '/aliado/cobros',
+        ),
+        EntradaMenu(
           etiqueta: 'Disponibilidad',
           icono: Icons.event_busy_outlined,
           ruta: '/aliado/disponibilidad',

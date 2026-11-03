@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:mani/features/payments/data/cobros_datasource.dart';
+import 'package:mani/features/payments/domain/cobros.dart';
 import 'package:mani/core/di/injection_container.dart';
 import 'package:mani/core/platform/selector_fotos.dart';
 import 'package:mani/core/routing/app_router.dart';
@@ -134,10 +136,21 @@ const _rutasConSesion = {
   '/aliado/solicitudes/:id/chat',
   '/aliado/solicitudes/:id/cotizacion',
   '/aliado/solicitudes',
+  '/aliado/cobros',
   '/aliado/disponibilidad',
   '/admin/verificacion-aliados',
   '/admin/categorias',
 };
+
+/// Fuente de cobros vacía: la ruta del pago la resuelve al armar la pantalla.
+class _CobrosFalsos implements FuenteCobros {
+  @override
+  Future<List<CobroAliado>> cobrosDelAliado() async => const [];
+
+  @override
+  Future<RetencionPago> retencion(String pagoId) async =>
+      throw UnimplementedError();
+}
 
 void main() {
   late _AuthFalso auth;
@@ -160,6 +173,7 @@ void main() {
     sl.registerSingleton<PerfilPropioRemoteDataSource>(_PerfilFalso());
     sl.registerSingleton<SelectorFotos>(_SelectorSinFotos());
     sl.registerSingleton<FuenteResumenInicio>(_ResumenFijo());
+    sl.registerSingleton<FuenteCobros>(_CobrosFalsos());
     sl.registerFactory(() => CoberturaController(FakeCoberturaRepository()));
   });
 

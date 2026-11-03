@@ -5,7 +5,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mani/core/session/guardas_ruta.dart';
 import 'package:mani/core/session/rol_usuario.dart';
+import 'package:mani/features/payments/data/cobros_datasource.dart';
 import 'package:mani/features/payments/data/pagos_datasource.dart';
+import 'package:mani/features/payments/domain/cobros.dart';
 import 'package:mani/features/payments/domain/pago.dart';
 import 'package:mani/features/payments/presentation/pago_cubit.dart';
 import 'package:mani/features/payments/presentation/pago_sandbox_page.dart';
@@ -61,6 +63,25 @@ class _FuenteFake implements FuentePagos {
     comprobantes.add(pagoId);
     if (falloComprobante != null) throw falloComprobante!;
     return _comprobante;
+  }
+}
+
+class _CobrosFalsos implements FuenteCobros {
+  final pedidas = <String>[];
+
+  @override
+  Future<List<CobroAliado>> cobrosDelAliado() async => const [];
+
+  @override
+  Future<RetencionPago> retencion(String pagoId) async {
+    pedidas.add(pagoId);
+    return const RetencionPago(
+      pagoId: 'pago-1',
+      monto: 150000.5,
+      moneda: 'COP',
+      estado: EstadoRetencion.retenida,
+      simulada: true,
+    );
   }
 }
 
@@ -179,13 +200,14 @@ void main() {
       WidgetTester tester, {
       double? total = 150000.5,
       _FuenteFake? fuente,
+      FuenteCobros? cobros,
     }) async {
       final f = fuente ?? _FuenteFake();
       await tester.pumpWidget(
         MaterialApp(
           home: BlocProvider(
             create: (_) => PagoCubit(f, 'cot-1', generarClave: () => 'k'),
-            child: PagoSandboxPage(total: total),
+            child: PagoSandboxPage(total: total, cobros: cobros),
           ),
         ),
       );
@@ -206,6 +228,31 @@ void main() {
         );
         expect(find.byKey(const Key('total-cotizacion')), findsOneWidget);
         expect(find.textContaining('150.000,50'), findsOneWidget);
+      },
+    );
+
+    testWidgets('SCRUM-891: un pago aprobado muestra su retención simulada', (
+      tester,
+    ) async {
+      final cobros = _CobrosFalsos();
+      await montar(tester, cobros: cobros);
+      await tester.tap(find.byKey(const Key('btn-pagar-sandbox')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('retencion-pago')), findsOneWidget);
+      expect(find.byKey(const Key('leyenda-retencion')), findsOneWidget);
+      expect(cobros.pedidas, ['pago-1']);
+    });
+
+    testWidgets(
+      'SCRUM-891 C2: un pago rechazado no consulta ni muestra retención',
+      (tester) async {
+        final rechazado = _FuenteFake()..respuesta = _pago(estado: 'RECHAZADO');
+        final cobros = _CobrosFalsos();
+        await montar(tester, fuente: rechazado, cobros: cobros);
+        await tester.tap(find.byKey(const Key('btn-pagar-sandbox')));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('retencion-pago')), findsNothing);
+        expect(cobros.pedidas, isEmpty);
       },
     );
 

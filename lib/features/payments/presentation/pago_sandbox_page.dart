@@ -4,8 +4,10 @@ import 'package:mani/core/widgets/mani_button.dart';
 import 'package:mani/features/services/quotes/presentation/cotizacion_page.dart'
     show formatearPesos;
 
+import '../data/cobros_datasource.dart';
 import '../domain/pago.dart';
 import 'pago_cubit.dart';
+import 'retencion_pago_card.dart';
 
 /// Pago de una cotización aceptada en el sandbox (SCRUM-1432, HU-M11-01).
 ///
@@ -13,7 +15,10 @@ import 'pago_cubit.dart';
 /// solo elige el desenlace que quiere probar. El monto lo calcula Core a partir
 /// de la cotización; [total], si llega, es solo una ayuda para mostrar antes.
 class PagoSandboxPage extends StatelessWidget {
-  const PagoSandboxPage({super.key, this.total});
+  const PagoSandboxPage({super.key, this.total, this.cobros});
+
+  /// Fuente de la retención en garantía; si no llega, no se muestra (SCRUM-891).
+  final FuenteCobros? cobros;
 
   /// Total de la cotización que se está pagando, para mostrarlo antes de pagar.
   final double? total;
@@ -77,6 +82,8 @@ class PagoSandboxPage extends StatelessWidget {
                 _ResultadoPago(pago: state.pago!),
                 if (state.comprobante != null)
                   _Comprobante(comprobante: state.comprobante!),
+                if (cobros != null && state.pago!.aprobado)
+                  RetencionPagoCard(fuente: cobros!, pagoId: state.pago!.id),
                 if (state.falloComprobante)
                   const Padding(
                     padding: EdgeInsets.only(top: 8),

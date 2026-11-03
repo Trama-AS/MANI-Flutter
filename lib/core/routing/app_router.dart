@@ -24,6 +24,8 @@ import 'package:mani/features/auth/presentation/pages/olvide_contrasena_page.dar
 import 'package:mani/features/auth/presentation/pages/restablecer_contrasena_page.dart';
 import 'package:mani/features/messaging/presentation/chat_cubit.dart';
 import 'package:mani/features/messaging/presentation/chat_page.dart';
+import 'package:mani/features/payments/data/cobros_datasource.dart';
+import 'package:mani/features/payments/presentation/cobros_aliado_page.dart';
 import 'package:mani/features/payments/presentation/pago_cubit.dart';
 import 'package:mani/features/payments/presentation/pago_sandbox_page.dart';
 import 'package:mani/features/auth/presentation/pages/registro_aliado_page.dart';
@@ -206,6 +208,7 @@ Widget _pantallaServicio(
 /// - `/forgot-password` y `/reset-password`: Recuperación de contraseña (HU-M02-10)
 /// - `/categories`: Pantalla de selección de categorías del aliado (US-03.1.3)
 /// - `/aliado/cobertura`: Zona de cobertura del aliado (US-02.1.4)
+/// - `/aliado/cobros`: Cobros del aliado: retención y liquidación simuladas (SCRUM-894)
 /// - `/aliado/disponibilidad`: Ausencias del aliado, "No disponible" (US-02.1.6)
 /// - `/cliente/solicitudes/nueva`: El cliente publica su solicitud con fotos (US-04.1.1)
 /// - `/cliente/solicitudes`: Estado y zona declarada de las solicitudes del cliente (HU-M07-04)
@@ -441,7 +444,10 @@ final appRouter = GoRouter(
           builder: (context, state) => BlocProvider(
             create: (_) =>
                 PagoCubit(sl(), state.pathParameters['cotizacionId']!),
-            child: PagoSandboxPage(total: state.extra as double?),
+            child: PagoSandboxPage(
+              total: state.extra as double?,
+              cobros: sl<FuenteCobros>(),
+            ),
           ),
         ),
         // Chat del servicio (HU-M09-02 / SCRUM-881) para el cliente y para el
@@ -484,6 +490,12 @@ final appRouter = GoRouter(
           ),
         ),
         // Ausencias del aliado (US-02.1.6). Rol y tenant los valida Core.
+        // Cobros del aliado (SCRUM-894): retención y liquidación simuladas.
+        GoRoute(
+          path: '/aliado/cobros',
+          name: 'cobros-aliado',
+          builder: (context, state) => const CobrosAliadoPage(),
+        ),
         GoRoute(
           path: '/aliado/disponibilidad',
           name: 'disponibilidad-aliado',

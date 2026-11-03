@@ -120,20 +120,24 @@ void main() {
       expect(r.any((x) => x.startsWith('/admin')), isFalse);
     });
 
-    test('aliado ve bandeja, cobertura, categorías y disponibilidad', () {
-      final r = rutas(RolUsuario.aliado);
-      expect(
-        r,
-        containsAll([
-          '/aliado/solicitudes',
-          '/aliado/cobertura',
-          '/categories',
-          '/aliado/disponibilidad',
-        ]),
-      );
-      expect(r.any((x) => x.startsWith('/admin')), isFalse);
-      expect(r.any((x) => x.startsWith('/cliente')), isFalse);
-    });
+    test(
+      'aliado ve bandeja, cobertura, categorías, cobros y disponibilidad',
+      () {
+        final r = rutas(RolUsuario.aliado);
+        expect(
+          r,
+          containsAll([
+            '/aliado/solicitudes',
+            '/aliado/cobertura',
+            '/categories',
+            '/aliado/cobros',
+            '/aliado/disponibilidad',
+          ]),
+        );
+        expect(r.any((x) => x.startsWith('/admin')), isFalse);
+        expect(r.any((x) => x.startsWith('/cliente')), isFalse);
+      },
+    );
 
     test('admin del tenant ve verificación y catálogo de categorías', () {
       final r = rutas(RolUsuario.adminTenant);
