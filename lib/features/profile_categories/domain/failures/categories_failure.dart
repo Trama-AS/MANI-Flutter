@@ -2,7 +2,11 @@
 /// Node en `/profiles/me/categories` (SCRUM-1380).
 enum CategoriesErrorTipo {
   sinSesion, // MANI-CAT-401
-  noEsAliado, // MANI-CAT-403
+  // MANI-CAT-403. Core lo emite en dos casos: quien pide no es un aliado de
+  // este tenant, o es un aliado cuya verificación todavía no está aprobada
+  // (C2 de SCRUM-1392). Comparten código y status, así que el mensaje cubre
+  // los dos sin afirmar de más.
+  noEsAliado,
   seleccionVacia, // MANI-CAT-422V
   categoriaNoDisponible, // MANI-CAT-422C
   sinConexion,
@@ -19,7 +23,8 @@ class CategoriesFailure implements Exception {
     CategoriesErrorTipo.sinSesion =>
       'Tu sesión expiró. Vuelve a iniciar sesión para ver tus categorías.',
     CategoriesErrorTipo.noEsAliado =>
-      'Solo los aliados pueden declarar las categorías que atienden.',
+      'Solo los aliados con la verificación aprobada pueden declarar las '
+          'categorías que atienden.',
     CategoriesErrorTipo.seleccionVacia =>
       'Selecciona al menos una categoría para continuar.',
     CategoriesErrorTipo.categoriaNoDisponible =>
