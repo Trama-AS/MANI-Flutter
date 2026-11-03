@@ -147,6 +147,8 @@ const _rutasConSesion = {
   // M-10 (SCRUM-885 y 887).
   '/admin/tarifas',
   '/admin/reportes/cotizaciones-fuera-de-rango',
+  // Mapa del catálogo geográfico (HU-M04-07).
+  '/catalogo/mapa',
 };
 
 class _GuardadorFalso implements GuardadorArchivo {

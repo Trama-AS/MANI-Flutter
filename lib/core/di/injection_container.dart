@@ -7,6 +7,8 @@ import 'package:mani/features/notifications/data/avisos_datasource.dart';
 import 'package:mani/core/network/gateway_client.dart';
 import 'package:mani/core/session/sesion_expirada.dart';
 import 'package:mani/core/shell/datos_sesion.dart';
+import 'package:mani/features/catalog/map/data/mapa_remote_datasource.dart';
+import 'package:mani/features/catalog/map/presentation/bloc/mapa_cubit.dart';
 import 'package:mani/features/home/data/resumen_inicio.dart';
 import 'package:mani/core/platform/url_opener.dart';
 import 'package:mani/features/auth/data/datasources/auth_remote_data_source.dart';
@@ -200,6 +202,10 @@ Future<void> init() async {
   sl.registerLazySingleton<CoberturaRemoteDataSource>(
     () => GatewayCoberturaDataSource(sl(), sesion: sl()),
   );
+
+  // Features - Catalogo / Mapa cartografico (HU-M04-07, SCRUM-1396)
+  sl.registerFactory(() => MapaCubit(sl()));
+  sl.registerLazySingleton<MapaRemoteDataSource>(() => GatewayMapaDataSource(sl()));
 
   // Features - Profiles / Verification (US-02.1.3)
   sl.registerFactory(
