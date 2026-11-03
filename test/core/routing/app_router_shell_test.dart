@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:mani/core/platform/guardador_archivo.dart';
 import 'package:mani/features/payments/data/cobros_datasource.dart';
 import 'package:mani/features/payments/domain/cobros.dart';
 import 'package:mani/core/di/injection_container.dart';
@@ -142,6 +143,15 @@ const _rutasConSesion = {
   '/admin/categorias',
 };
 
+class _GuardadorFalso implements GuardadorArchivo {
+  @override
+  Future<bool> guardar({
+    required String nombre,
+    required Uint8List bytes,
+    String tipoMime = 'application/octet-stream',
+  }) async => true;
+}
+
 /// Fuente de cobros vacía: la ruta del pago la resuelve al armar la pantalla.
 class _CobrosFalsos implements FuenteCobros {
   @override
@@ -174,6 +184,7 @@ void main() {
     sl.registerSingleton<SelectorFotos>(_SelectorSinFotos());
     sl.registerSingleton<FuenteResumenInicio>(_ResumenFijo());
     sl.registerSingleton<FuenteCobros>(_CobrosFalsos());
+    sl.registerSingleton<GuardadorArchivo>(_GuardadorFalso());
     sl.registerFactory(() => CoberturaController(FakeCoberturaRepository()));
   });
 

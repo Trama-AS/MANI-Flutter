@@ -131,6 +131,22 @@ class ComprobantePago extends Equatable {
   final String? leyenda;
   final DateTime? fecha;
 
+  /// Nombre del archivo que se descarga (SCRUM-890).
+  String get nombreArchivo => 'comprobante-$numero.txt';
+
+  /// Texto del comprobante para descargar. Si es simulado, la leyenda va
+  /// siempre: el archivo nunca se confunde con un recibo real.
+  String comoTexto() {
+    final f = fecha?.toIso8601String();
+    final lineas = <String>[
+      'COMPROBANTE DE PAGO $numero',
+      'Monto: ${monto.toStringAsFixed(2)} $moneda',
+      if (f != null) 'Fecha: $f',
+      ?leyenda,
+    ];
+    return '${lineas.join('\n')}\n';
+  }
+
   @override
   List<Object?> get props => [numero, simulado, monto, moneda, leyenda, fecha];
 }

@@ -24,6 +24,7 @@ import 'package:mani/features/auth/presentation/pages/olvide_contrasena_page.dar
 import 'package:mani/features/auth/presentation/pages/restablecer_contrasena_page.dart';
 import 'package:mani/features/messaging/presentation/chat_cubit.dart';
 import 'package:mani/features/messaging/presentation/chat_page.dart';
+import 'package:mani/core/platform/guardador_archivo.dart';
 import 'package:mani/features/payments/data/cobros_datasource.dart';
 import 'package:mani/features/payments/presentation/cobros_aliado_page.dart';
 import 'package:mani/features/payments/presentation/pago_cubit.dart';
@@ -447,6 +448,7 @@ final appRouter = GoRouter(
             child: PagoSandboxPage(
               total: state.extra as double?,
               cobros: sl<FuenteCobros>(),
+              guardador: sl<GuardadorArchivo>(),
             ),
           ),
         ),

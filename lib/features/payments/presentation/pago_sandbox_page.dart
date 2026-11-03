@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:mani/core/platform/guardador_archivo.dart';
 import 'package:mani/core/widgets/mani_button.dart';
 import 'package:mani/features/services/quotes/presentation/cotizacion_page.dart'
     show formatearPesos;
@@ -15,7 +19,10 @@ import 'retencion_pago_card.dart';
 /// solo elige el desenlace que quiere probar. El monto lo calcula Core a partir
 /// de la cotización; [total], si llega, es solo una ayuda para mostrar antes.
 class PagoSandboxPage extends StatelessWidget {
-  const PagoSandboxPage({super.key, this.total, this.cobros});
+  const PagoSandboxPage({super.key, this.total, this.cobros, this.guardador});
+
+  /// Guarda el comprobante en el dispositivo; si no llega, no hay botón de descarga (SCRUM-890).
+  final GuardadorArchivo? guardador;
 
   /// Fuente de la retención en garantía; si no llega, no se muestra (SCRUM-891).
   final FuenteCobros? cobros;
@@ -81,7 +88,10 @@ class PagoSandboxPage extends StatelessWidget {
                 const SizedBox(height: 16),
                 _ResultadoPago(pago: state.pago!),
                 if (state.comprobante != null)
-                  _Comprobante(comprobante: state.comprobante!),
+                  _Comprobante(
+                    comprobante: state.comprobante!,
+                    guardador: guardador,
+                  ),
                 if (cobros != null && state.pago!.aprobado)
                   RetencionPagoCard(fuente: cobros!, pagoId: state.pago!.id),
                 if (state.falloComprobante)
@@ -206,9 +216,34 @@ class _ResultadoPago extends StatelessWidget {
 }
 
 class _Comprobante extends StatelessWidget {
-  const _Comprobante({required this.comprobante});
+  const _Comprobante({required this.comprobante, this.guardador});
 
   final ComprobantePago comprobante;
+  final GuardadorArchivo? guardador;
+
+  Future<void> _descargar(BuildContext context) async {
+    final mensajero = ScaffoldMessenger.of(context);
+    try {
+      final guardado = await guardador!.guardar(
+        nombre: comprobante.nombreArchivo,
+        bytes: Uint8List.fromList(utf8.encode(comprobante.comoTexto())),
+        tipoMime: 'text/plain',
+      );
+      if (guardado) {
+        mensajero.showSnackBar(
+          const SnackBar(content: Text('Comprobante guardado.')),
+        );
+      }
+    } catch (_) {
+      mensajero.showSnackBar(
+        const SnackBar(
+          content: Text(
+            'No pudimos guardar el comprobante. Inténtalo de nuevo.',
+          ),
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -234,6 +269,15 @@ class _Comprobante extends StatelessWidget {
                 comprobante.leyenda!,
                 key: const Key('leyenda-comprobante'),
                 style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+            if (guardador != null) ...[
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                key: const Key('btn-descargar-comprobante'),
+                onPressed: () => _descargar(context),
+                icon: const Icon(Icons.download_outlined),
+                label: const Text('Descargar comprobante'),
               ),
             ],
           ],
