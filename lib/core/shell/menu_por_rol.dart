@@ -151,6 +151,13 @@ List<EntradaMenu> entradasMenuPara(RolUsuario rol) {
           icono: Icons.forum_outlined,
           ruta: '/admin/conversaciones',
         ),
+        // Consulta del catálogo geográfico: muestra los límites de zonas y
+        // barrios. No declara cobertura ni usa GPS (HU-M04-07).
+        EntradaMenu(
+          etiqueta: 'Mapa de zonas',
+          icono: Icons.map_outlined,
+          ruta: '/catalogo/mapa',
+        ),
         _avisos,
         _miPerfil,
       ];
