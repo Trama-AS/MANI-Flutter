@@ -16,6 +16,7 @@ class MapaState extends Equatable {
     this.atribuciones = const [],
     this.sitios = const [],
     this.sitiosSinUbicacion = 0,
+    this.coberturaPropia = const {},
     this.mensajeError,
   });
 
@@ -39,6 +40,11 @@ class MapaState extends Equatable {
   /// vez de ubicarlas en el centroide de su zona (C2).
   final int sitiosSinUbicacion;
 
+  /// Zonas que el aliado de la sesión declaró como cobertura, para resaltarlas.
+  /// Vacío para los demás roles. **Es lectura:** declarar cobertura es de
+  /// `/aliado/cobertura`, por lista y hasta localidad.
+  final Set<String> coberturaPropia;
+
   final String? mensajeError;
 
   MapaState copyWith({
@@ -50,6 +56,7 @@ class MapaState extends Equatable {
     List<String>? atribuciones,
     List<SitioUbicado>? sitios,
     int? sitiosSinUbicacion,
+    Set<String>? coberturaPropia,
     String? mensajeError,
   }) {
     return MapaState(
@@ -61,6 +68,7 @@ class MapaState extends Equatable {
       atribuciones: atribuciones ?? this.atribuciones,
       sitios: sitios ?? this.sitios,
       sitiosSinUbicacion: sitiosSinUbicacion ?? this.sitiosSinUbicacion,
+      coberturaPropia: coberturaPropia ?? this.coberturaPropia,
       mensajeError: mensajeError,
     );
   }
@@ -75,6 +83,7 @@ class MapaState extends Equatable {
     atribuciones,
     sitios,
     sitiosSinUbicacion,
+    coberturaPropia,
     mensajeError,
   ];
 }
@@ -106,7 +115,16 @@ class MapaCubit extends Cubit<MapaState> {
       // servicio, y eso no debe tumbar el mapa: se queda sin sedes y sigue
       // mostrando las zonas, que es su contenido principal.
       _misSitios = await _cargarSitiosTolerante();
-      emit(state.copyWith(estado: MapaEstado.listo, localidades: localidades));
+      // La cobertura propia solo la tiene el aliado; los demás roles reciben
+      // error y el mapa sigue igual, sin resaltado.
+      final cobertura = await _cargarCoberturaTolerante();
+      emit(
+        state.copyWith(
+          estado: MapaEstado.listo,
+          localidades: localidades,
+          coberturaPropia: cobertura,
+        ),
+      );
       await seleccionar('${localidades.first['id']}');
     } on GatewayException catch (e) {
       emit(state.copyWith(estado: MapaEstado.error, mensajeError: e.message));
@@ -154,6 +172,16 @@ class MapaCubit extends Cubit<MapaState> {
       return await _datos.listarMisSitios();
     } on GatewayException {
       return const [];
+    }
+  }
+
+  /// Igual que las sedes: la cobertura es del aliado, y que otro rol no la
+  /// pueda leer es lo esperado, no un error que mostrar.
+  Future<Set<String>> _cargarCoberturaTolerante() async {
+    try {
+      return (await _datos.listarMiCobertura()).toSet();
+    } on GatewayException {
+      return const {};
     }
   }
 

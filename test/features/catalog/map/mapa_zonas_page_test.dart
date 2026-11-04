@@ -178,6 +178,53 @@ void main() {
     expect(tester.widget<MarkerLayer>(find.byType(MarkerLayer)).markers, hasLength(1));
   });
 
+  // El aliado ve resaltada su cobertura. Es lectura: cambiarla es de
+  // «Zona de cobertura», por lista y hasta localidad.
+  testWidgets('resalta en verde la zona declarada como cobertura y explica que no se edita aquí', (tester) async {
+    final conCobertura = GeometriaZona(
+      zonaId: _chico, nombre: 'Chicó Norte', nivel: 'BARRIO',
+      anillos: _anillo, atribucion: 'UAECD',
+    );
+    await tester.pumpWidget(
+      _app(
+        MapaState(
+          estado: MapaEstado.listo,
+          geometrias: [conCobertura],
+          coberturaPropia: const {_chico},
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final poligono = tester.widget<PolygonLayer>(find.byType(PolygonLayer)).polygons.first;
+    expect(poligono.borderColor, const Color(0xFF166534), reason: 'verde de cobertura');
+    expect(poligono.borderStrokeWidth, 3, reason: 'trazo más marcado que una zona cualquiera');
+
+    expect(find.byKey(const Key('mapa_leyenda_cobertura')), findsOneWidget);
+    expect(find.textContaining('usa Cobertura en el menú'), findsOneWidget);
+  });
+
+  testWidgets('sin cobertura propia no hay leyenda ni verde', (tester) async {
+    await tester.pumpWidget(
+      _app(
+        MapaState(
+          estado: MapaEstado.listo,
+          geometrias: [
+            GeometriaZona(
+              zonaId: _chico, nombre: 'Chicó Norte', nivel: 'BARRIO',
+              anillos: _anillo, atribucion: 'UAECD',
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final poligono = tester.widget<PolygonLayer>(find.byType(PolygonLayer)).polygons.first;
+    expect(poligono.borderColor, const Color(0xFFC2410C), reason: 'naranja de barrio');
+    expect(find.byKey(const Key('mapa_leyenda_cobertura')), findsNothing);
+  });
+
   testWidgets('el error ofrece reintentar', (tester) async {
     await tester.pumpWidget(
       _app(const MapaState(estado: MapaEstado.error, mensajeError: 'Gateway caído')),
