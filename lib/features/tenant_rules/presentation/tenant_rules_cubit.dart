@@ -71,25 +71,32 @@ class TenantRulesCubit extends Cubit<TenantRulesState> {
     final estado = state;
     if (estado is! TenantRulesLoaded) return false;
 
-    emit(estado.copyWith(guardando: true, mensajeError: null, mensajeExito: null));
+    emit(
+      estado.copyWith(guardando: true, mensajeError: null, mensajeExito: null),
+    );
     try {
       final actualizada = await _fuente.actualizar(
         expectedVersion: estado.vigente.version,
         reglas: reglas,
       );
       final nuevoHistorial = await _fuente.getHistorial();
-      emit(TenantRulesLoaded(
-        vigente: actualizada,
-        historial: nuevoHistorial,
-        guardando: false,
-        mensajeExito: 'Reglas actualizadas a la versión ${actualizada.version} correctamente.',
-      ));
+      emit(
+        TenantRulesLoaded(
+          vigente: actualizada,
+          historial: nuevoHistorial,
+          guardando: false,
+          mensajeExito:
+              'Reglas actualizadas a la versión ${actualizada.version} correctamente.',
+        ),
+      );
       return true;
     } catch (e) {
-      emit(estado.copyWith(
-        guardando: false,
-        mensajeError: 'Error al actualizar reglas: $e',
-      ));
+      emit(
+        estado.copyWith(
+          guardando: false,
+          mensajeError: 'Error al actualizar reglas: $e',
+        ),
+      );
       return false;
     }
   }

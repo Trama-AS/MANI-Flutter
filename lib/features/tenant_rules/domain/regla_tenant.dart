@@ -24,8 +24,9 @@ class ReglasOperativas {
     final oft = json['oferta'] as Map<String, dynamic>? ?? {};
 
     return ReglasOperativas(
-      criterioOrden:
-          (orden['criterio'] ?? 'CALIFICACION').toString().toUpperCase(),
+      criterioOrden: (orden['criterio'] ?? 'CALIFICACION')
+          .toString()
+          .toUpperCase(),
       toleranciaTarifa:
           (alerta['toleranciaPorcentaje'] as num?)?.toDouble() ?? 10.0,
       comisionPorcentaje: (com['porcentaje'] as num?)?.toDouble() ?? 15.0,
@@ -39,15 +40,15 @@ class ReglasOperativas {
   }
 
   Map<String, dynamic> toJson() => {
-        'ordenListado': {'criterio': criterioOrden},
-        'alertaTarifa': {'toleranciaPorcentaje': toleranciaTarifa},
-        'comision': {'porcentaje': comisionPorcentaje},
-        'cancelacion': {
-          'ventanaHoras': ventanaCancelacionHoras,
-          'penalizacionPorcentaje': penalizacionCancelacion,
-        },
-        'oferta': {'minutosParaAceptar': minutosParaAceptarOferta},
-      };
+    'ordenListado': {'criterio': criterioOrden},
+    'alertaTarifa': {'toleranciaPorcentaje': toleranciaTarifa},
+    'comision': {'porcentaje': comisionPorcentaje},
+    'cancelacion': {
+      'ventanaHoras': ventanaCancelacionHoras,
+      'penalizacionPorcentaje': penalizacionCancelacion,
+    },
+    'oferta': {'minutosParaAceptar': minutosParaAceptarOferta},
+  };
 }
 
 class ReglaTenantVigente {

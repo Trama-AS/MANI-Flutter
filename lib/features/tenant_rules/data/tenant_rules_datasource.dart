@@ -29,8 +29,9 @@ class GatewayFuenteReglasTenant implements FuenteReglasTenant {
     final res = await _gateway.get(rutaHistorial);
     final items = res['items'] as List<dynamic>? ?? [];
     return items
-        .map((i) =>
-            ReglaTenantHistorialItem.fromJson(i as Map<String, dynamic>))
+        .map(
+          (i) => ReglaTenantHistorialItem.fromJson(i as Map<String, dynamic>),
+        )
         .toList();
   }
 

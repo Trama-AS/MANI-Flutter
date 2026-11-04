@@ -144,6 +144,8 @@ const _rutasConSesion = {
   // M-10 (SCRUM-885 y 887).
   '/admin/tarifas',
   '/admin/reportes/cotizaciones-fuera-de-rango',
+  // M-01 (SCRUM-1366).
+  '/admin/reglas',
 };
 
 class _GuardadorFalso implements GuardadorArchivo {

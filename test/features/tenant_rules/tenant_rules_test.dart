@@ -122,8 +122,9 @@ void main() {
   });
 
   group('ReglasOperativasPage UI Widget test', () {
-    testWidgets('Renderiza formulario y permite presionar botón guardar',
-        (tester) async {
+    testWidgets('Renderiza formulario y permite presionar botón guardar', (
+      tester,
+    ) async {
       tester.view.physicalSize = const Size(1200, 1000);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {

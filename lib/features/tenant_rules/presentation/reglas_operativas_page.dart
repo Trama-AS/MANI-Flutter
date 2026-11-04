@@ -78,12 +78,16 @@ class _ReglasOperativasPageState extends State<ReglasOperativasPage> {
                       children: [
                         Text(
                           state.mensaje,
-                          style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                            color: Colors.red,
+                            fontWeight: FontWeight.bold,
+                          ),
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 16),
                         ElevatedButton(
-                          onPressed: () => context.read<TenantRulesCubit>().cargar(),
+                          onPressed: () =>
+                              context.read<TenantRulesCubit>().cargar(),
                           child: const Text('Reintentar'),
                         ),
                       ],
@@ -119,29 +123,37 @@ class _ReglasOperativasPageState extends State<ReglasOperativasPage> {
                           foregroundColor: Colors.black,
                           side: const BorderSide(width: 2, color: Colors.black),
                           elevation: 4,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4),
+                          ),
                         ),
                         onPressed: loaded.guardando
                             ? null
                             : () {
-                                if (_formKey.currentState?.validate() ?? false) {
+                                if (_formKey.currentState?.validate() ??
+                                    false) {
                                   context.read<TenantRulesCubit>().guardar(
-                                        ReglasOperativas(
-                                          criterioOrden: _criterioOrden,
-                                          toleranciaTarifa: _toleranciaTarifa,
-                                          comisionPorcentaje: _comision,
-                                          ventanaCancelacionHoras: _ventanaHoras,
-                                          penalizacionCancelacion: _penalizacion,
-                                          minutosParaAceptarOferta: _minutosOferta,
-                                        ),
-                                      );
+                                    ReglasOperativas(
+                                      criterioOrden: _criterioOrden,
+                                      toleranciaTarifa: _toleranciaTarifa,
+                                      comisionPorcentaje: _comision,
+                                      ventanaCancelacionHoras: _ventanaHoras,
+                                      penalizacionCancelacion: _penalizacion,
+                                      minutosParaAceptarOferta: _minutosOferta,
+                                    ),
+                                  );
                                 }
                               },
                         child: loaded.guardando
-                            ? const CircularProgressIndicator(color: Colors.black)
+                            ? const CircularProgressIndicator(
+                                color: Colors.black,
+                              )
                             : const Text(
                                 'GUARDAR NUEVA VERSIÓN',
-                                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 16,
+                                ),
                               ),
                       ),
                       const SizedBox(height: 40),
@@ -182,7 +194,10 @@ class _ReglasOperativasPageState extends State<ReglasOperativasPage> {
                 esPorOmision
                     ? 'VERSIÓN 0 (POR OMISIÓN)'
                     : 'VERSIÓN VIGENTE ${vigente.version}',
-                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 16,
+                ),
               ),
             ],
           ),
@@ -216,7 +231,10 @@ class _ReglasOperativasPageState extends State<ReglasOperativasPage> {
           const Divider(thickness: 2, color: Colors.black, height: 24),
 
           // 1. Criterio de orden
-          const Text('1. Criterio para ordenar aliados (RF-13):', style: TextStyle(fontWeight: FontWeight.bold)),
+          const Text(
+            '1. Criterio para ordenar aliados (RF-13):',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 8),
           DropdownButtonFormField<String>(
             key: const Key('dropdown_criterio_orden'),
@@ -226,10 +244,18 @@ class _ReglasOperativasPageState extends State<ReglasOperativasPage> {
               contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             ),
             items: const [
-              DropdownMenuItem(value: 'CALIFICACION', child: Text('Calificación promedio de clientes')),
-              DropdownMenuItem(value: 'COBERTURA', child: Text('Zonas de cobertura geográfica')),
+              DropdownMenuItem(
+                value: 'CALIFICACION',
+                child: Text('Calificación promedio de clientes'),
+              ),
+              DropdownMenuItem(
+                value: 'COBERTURA',
+                child: Text('Zonas de cobertura geográfica'),
+              ),
             ],
-            onChanged: guardando ? null : (v) => setState(() => _criterioOrden = v ?? 'CALIFICACION'),
+            onChanged: guardando
+                ? null
+                : (v) => setState(() => _criterioOrden = v ?? 'CALIFICACION'),
           ),
           const SizedBox(height: 20),
 
@@ -237,11 +263,15 @@ class _ReglasOperativasPageState extends State<ReglasOperativasPage> {
           Row(
             children: [
               const Expanded(
-                child: Text('2. Tolerancia de tarifa de referencia (RF-16):',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
+                child: Text(
+                  '2. Tolerancia de tarifa de referencia (RF-16):',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
               ),
-              Text('${_toleranciaTarifa.round()} %',
-                  style: const TextStyle(fontWeight: FontWeight.w900)),
+              Text(
+                '${_toleranciaTarifa.round()} %',
+                style: const TextStyle(fontWeight: FontWeight.w900),
+              ),
             ],
           ),
           Slider(
@@ -251,7 +281,9 @@ class _ReglasOperativasPageState extends State<ReglasOperativasPage> {
             max: 50,
             divisions: 50,
             activeColor: Colors.black,
-            onChanged: guardando ? null : (v) => setState(() => _toleranciaTarifa = v),
+            onChanged: guardando
+                ? null
+                : (v) => setState(() => _toleranciaTarifa = v),
           ),
           const SizedBox(height: 12),
 
@@ -259,11 +291,15 @@ class _ReglasOperativasPageState extends State<ReglasOperativasPage> {
           Row(
             children: [
               const Expanded(
-                child: Text('3. Comisión del tenant (RNF-10):',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
+                child: Text(
+                  '3. Comisión del tenant (RNF-10):',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
               ),
-              Text('${_comision.round()} %',
-                  style: const TextStyle(fontWeight: FontWeight.w900)),
+              Text(
+                '${_comision.round()} %',
+                style: const TextStyle(fontWeight: FontWeight.w900),
+              ),
             ],
           ),
           Slider(
@@ -278,7 +314,10 @@ class _ReglasOperativasPageState extends State<ReglasOperativasPage> {
           const SizedBox(height: 12),
 
           // 4. Cancelación
-          const Text('4. Política de cancelación y penalización (RNF-10):', style: TextStyle(fontWeight: FontWeight.bold)),
+          const Text(
+            '4. Política de cancelación y penalización (RNF-10):',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 8),
           Row(
             children: [
@@ -289,7 +328,9 @@ class _ReglasOperativasPageState extends State<ReglasOperativasPage> {
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(
                     labelText: 'Ventana (horas, 0-72)',
-                    border: OutlineInputBorder(borderSide: BorderSide(width: 2)),
+                    border: OutlineInputBorder(
+                      borderSide: BorderSide(width: 2),
+                    ),
                   ),
                   onChanged: (v) {
                     final n = double.tryParse(v);
@@ -310,7 +351,9 @@ class _ReglasOperativasPageState extends State<ReglasOperativasPage> {
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(
                     labelText: 'Penalización (%)',
-                    border: OutlineInputBorder(borderSide: BorderSide(width: 2)),
+                    border: OutlineInputBorder(
+                      borderSide: BorderSide(width: 2),
+                    ),
                   ),
                   onChanged: (v) {
                     final n = double.tryParse(v);
@@ -319,7 +362,9 @@ class _ReglasOperativasPageState extends State<ReglasOperativasPage> {
                   validator: (v) {
                     final n = double.tryParse(v ?? '');
                     if (n == null || n < 0 || n > 100) return '0 a 100 %';
-                    if (n > 0 && _ventanaHoras == 0) return 'Requiere ventana > 0';
+                    if (n > 0 && _ventanaHoras == 0) {
+                      return 'Requiere ventana > 0';
+                    }
                     return null;
                   },
                 ),
@@ -329,7 +374,10 @@ class _ReglasOperativasPageState extends State<ReglasOperativasPage> {
           const SizedBox(height: 20),
 
           // 5. Oferta
-          const Text('5. Tiempo límite para aceptar oferta (RNF-10):', style: TextStyle(fontWeight: FontWeight.bold)),
+          const Text(
+            '5. Tiempo límite para aceptar oferta (RNF-10):',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 8),
           TextFormField(
             key: const Key('input_minutos_oferta'),
@@ -408,7 +456,9 @@ class _ReglasOperativasPageState extends State<ReglasOperativasPage> {
                           ),
                           Text(
                             item.auditoria?['creadaEn'] != null
-                                ? item.auditoria!['creadaEn'].toString().substring(0, 10)
+                                ? item.auditoria!['creadaEn']
+                                      .toString()
+                                      .substring(0, 10)
                                 : '',
                             style: const TextStyle(fontSize: 12),
                           ),
