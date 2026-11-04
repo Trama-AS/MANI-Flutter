@@ -38,16 +38,15 @@ class FotoPerfilSelectorWidget extends StatelessWidget {
     if (selectorImagen == null) return;
     final archivo = await selectorImagen!();
     if (archivo == null) return;
-    if (!GatewayPerfilPropioDataSource.esFormatoImagenSoportado(
+    if (!GatewayPerfilPropioDataSource.esFotoValida(
       archivo.nombre,
+      archivo.bytes,
     )) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             key: Key('snackbar-error-formato-foto'),
-            content: Text(
-              'Formato de imagen no soportado. Usa PNG, JPG, JPEG o WEBP.',
-            ),
+            content: Text(FotoPerfilInvalidaException.mensaje),
           ),
         );
       }

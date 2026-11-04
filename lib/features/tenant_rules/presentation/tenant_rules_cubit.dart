@@ -1,4 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:mani/core/network/gateway_exception.dart';
+import 'package:mani/core/network/mensaje_error_gateway.dart';
 import '../data/tenant_rules_datasource.dart';
 import '../domain/regla_tenant.dart';
 
@@ -63,7 +65,7 @@ class TenantRulesCubit extends Cubit<TenantRulesState> {
       final historial = await _fuente.getHistorial();
       emit(TenantRulesLoaded(vigente: vigente, historial: historial));
     } catch (e) {
-      emit(TenantRulesError('Error al cargar reglas operativas: $e'));
+      emit(TenantRulesError(mensajeErrorGateway(e)));
     }
   }
 
@@ -79,7 +81,12 @@ class TenantRulesCubit extends Cubit<TenantRulesState> {
         expectedVersion: estado.vigente.version,
         reglas: reglas,
       );
-      final nuevoHistorial = await _fuente.getHistorial();
+      List<ReglaTenantHistorialItem> nuevoHistorial;
+      try {
+        nuevoHistorial = await _fuente.getHistorial();
+      } catch (_) {
+        nuevoHistorial = estado.historial;
+      }
       emit(
         TenantRulesLoaded(
           vigente: actualizada,
@@ -91,10 +98,23 @@ class TenantRulesCubit extends Cubit<TenantRulesState> {
       );
       return true;
     } catch (e) {
+      ReglaTenantVigente nuevaVigente = estado.vigente;
+      List<ReglaTenantHistorialItem> nuevoHistorial = estado.historial;
+      final es409 =
+          (e is GatewayException && e.statusCode == 409) ||
+          e.toString().contains('409');
+      if (es409) {
+        try {
+          nuevaVigente = await _fuente.getVigente();
+          nuevoHistorial = await _fuente.getHistorial();
+        } catch (_) {}
+      }
       emit(
         estado.copyWith(
+          vigente: nuevaVigente,
+          historial: nuevoHistorial,
           guardando: false,
-          mensajeError: 'Error al actualizar reglas: $e',
+          mensajeError: mensajeErrorGateway(e),
         ),
       );
       return false;

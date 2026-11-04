@@ -71,13 +71,33 @@ void main() {
     expect(repo.llamadasGuardar, 0);
   });
 
-  testWidgets('un error al guardar se muestra y conserva la selección', (
+  // SCRUM-1632: antes se exigía que la categoría rechazada quedara marcada.
+  // Eso hacía creer al aliado que la había declarado y al recargar desaparecía.
+  testWidgets(
+    'un error del servidor se muestra y desmarca lo que no se guardó',
+    (t) async {
+      final repo = FakeCategoriesRepository(
+        fallaGuardado: const CategoriesFailure(
+          CategoriesErrorTipo.categoriaNoDisponible,
+        ),
+      );
+      await t.pumpWidget(_app(repo));
+      await t.pumpAndSettle();
+
+      await t.tap(find.byKey(const ValueKey('categoria-c-plo')));
+      await t.tap(find.byKey(const ValueKey('btn-guardar-categorias')));
+      await t.pumpAndSettle();
+
+      expect(find.textContaining('ya no están disponibles'), findsOneWidget);
+      expect(_check('c-plo'), findsNothing);
+    },
+  );
+
+  testWidgets('sin conexión el error se muestra pero la selección sigue ahí', (
     t,
   ) async {
     final repo = FakeCategoriesRepository(
-      fallaGuardado: const CategoriesFailure(
-        CategoriesErrorTipo.categoriaNoDisponible,
-      ),
+      fallaGuardado: const CategoriesFailure(CategoriesErrorTipo.sinConexion),
     );
     await t.pumpWidget(_app(repo));
     await t.pumpAndSettle();
@@ -86,7 +106,7 @@ void main() {
     await t.tap(find.byKey(const ValueKey('btn-guardar-categorias')));
     await t.pumpAndSettle();
 
-    expect(find.textContaining('ya no están disponibles'), findsOneWidget);
+    expect(find.textContaining('Sin conexión'), findsOneWidget);
     expect(_check('c-plo'), findsOneWidget);
   });
 

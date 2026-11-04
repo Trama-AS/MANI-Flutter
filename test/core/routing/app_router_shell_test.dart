@@ -127,7 +127,10 @@ const _rutasConSesion = {
   '/sitios/:id/reglas',
   '/perfil/editar',
   '/cliente/sedes',
-  '/aliado/empleados/nuevo',
+  '/admin/empleados/nuevo',
+  '/perfil/avisos',
+  '/admin/auditoria-transacciones',
+  '/admin/conversaciones',
   '/cliente/solicitudes/nueva',
   '/cliente/solicitudes',
   '/cliente/solicitudes/:id/aliados',
@@ -146,6 +149,10 @@ const _rutasConSesion = {
   '/admin/reportes/cotizaciones-fuera-de-rango',
   // M-01 (SCRUM-1366).
   '/admin/reglas',
+  // M-08 (SCRUM-878, 879 y 880).
+  '/cliente/historial',
+  '/aliado/historial',
+  '/admin/politica-cancelacion',
 };
 
 class _GuardadorFalso implements GuardadorArchivo {
