@@ -318,6 +318,20 @@ void main() {
       expect(find.text('contenido de la pantalla'), findsOneWidget);
     });
 
+    testWidgets(
+      'en escritorio la barra es desplazable con botones de navegación',
+      (tester) async {
+        await _montar(tester, ancho: 1024, rol: RolUsuario.adminTenant);
+        expect(find.byKey(const Key('menu-scroll-izq')), findsOneWidget);
+        expect(find.byKey(const Key('menu-scroll-der')), findsOneWidget);
+
+        await tester.tap(find.byKey(const Key('menu-scroll-der')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('menu-scroll-izq')));
+        await tester.pumpAndSettle();
+      },
+    );
+
     testWidgets('tocar una entrada navega a su ruta', (tester) async {
       String? destino;
       await _montar(

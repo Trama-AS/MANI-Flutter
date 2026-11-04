@@ -247,7 +247,10 @@ class _BarraAcciones extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     ConstrainedBox(
-                      constraints: const BoxConstraints(minWidth: 120, maxWidth: 160),
+                      constraints: const BoxConstraints(
+                        minWidth: 120,
+                        maxWidth: 160,
+                      ),
                       child: ManiButton(
                         key: const ValueKey('btn-atras'),
                         etiqueta: 'Atrás',
@@ -259,7 +262,10 @@ class _BarraAcciones extends StatelessWidget {
                     ),
                     const SizedBox(width: 16),
                     ConstrainedBox(
-                      constraints: const BoxConstraints(minWidth: 160, maxWidth: 260),
+                      constraints: const BoxConstraints(
+                        minWidth: 160,
+                        maxWidth: 260,
+                      ),
                       child: esRevision
                           ? ManiButton(
                               key: const ValueKey('btn-publicar'),

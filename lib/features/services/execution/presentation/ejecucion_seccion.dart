@@ -85,8 +85,7 @@ class EjecucionSeccion extends StatelessWidget {
               else if (e != null) ...[
                 _Marca('Inicio', e.inicio, key: const Key('marca-inicio')),
                 _Marca('Fin', e.fin, key: const Key('marca-fin')),
-                if (esAliado)
-                  _Acciones(ejecucion: e, enviando: state.enviando),
+                if (esAliado) _Acciones(ejecucion: e, enviando: state.enviando),
               ],
             ],
           ),
@@ -146,10 +145,7 @@ class _Acciones extends StatelessWidget {
       child: Align(
         alignment: Alignment.centerLeft,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(
-            minWidth: 180,
-            maxWidth: 260,
-          ),
+          constraints: const BoxConstraints(minWidth: 180, maxWidth: 260),
           child: ManiButton(
             key: Key('btn-${hito.ruta}-servicio'),
             etiqueta: hito == HitoEjecucion.inicio
