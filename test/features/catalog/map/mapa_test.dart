@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mani/core/network/gateway_exception.dart';
 import 'package:mani/features/catalog/map/data/mapa_remote_datasource.dart';
 import 'package:mani/features/catalog/map/domain/entities/geometria_zona.dart';
 import 'package:mani/features/catalog/map/presentation/bloc/mapa_cubit.dart';
@@ -40,11 +41,24 @@ Map<String, dynamic> _respuesta({List<String> sinGeometria = const []}) => {
 };
 
 class _DatosFalsos implements MapaRemoteDataSource {
-  _DatosFalsos({this.respuesta, this.zonas});
+  _DatosFalsos({this.respuesta, this.zonas, this.sitios, this.fallaSitios = false});
 
   Map<String, dynamic>? respuesta;
   List<Map<String, dynamic>>? zonas;
+  List<SitioUbicado>? sitios;
+
+  /// Reproduce lo que recibe un admin: las sedes son del cliente de la sesión.
+  bool fallaSitios;
+
   List<String>? pedidas;
+
+  @override
+  Future<List<SitioUbicado>> listarMisSitios() async {
+    if (fallaSitios) {
+      throw GatewayException(message: 'No tienes permiso', statusCode: 403);
+    }
+    return sitios ?? const [];
+  }
 
   @override
   Future<List<Map<String, dynamic>>> listarZonas() async =>
@@ -162,6 +176,84 @@ void main() {
 
     test('no pide más zonas de las que Core admite por petición', () {
       expect(GatewayMapaDataSource.maxZonasPorPeticion, 20);
+    });
+
+    // El cliente ve sus propias sedes sobre el mapa; el admin no las puede
+    // leer y eso no debe tumbar la pantalla.
+    test('ubica las sedes de la localidad y cuenta aparte las que no tienen punto', () async {
+      final datos = _DatosFalsos(
+        sitios: const [
+          SitioUbicado(id: 's1', nombre: 'Sede Norte', zonaId: _chico, latitud: 4.68, longitud: -74.05),
+          SitioUbicado(id: 's2', nombre: 'Sede sin GPS', zonaId: _chico),
+          SitioUbicado(id: 's3', nombre: 'Sede de otra zona', zonaId: 'zona-ajena', latitud: 1, longitud: 1),
+        ],
+      );
+      final cubit = MapaCubit(datos);
+
+      await cubit.cargar();
+
+      expect(cubit.state.sitios.map((s) => s.id), ['s1'],
+          reason: 'solo la ubicada y de la zona pedida');
+      expect(cubit.state.sitiosSinUbicacion, 1);
+    });
+
+    test('si las sedes no se pueden leer, el mapa sigue mostrando las zonas', () async {
+      final datos = _DatosFalsos(fallaSitios: true);
+      final cubit = MapaCubit(datos);
+
+      await cubit.cargar();
+
+      expect(cubit.state.estado, MapaEstado.listo,
+          reason: 'el error de sedes no tumba el mapa');
+      expect(cubit.state.geometrias, hasLength(1));
+      expect(cubit.state.sitios, isEmpty);
+      expect(cubit.state.mensajeError, isNull);
+    });
+
+    test('una sede ubicada sostiene el mapa aunque no haya ningún límite', () async {
+      final datos = _DatosFalsos(
+        respuesta: {
+          'type': 'FeatureCollection',
+          'features': const [],
+          'sinGeometria': [_chapinero],
+          'desconocidas': const <String>[],
+          'atribuciones': const <String>[],
+        },
+        sitios: const [
+          SitioUbicado(id: 's1', nombre: 'Sede Norte', zonaId: _chapinero, latitud: 4.65, longitud: -74.06),
+        ],
+      );
+      final cubit = MapaCubit(datos);
+
+      await cubit.cargar();
+
+      expect(cubit.state.estado, MapaEstado.listo);
+      expect(cubit.state.sitios, hasLength(1));
+    });
+  });
+
+  group('parseo de sedes', () {
+    test('normaliza la coordenada que llega como cadena y trata lo no numérico como ausencia', () {
+      final sitios = GatewayMapaDataSource.parsearSitios({
+        'sitios': [
+          {'id': 's1', 'nombre': 'Sede Norte', 'zonaId': _chico, 'latitud': '4.68132', 'longitud': '-74.05045'},
+          {'id': 's2', 'nombre': 'Sin punto', 'zonaId': _chico, 'latitud': null, 'longitud': null},
+          {'id': 's3', 'nombre': 'Basura', 'zonaId': _chico, 'latitud': 'norte', 'longitud': 'occidente'},
+        ],
+      });
+
+      expect(sitios, hasLength(3));
+      expect(sitios[0].latitud, closeTo(4.68132, 0.00001));
+      expect(sitios[0].tieneCoordenadas, isTrue);
+      expect(sitios[1].tieneCoordenadas, isFalse);
+      // Nunca 0: el ecuador no es una ubicación por omisión.
+      expect(sitios[2].latitud, isNull);
+      expect(sitios[2].tieneCoordenadas, isFalse);
+    });
+
+    test('sin la clave sitios devuelve vacío en vez de fallar', () {
+      expect(GatewayMapaDataSource.parsearSitios({}), isEmpty);
+      expect(GatewayMapaDataSource.parsearSitios({'sitios': 'no es lista'}), isEmpty);
     });
   });
 }

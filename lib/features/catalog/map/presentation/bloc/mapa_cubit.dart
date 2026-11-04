@@ -14,6 +14,8 @@ class MapaState extends Equatable {
     this.geometrias = const [],
     this.sinGeometria = const [],
     this.atribuciones = const [],
+    this.sitios = const [],
+    this.sitiosSinUbicacion = 0,
     this.mensajeError,
   });
 
@@ -29,6 +31,14 @@ class MapaState extends Equatable {
   /// que el usuario sepa que faltan, en lugar de dibujar algo inventado (C2).
   final List<String> sinGeometria;
   final List<String> atribuciones;
+
+  /// Sedes propias que se pueden dibujar, de la localidad seleccionada.
+  final List<SitioUbicado> sitios;
+
+  /// Cuántas sedes de esa localidad no tienen punto capturado. Se informa en
+  /// vez de ubicarlas en el centroide de su zona (C2).
+  final int sitiosSinUbicacion;
+
   final String? mensajeError;
 
   MapaState copyWith({
@@ -38,6 +48,8 @@ class MapaState extends Equatable {
     List<GeometriaZona>? geometrias,
     List<String>? sinGeometria,
     List<String>? atribuciones,
+    List<SitioUbicado>? sitios,
+    int? sitiosSinUbicacion,
     String? mensajeError,
   }) {
     return MapaState(
@@ -47,6 +59,8 @@ class MapaState extends Equatable {
       geometrias: geometrias ?? this.geometrias,
       sinGeometria: sinGeometria ?? this.sinGeometria,
       atribuciones: atribuciones ?? this.atribuciones,
+      sitios: sitios ?? this.sitios,
+      sitiosSinUbicacion: sitiosSinUbicacion ?? this.sitiosSinUbicacion,
       mensajeError: mensajeError,
     );
   }
@@ -59,6 +73,8 @@ class MapaState extends Equatable {
     geometrias,
     sinGeometria,
     atribuciones,
+    sitios,
+    sitiosSinUbicacion,
     mensajeError,
   ];
 }
@@ -86,6 +102,10 @@ class MapaCubit extends Cubit<MapaState> {
         return;
       }
       _zonas = zonas;
+      // Las sedes son del cliente de la sesión. Un admin recibe error del
+      // servicio, y eso no debe tumbar el mapa: se queda sin sedes y sigue
+      // mostrando las zonas, que es su contenido principal.
+      _misSitios = await _cargarSitiosTolerante();
       emit(state.copyWith(estado: MapaEstado.listo, localidades: localidades));
       await seleccionar('${localidades.first['id']}');
     } on GatewayException catch (e) {
@@ -103,14 +123,22 @@ class MapaCubit extends Cubit<MapaState> {
       final pedidas = <String>[localidadId, ...barrios];
       final res = await _datos.obtenerGeometrias(pedidas);
       final dibujables = res.geometrias.where((g) => g.tienePuntos).toList(growable: false);
+
+      // Sedes de la localidad elegida y de sus barrios.
+      final deLaZona = _misSitios.where((s) => pedidas.contains(s.zonaId)).toList(growable: false);
+      final ubicadas = deLaZona.where((s) => s.tieneCoordenadas).toList(growable: false);
+
       emit(
         state.copyWith(
-          // Sin ningún límite dibujable el mapa queda vacío, y eso se dice:
-          // no se rellena con una forma aproximada (C2).
-          estado: dibujables.isEmpty ? MapaEstado.vacio : MapaEstado.listo,
+          // El mapa tiene contenido si hay un límite que dibujar o una sede
+          // que ubicar. Sin ninguna de las dos cosas queda vacío, y eso se
+          // dice: no se rellena con una forma aproximada (C2).
+          estado: dibujables.isEmpty && ubicadas.isEmpty ? MapaEstado.vacio : MapaEstado.listo,
           geometrias: dibujables,
           sinGeometria: res.sinGeometria,
           atribuciones: res.atribuciones,
+          sitios: ubicadas,
+          sitiosSinUbicacion: deLaZona.length - ubicadas.length,
         ),
       );
     } on GatewayException catch (e) {
@@ -118,5 +146,17 @@ class MapaCubit extends Cubit<MapaState> {
     }
   }
 
+  /// Pide las sedes sin dejar que su fallo tumbe el mapa. Un admin no las
+  /// puede leer —son del cliente de la sesión— y eso es lo esperado, no un
+  /// error que haya que mostrar.
+  Future<List<SitioUbicado>> _cargarSitiosTolerante() async {
+    try {
+      return await _datos.listarMisSitios();
+    } on GatewayException {
+      return const [];
+    }
+  }
+
   List<Map<String, dynamic>> _zonas = const [];
+  List<SitioUbicado> _misSitios = const [];
 }

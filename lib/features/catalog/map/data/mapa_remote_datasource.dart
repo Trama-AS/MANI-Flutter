@@ -20,11 +20,38 @@ class GeometriasZonas {
   final List<String> atribuciones;
 }
 
+/// Sede del cliente con su ubicación declarada, si la tiene.
+class SitioUbicado {
+  const SitioUbicado({
+    required this.id,
+    required this.nombre,
+    required this.zonaId,
+    this.latitud,
+    this.longitud,
+  });
+
+  final String id;
+  final String nombre;
+  final String zonaId;
+
+  /// `null` cuando la sede no tiene punto capturado. No se completa con el
+  /// centroide de su zona ni con la dirección: se informa que falta (C2).
+  final double? latitud;
+  final double? longitud;
+
+  bool get tieneCoordenadas => latitud != null && longitud != null;
+}
+
 abstract interface class MapaRemoteDataSource {
   /// Catálogo jerárquico: `id`, `nombre`, `nivel`, `parentId`, `selectable`.
   Future<List<Map<String, dynamic>>> listarZonas();
 
   Future<GeometriasZonas> obtenerGeometrias(List<String> zonaIds);
+
+  /// Sedes del cliente de la sesión. Solo el rol cliente las obtiene: para un
+  /// admin el servicio responde error, y el mapa debe seguir funcionando con
+  /// las zonas, sin sedes.
+  Future<List<SitioUbicado>> listarMisSitios();
 }
 
 /// Todo sale por el API Gateway hacia Core Node; no hay llamada directa a
@@ -34,6 +61,7 @@ class GatewayMapaDataSource implements MapaRemoteDataSource {
 
   static const _rutaZonas = '/api/v1/core/catalog/zones';
   static const _rutaGeometrias = '/api/v1/core/catalog/geometrias';
+  static const _rutaSitios = '/api/v1/core/solicitudes/sitios';
 
   /// Mismo tope que impone Core: pedir más devuelve 400.
   static const maxZonasPorPeticion = 20;
@@ -63,6 +91,35 @@ class GatewayMapaDataSource implements MapaRemoteDataSource {
       queryParameters: {'zonaIds': zonaIds.take(maxZonasPorPeticion).join(',')},
     );
     return parsear(res);
+  }
+
+  @override
+  Future<List<SitioUbicado>> listarMisSitios() async {
+    final res = await _gateway.get(_rutaSitios);
+    return parsearSitios(res);
+  }
+
+  /// Separado del transporte para poder probar el parseo sin red.
+  static List<SitioUbicado> parsearSitios(Map<String, dynamic> res) {
+    final sitios = res['sitios'];
+    if (sitios is! List) return const [];
+    return sitios.whereType<Map>().map((s) {
+      return SitioUbicado(
+        id: '${s['id'] ?? ''}',
+        nombre: '${s['nombre'] ?? ''}',
+        zonaId: '${s['zonaId'] ?? ''}',
+        latitud: _comoDouble(s['latitud']),
+        longitud: _comoDouble(s['longitud']),
+      );
+    }).toList(growable: false);
+  }
+
+  /// Un valor ausente o no numérico es ausencia de punto, nunca cero: el
+  /// ecuador no es una ubicación por omisión.
+  static double? _comoDouble(Object? valor) {
+    if (valor is num) return valor.toDouble();
+    if (valor is String) return double.tryParse(valor);
+    return null;
   }
 
   /// Separado del transporte para poder probar el parseo sin red.
