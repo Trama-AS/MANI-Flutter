@@ -1,9 +1,12 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:mani/core/session/contexto_plataforma.dart';
 import 'package:mani/core/session/rol_usuario.dart';
 import 'package:mani/core/shell/datos_sesion.dart';
 import 'package:mani/core/shell/menu_por_rol.dart';
+import 'package:mani/core/shell/selector_contexto_plataforma.dart';
 import 'package:mani/core/theme/app_theme.dart';
+import 'package:mani/features/platform/data/tenants_datasource.dart';
 
 /// Ancho a partir del cual las entradas se muestran como barra; por debajo
 /// se agrupan en un menú desplegable para que quepan en móvil (RNF-08).
@@ -22,6 +25,9 @@ class AppShell extends StatefulWidget {
     required this.fuenteDatos,
     required this.onNavegar,
     required this.onCerrarSesion,
+    this.contextoPlataforma,
+    this.fuenteTenants,
+    this.fuenteUsuarios,
   });
 
   final Widget child;
@@ -32,6 +38,18 @@ class AppShell extends StatefulWidget {
   final FuenteDatosSesion fuenteDatos;
   final ValueChanged<String> onNavegar;
   final Future<void> Function() onCerrarSesion;
+
+  /// Contexto del administrador de plataforma (SCRUM-901): tenant elegido y
+  /// usuario con el que actúa. Solo se usa con [RolUsuario.adminPlataforma].
+  final ContextoPlataforma? contextoPlataforma;
+  final FuenteTenants? fuenteTenants;
+  final FuenteUsuariosTenant? fuenteUsuarios;
+
+  bool get _conContexto =>
+      rol == RolUsuario.adminPlataforma &&
+      contextoPlataforma != null &&
+      fuenteTenants != null &&
+      fuenteUsuarios != null;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -74,10 +92,18 @@ class _AppShellState extends State<AppShell> {
   /// "Mis solicitudes", cuya ruta es prefijo de la actual.
   bool _esActiva(EntradaMenu e) {
     if (!_coincide(e)) return false;
-    return !entradasMenuPara(
-      widget.rol,
-    ).any((o) => o.ruta.length > e.ruta.length && _coincide(o));
+    return !_entradas().any(
+      (o) => o.ruta.length > e.ruta.length && _coincide(o),
+    );
   }
+
+  /// Entradas del rol; el admin de plataforma ve las del rol con el que actúa.
+  List<EntradaMenu> _entradas() => widget._conContexto
+      ? entradasMenuPara(
+          widget.rol,
+          actuandoComo: widget.contextoPlataforma!.rolEfectivo,
+        )
+      : entradasMenuPara(widget.rol);
 
   Future<void> _cerrarSesion() async {
     await widget.onCerrarSesion();
@@ -85,7 +111,39 @@ class _AppShellState extends State<AppShell> {
 
   @override
   Widget build(BuildContext context) {
-    final entradas = entradasMenuPara(widget.rol);
+    final contexto = widget.contextoPlataforma;
+    if (!widget._conContexto || contexto == null) return _armazon(context);
+    // Con cada cambio de contexto se repinta el menú y se recarga la pantalla.
+    return ListenableBuilder(
+      listenable: contexto,
+      builder: (context, _) => _armazon(context),
+    );
+  }
+
+  Widget _armazon(BuildContext context) {
+    final entradas = _entradas();
+    final contexto = widget._conContexto ? widget.contextoPlataforma : null;
+    final cuerpo = contexto == null
+        ? widget.child
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SelectorContextoPlataforma(
+                contexto: contexto,
+                fuenteTenants: widget.fuenteTenants!,
+                fuenteUsuarios: widget.fuenteUsuarios!,
+                alCambiar: () => widget.onNavegar('/inicio'),
+              ),
+              Expanded(
+                // Pantallas nuevas con el contexto nuevo: sus cubits vuelven a
+                // consultar con las cabeceras actualizadas.
+                child: KeyedSubtree(
+                  key: ValueKey('contexto-${contexto.version}'),
+                  child: widget.child,
+                ),
+              ),
+            ],
+          );
     return LayoutBuilder(
       builder: (context, constraints) {
         final expandido = constraints.maxWidth >= anchoMenuExpandido;
@@ -187,7 +245,7 @@ class _AppShellState extends State<AppShell> {
             ],
             bottom: expandido ? _barraEntradas(context, entradas) : null,
           ),
-          body: widget.child,
+          body: cuerpo,
         );
       },
     );

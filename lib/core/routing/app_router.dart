@@ -5,10 +5,12 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:mani/features/platform/data/tenants_datasource.dart';
 import 'package:mani/features/audit/presentation/auditoria_page.dart';
 import 'package:mani/features/conversation_review/presentation/conversacion_queja_page.dart';
 import 'package:mani/features/notifications/domain/aviso.dart';
 import 'package:mani/features/notifications/presentation/avisos_page.dart';
+import 'package:mani/core/session/contexto_plataforma.dart';
 import 'package:mani/core/di/injection_container.dart';
 import 'package:mani/core/session/guardas_ruta.dart';
 import 'package:mani/core/session/rol_usuario.dart';
@@ -373,7 +375,23 @@ final appRouter = GoRouter(
         ubicacion: state.matchedLocation,
         fuenteDatos: sl<FuenteDatosSesion>(),
         onNavegar: (ruta) => context.go(ruta),
-        onCerrarSesion: () => sl<IAuthRepository>().signOut(),
+        onCerrarSesion: () async {
+          // El contexto del admin de plataforma no pasa a la siguiente sesión.
+          if (sl.isRegistered<ContextoPlataforma>()) {
+            sl<ContextoPlataforma>().limpiar();
+          }
+          await sl<IAuthRepository>().signOut();
+        },
+        // Tenant elegido y «Actuar como» del admin de plataforma (SCRUM-901).
+        contextoPlataforma: sl.isRegistered<ContextoPlataforma>()
+            ? sl<ContextoPlataforma>()
+            : null,
+        fuenteTenants: sl.isRegistered<FuenteTenants>()
+            ? sl<FuenteTenants>()
+            : null,
+        fuenteUsuarios: sl.isRegistered<FuenteUsuariosTenant>()
+            ? sl<FuenteUsuariosTenant>()
+            : null,
         child: child,
       ),
       routes: [
@@ -387,6 +405,9 @@ final appRouter = GoRouter(
             ),
             fuenteSesion: sl<FuenteDatosSesion>(),
             fuenteResumen: sl<FuenteResumenInicio>(),
+            contextoPlataforma: sl.isRegistered<ContextoPlataforma>()
+                ? sl<ContextoPlataforma>()
+                : null,
             onNavegar: (ruta) => context.go(ruta),
             onCerrarSesion: () async {
               await sl<IAuthRepository>().signOut();

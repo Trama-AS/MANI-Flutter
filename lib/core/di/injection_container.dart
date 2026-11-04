@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:mani/features/audit/data/auditoria_datasource.dart';
 import 'package:mani/features/conversation_review/data/conversacion_queja_datasource.dart';
 import 'package:mani/features/notifications/data/avisos_datasource.dart';
+import 'package:mani/core/session/contexto_plataforma.dart';
 import 'package:mani/core/network/gateway_client.dart';
 import 'package:mani/core/session/sesion_expirada.dart';
 import 'package:mani/core/shell/datos_sesion.dart';
@@ -111,7 +112,14 @@ Future<void> init() async {
       // (US-11.2.2 / SCRUM-1445): no se deja al usuario en una pantalla que
       // ya no puede cargar nada.
       onTokenExpired: () => refrescarOCerrarSesion(sl<SupabaseClient>().auth),
+      // Tenant elegido y usuario con el que actúa el admin de plataforma
+      // (SCRUM-901). Vacío para los demás roles.
+      cabecerasExtra: () => sl<ContextoPlataforma>().cabeceras,
     ),
+  );
+  sl.registerLazySingleton<ContextoPlataforma>(ContextoPlataforma.new);
+  sl.registerLazySingleton<FuenteUsuariosTenant>(
+    () => GatewayFuenteUsuariosTenant(sl()),
   );
   sl.registerLazySingleton<UrlOpener>(() => const UrlLauncherOpener());
   sl.registerLazySingleton<SelectorFotos>(

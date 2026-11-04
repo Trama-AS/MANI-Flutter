@@ -154,21 +154,29 @@ const _tenants = EntradaMenu(
   ruta: '/plataforma/tenants',
 );
 
-/// La misma entrada con el rol entre paréntesis, para el menú del
-/// administrador de plataforma, donde conviven pantallas de varios roles.
-EntradaMenu _conRol(EntradaMenu e, String rol) =>
-    EntradaMenu(etiqueta: '${e.etiqueta} ($rol)', icono: e.icono, ruta: e.ruta);
+/// Entradas propias de cada rol, sin inicio, avisos ni perfil.
+List<EntradaMenu> _propiasDe(RolUsuario rol) => switch (rol) {
+  RolUsuario.cliente => _entradasCliente,
+  RolUsuario.aliado => _entradasAliado,
+  RolUsuario.adminTenant => _entradasAdminTenant,
+  _ => const [],
+};
 
 /// Entradas del menú superior por rol (US-11.2.1 / SCRUM-1444).
 ///
 /// - El administrador del tenant solo ve la administración de su empresa.
-/// - El administrador de plataforma ve los tenants y, además, todas las
-///   pantallas de administración, de cliente y de aliado.
+/// - El administrador de plataforma ve los tenants y las pantallas del rol con
+///   el que actúa ([actuandoComo]): las de administrador del tenant elegido
+///   por omisión, o las del cliente o aliado que eligió en «Actuar como»
+///   (SCRUM-901). Así puede usar todas las funciones del sistema.
 ///
 /// Solo se listan rutas que ya existen en `app_router.dart`. Ocultar una
 /// entrada no protege la ruta: el bloqueo por rol es de SCRUM-1445 y la
 /// autorización la hace el servidor.
-List<EntradaMenu> entradasMenuPara(RolUsuario rol) {
+List<EntradaMenu> entradasMenuPara(
+  RolUsuario rol, {
+  RolUsuario actuandoComo = RolUsuario.adminTenant,
+}) {
   switch (rol) {
     case RolUsuario.cliente:
       return const [_inicio, ..._entradasCliente, _avisos, _miPerfil];
@@ -180,9 +188,7 @@ List<EntradaMenu> entradasMenuPara(RolUsuario rol) {
       return [
         _inicio,
         _tenants,
-        ..._entradasAdminTenant,
-        for (final e in _entradasCliente) _conRol(e, 'Cliente'),
-        for (final e in _entradasAliado) _conRol(e, 'Aliado'),
+        ..._propiasDe(actuandoComo),
         _avisos,
         _miPerfil,
       ];

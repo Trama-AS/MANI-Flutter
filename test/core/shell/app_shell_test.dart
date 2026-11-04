@@ -158,23 +158,15 @@ void main() {
       );
     });
 
-    test('admin de plataforma ve tenants y todas las pantallas', () {
+    test('admin de plataforma ve tenants y la administración por omisión', () {
       final r = rutas(RolUsuario.adminPlataforma);
       expect(
         r,
-        containsAll({
-          '/plataforma/tenants',
-          ...rutas(RolUsuario.adminTenant),
-          ...rutas(RolUsuario.cliente),
-          ...rutas(RolUsuario.aliado),
-        }),
+        containsAll({'/plataforma/tenants', ...rutas(RolUsuario.adminTenant)}),
       );
-      // Las de cliente y aliado llevan el rol en la etiqueta.
-      final etiquetas = entradasMenuPara(
-        RolUsuario.adminPlataforma,
-      ).map((e) => e.etiqueta);
-      expect(etiquetas, contains('Mis solicitudes (Cliente)'));
-      expect(etiquetas, contains('Cobertura (Aliado)'));
+      // Las de cliente y aliado aparecen al actuar como uno
+      // (contexto_plataforma_test.dart).
+      expect(r.where((x) => x.startsWith('/cliente/')), isEmpty);
     });
 
     test(

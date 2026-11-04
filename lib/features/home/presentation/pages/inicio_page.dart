@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mani/core/session/contexto_plataforma.dart';
 import 'package:mani/core/session/rol_usuario.dart';
 import 'package:mani/core/shell/datos_sesion.dart';
 import 'package:mani/core/shell/menu_por_rol.dart';
@@ -18,6 +19,7 @@ class InicioPage extends StatefulWidget {
     required this.fuenteResumen,
     required this.onNavegar,
     this.onCerrarSesion,
+    this.contextoPlataforma,
   });
 
   final RolUsuario rol;
@@ -25,6 +27,17 @@ class InicioPage extends StatefulWidget {
   final FuenteResumenInicio fuenteResumen;
   final ValueChanged<String> onNavegar;
   final Future<void> Function()? onCerrarSesion;
+
+  /// Contexto del administrador de plataforma (SCRUM-901): sus accesos y su
+  /// resumen son los del rol con el que actúa.
+  final ContextoPlataforma? contextoPlataforma;
+
+  /// Rol cuyas pantallas se muestran: el propio, o el del contexto para el
+  /// administrador de plataforma.
+  RolUsuario get _rolDePantallas =>
+      rol == RolUsuario.adminPlataforma && contextoPlataforma != null
+      ? contextoPlataforma!.rolEfectivo
+      : rol;
 
   @override
   State<InicioPage> createState() => _InicioPageState();
@@ -38,13 +51,14 @@ class _InicioPageState extends State<InicioPage> {
   void initState() {
     super.initState();
     _sesion = widget.fuenteSesion.cargar();
-    _resumen = widget.fuenteResumen.cargar(widget.rol);
+    _resumen = widget.fuenteResumen.cargar(widget._rolDePantallas);
   }
 
   @override
   Widget build(BuildContext context) {
     final accesos = entradasMenuPara(
       widget.rol,
+      actuandoComo: widget._rolDePantallas,
     ).where((e) => e.ruta != '/inicio').toList();
 
     return Scaffold(
