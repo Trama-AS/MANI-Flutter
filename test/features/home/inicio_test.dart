@@ -217,6 +217,7 @@ void main() {
       required RolUsuario rol,
       required FuenteResumenInicio resumen,
       ValueChanged<String>? onNavegar,
+      Future<void> Function()? onCerrarSesion,
     }) async {
       await tester.pumpWidget(
         MaterialApp(
@@ -225,6 +226,7 @@ void main() {
             fuenteSesion: _SesionFija(),
             fuenteResumen: resumen,
             onNavegar: onNavegar ?? (_) {},
+            onCerrarSesion: onCerrarSesion,
           ),
         ),
       );
@@ -321,5 +323,24 @@ void main() {
         findsOneWidget,
       );
     });
+
+    testWidgets(
+      'muestra tarjeta de cerrar sesión cuando onCerrarSesion está configurado y lo ejecuta',
+      (tester) async {
+        var cerro = false;
+        await montar(
+          tester,
+          rol: RolUsuario.cliente,
+          resumen: _ResumenFijo(const []),
+          onCerrarSesion: () async => cerro = true,
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('inicio-card-sesion')), findsOneWidget);
+        await tester.tap(find.byKey(const Key('inicio-cerrar-sesion')));
+        await tester.pumpAndSettle();
+        expect(cerro, isTrue);
+      },
+    );
   });
 }

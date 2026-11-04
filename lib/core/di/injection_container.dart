@@ -1,6 +1,9 @@
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:get_it/get_it.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:mani/features/audit/data/auditoria_datasource.dart';
+import 'package:mani/features/conversation_review/data/conversacion_queja_datasource.dart';
+import 'package:mani/features/notifications/data/avisos_datasource.dart';
 import 'package:mani/core/network/gateway_client.dart';
 import 'package:mani/core/session/sesion_expirada.dart';
 import 'package:mani/core/shell/datos_sesion.dart';
@@ -20,6 +23,8 @@ import 'package:mani/features/auth/domain/repositories/i_recuperacion_contrasena
 import 'package:mani/features/auth/domain/usecases/recuperar_contrasena_usecases.dart';
 import 'package:mani/features/auth/presentation/bloc/recuperacion_contrasena_cubit.dart';
 import 'package:mani/features/messaging/data/mensajes_datasource.dart';
+import 'package:mani/core/platform/guardador_archivo.dart';
+import 'package:mani/features/payments/data/cobros_datasource.dart';
 import 'package:mani/features/payments/data/pagos_datasource.dart';
 import 'package:mani/features/auth/presentation/bloc/auth_cubit.dart';
 import 'package:mani/features/availability/data/datasources/disponibilidad_remote_datasource.dart';
@@ -80,6 +85,7 @@ import 'package:mani/features/services/events/data/cola_eventos.dart';
 import 'package:mani/features/services/events/data/eventos_datasource.dart';
 import 'package:mani/features/services/ratings/data/calificacion_cierre_datasource.dart';
 import 'package:mani/core/session/tenant_sesion.dart';
+import 'package:mani/features/tariffs/data/tarifas_datasource.dart';
 
 final sl = GetIt.instance; // sl = service locator
 
@@ -273,9 +279,22 @@ Future<void> init() async {
   // Pago en el sandbox (HU-M11-01 / SCRUM-1432), por el Gateway a Core. El Cubit
   // se crea por cotización en la ruta.
   sl.registerLazySingleton<FuentePagos>(() => GatewayFuentePagos(sl()));
+  // Tarifario de referencia (M-10: SCRUM-885, 886 y 887), por el Gateway a Core.
+  sl.registerLazySingleton<FuenteTarifas>(() => GatewayFuenteTarifas(sl()));
+  sl.registerLazySingleton<FuenteCobros>(() => GatewayFuenteCobros(sl()));
+  sl.registerLazySingleton<GuardadorArchivo>(
+    () => const FilePickerGuardadorArchivo(),
+  );
   // Mensajería cliente-aliado (HU-M09-02 / SCRUM-881), por el Gateway a Core. El
   // Cubit se crea por solicitud en la ruta y consulta cada pocos segundos.
   sl.registerLazySingleton<FuenteMensajes>(() => GatewayFuenteMensajes(sl()));
+  // SCRUM-882/884 (bandeja de avisos), SCRUM-889 (auditoría) y SCRUM-883
+  // (conversación de una queja): lecturas por el Gateway; el rol lo decide Core.
+  sl.registerLazySingleton<FuenteAvisos>(() => GatewayFuenteAvisos(sl()));
+  sl.registerLazySingleton<FuenteAuditoria>(() => GatewayFuenteAuditoria(sl()));
+  sl.registerLazySingleton<FuenteConversacionQueja>(
+    () => GatewayFuenteConversacionQueja(sl()),
+  );
   // Ejecución del servicio (US-04.3.1 / SCRUM-868), en la misma pantalla.
   sl.registerLazySingleton<FuenteEjecucion>(() => GatewayFuenteEjecucion(sl()));
   // Adiciones por imprevisto (US-04.3.5 / SCRUM-872), en la misma pantalla.

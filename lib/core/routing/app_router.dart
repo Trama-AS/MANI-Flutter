@@ -5,6 +5,10 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:mani/features/audit/presentation/auditoria_page.dart';
+import 'package:mani/features/conversation_review/presentation/conversacion_queja_page.dart';
+import 'package:mani/features/notifications/domain/aviso.dart';
+import 'package:mani/features/notifications/presentation/avisos_page.dart';
 import 'package:mani/core/di/injection_container.dart';
 import 'package:mani/core/session/guardas_ruta.dart';
 import 'package:mani/core/session/rol_usuario.dart';
@@ -24,6 +28,9 @@ import 'package:mani/features/auth/presentation/pages/olvide_contrasena_page.dar
 import 'package:mani/features/auth/presentation/pages/restablecer_contrasena_page.dart';
 import 'package:mani/features/messaging/presentation/chat_cubit.dart';
 import 'package:mani/features/messaging/presentation/chat_page.dart';
+import 'package:mani/core/platform/guardador_archivo.dart';
+import 'package:mani/features/payments/data/cobros_datasource.dart';
+import 'package:mani/features/payments/presentation/cobros_aliado_page.dart';
 import 'package:mani/features/payments/presentation/pago_cubit.dart';
 import 'package:mani/features/payments/presentation/pago_sandbox_page.dart';
 import 'package:mani/features/auth/presentation/pages/registro_aliado_page.dart';
@@ -60,6 +67,11 @@ import 'package:mani/features/profiles/company_sites/presentation/pages/gestion_
 import 'package:mani/features/profiles/direct_employees/presentation/bloc/empleado_directo_cubit.dart';
 import 'package:mani/features/profiles/direct_employees/presentation/pages/registrar_empleado_directo_page.dart';
 import 'package:mani/features/profiles/own_profile/presentation/pages/editar_perfil_page.dart';
+import 'package:mani/features/tariffs/data/tarifas_datasource.dart';
+import 'package:mani/features/tariffs/presentation/referencia_tarifa_seccion.dart';
+import 'package:mani/features/tariffs/presentation/reporte_fuera_rango_page.dart';
+import 'package:mani/features/tariffs/presentation/tarifario_cubit.dart';
+import 'package:mani/features/tariffs/presentation/tarifario_page.dart';
 
 /// Notifica a go_router cada vez que cambia el estado de autenticación de
 /// Supabase, para que el `redirect` de abajo se reevalúe automáticamente
@@ -105,6 +117,24 @@ Widget _pantallaChat(String solicitudId) => BlocProvider(
   child: const ChatPage(),
 );
 
+/// Lleva de un aviso a la pantalla de su solicitud según el rol de la sesión
+/// (SCRUM-882 y 884): el mensaje nuevo, al chat; el resto, a la pantalla del
+/// servicio. El administrador no participa en los servicios y no navega.
+void _abrirAviso(Aviso aviso) {
+  final id = aviso.solicitudId;
+  if (id == null) return;
+  final rol = rolDesdeAccessToken(
+    Supabase.instance.client.auth.currentSession?.accessToken,
+  );
+  final base = switch (rol) {
+    RolUsuario.cliente => '/cliente/solicitudes/$id',
+    RolUsuario.aliado => '/aliado/solicitudes/$id',
+    _ => null,
+  };
+  if (base == null) return;
+  appRouter.push(aviso.esMensaje ? '$base/chat' : '$base/cotizacion');
+}
+
 /// Pantalla del servicio de una solicitud: la cotización (SCRUM-865 y 867), la
 /// ejecución (SCRUM-868), las adiciones (SCRUM-872) y la bitácora (SCRUM-869,
 /// 870 y 873). Cada parte tiene su Cubit y consulta a Core por su lado.
@@ -135,6 +165,11 @@ Widget _pantallaServicio(
   child: Builder(
     builder: (context) => CotizacionPage(
       esAliado: esAliado,
+      // Tarifa de referencia vigente de la categoría (HU-M10-02 / SCRUM-886).
+      encabezado: ReferenciaTarifaSeccion(
+        fuente: sl<FuenteTarifas>(),
+        solicitudId: solicitudId,
+      ),
       // El pago cobra el total vigente: cotización aceptada + adiciones
       // aceptadas (SCRUM-872). Sin resumen, el total de la cotización.
       alPagar: esAliado
@@ -229,6 +264,7 @@ Widget _pantallaServicio(
 /// - `/forgot-password` y `/reset-password`: Recuperación de contraseña (HU-M02-10)
 /// - `/categories`: Pantalla de selección de categorías del aliado (US-03.1.3)
 /// - `/aliado/cobertura`: Zona de cobertura del aliado (US-02.1.4)
+/// - `/aliado/cobros`: Cobros del aliado: retención y liquidación simuladas (SCRUM-894)
 /// - `/aliado/disponibilidad`: Ausencias del aliado, "No disponible" (US-02.1.6)
 /// - `/cliente/solicitudes/nueva`: El cliente publica su solicitud con fotos (US-04.1.1)
 /// - `/cliente/solicitudes`: Estado y zona declarada de las solicitudes del cliente (HU-M07-04)
@@ -351,6 +387,12 @@ final appRouter = GoRouter(
             fuenteSesion: sl<FuenteDatosSesion>(),
             fuenteResumen: sl<FuenteResumenInicio>(),
             onNavegar: (ruta) => context.go(ruta),
+            onCerrarSesion: () async {
+              await sl<IAuthRepository>().signOut();
+              if (context.mounted) {
+                context.go('/login');
+              }
+            },
           ),
         ),
         // Ruta independiente: Selección de categorías del aliado (US-03.1.3)
@@ -394,9 +436,11 @@ final appRouter = GoRouter(
             child: const GestionSedesEmpresaPage(),
           ),
         ),
-        // Ruta independiente: Registro de empleado directo del aliado (US-02.1.5 / SCRUM-850)
+        // Registro de empleado directo (US-02.1.5 / SCRUM-850, SCRUM-1376). Lo hace el
+        // administrador del tenant: Core exige ese rol, y el catálogo de categorías que
+        // la pantalla consulta (`/catalog/categories`) también es de administración.
         GoRoute(
-          path: '/aliado/empleados/nuevo',
+          path: '/admin/empleados/nuevo',
           name: 'registrar-empleado-directo',
           builder: (context, state) => BlocProvider(
             create: (_) => sl<EmpleadoDirectoCubit>(),
@@ -458,7 +502,11 @@ final appRouter = GoRouter(
           builder: (context, state) => BlocProvider(
             create: (_) =>
                 PagoCubit(sl(), state.pathParameters['cotizacionId']!),
-            child: PagoSandboxPage(total: state.extra as double?),
+            child: PagoSandboxPage(
+              total: state.extra as double?,
+              cobros: sl<FuenteCobros>(),
+              guardador: sl<GuardadorArchivo>(),
+            ),
           ),
         ),
         // Chat del servicio (HU-M09-02 / SCRUM-881) para el cliente y para el
@@ -501,6 +549,35 @@ final appRouter = GoRouter(
           ),
         ),
         // Ausencias del aliado (US-02.1.6). Rol y tenant los valida Core.
+        // Bandeja de avisos (SCRUM-882 y 884): mensajes nuevos y cambios de estado.
+        // Va bajo `/perfil/`, abierto a todos los roles; Core entrega solo los de la sesión.
+        GoRoute(
+          path: '/perfil/avisos',
+          name: 'avisos',
+          builder: (context, state) => AvisosPage(onAbrir: _abrirAviso),
+        ),
+        // Auditoría de transacciones (SCRUM-889): solo el administrador.
+        GoRoute(
+          path: '/admin/auditoria-transacciones',
+          name: 'auditoria-transacciones',
+          builder: (context, state) => const AuditoriaPage(),
+        ),
+        // Conversación de una queja (SCRUM-883): solo el administrador. Acepta
+        // `?solicitudId=` y `?quejaRef=` para llegar desde una queja concreta.
+        GoRoute(
+          path: '/admin/conversaciones',
+          name: 'conversacion-queja',
+          builder: (context, state) => ConversacionQuejaPage(
+            solicitudId: state.uri.queryParameters['solicitudId'],
+            quejaRef: state.uri.queryParameters['quejaRef'],
+          ),
+        ),
+        // Cobros del aliado (SCRUM-894): retención y liquidación simuladas.
+        GoRoute(
+          path: '/aliado/cobros',
+          name: 'cobros-aliado',
+          builder: (context, state) => const CobrosAliadoPage(),
+        ),
         GoRoute(
           path: '/aliado/disponibilidad',
           name: 'disponibilidad-aliado',
@@ -516,6 +593,25 @@ final appRouter = GoRouter(
             child: BandejaVerificacionPage(
               onAbrirCategorias: () => context.push('/admin/categorias'),
             ),
+          ),
+        ),
+        // Tarifario de referencia (HU-M10-01 / SCRUM-885). Core exige
+        // ADMIN_TENANT; el tenant y el actor salen del token.
+        GoRoute(
+          path: '/admin/tarifas',
+          name: 'tarifario',
+          builder: (context, state) => BlocProvider(
+            create: (_) => TarifarioCubit(sl(), sl())..cargar(),
+            child: const TarifarioPage(),
+          ),
+        ),
+        // Cotizaciones fuera de rango evaluadas por Rules (HU-M10-03 / SCRUM-887).
+        GoRoute(
+          path: '/admin/reportes/cotizaciones-fuera-de-rango',
+          name: 'reporte-fuera-de-rango',
+          builder: (context, state) => BlocProvider(
+            create: (_) => ReporteFueraDeRangoCubit(sl())..consultar(),
+            child: const ReporteFueraDeRangoPage(),
           ),
         ),
         // Catálogo de categorías de servicio (US-03.1.1). Las RPC exigen rol

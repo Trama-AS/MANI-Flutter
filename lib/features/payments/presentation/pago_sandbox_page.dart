@@ -1,13 +1,19 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:mani/core/platform/guardador_archivo.dart';
 import 'package:mani/core/theme/app_theme.dart';
 import 'package:mani/core/widgets/mani_button.dart';
 import 'package:mani/core/widgets/mani_card.dart';
 import 'package:mani/features/services/quotes/presentation/cotizacion_page.dart'
     show formatearPesos;
 
+import '../data/cobros_datasource.dart';
 import '../domain/pago.dart';
 import 'pago_cubit.dart';
+import 'retencion_pago_card.dart';
 
 /// Pago de una cotización aceptada en el sandbox (SCRUM-1432, HU-M11-01).
 ///
@@ -15,7 +21,18 @@ import 'pago_cubit.dart';
 /// solo elige el desenlace que quiere probar. El monto lo calcula Core a partir
 /// de la cotización; [total], si llega, es solo una ayuda para mostrar antes.
 class PagoSandboxPage extends StatelessWidget {
-  const PagoSandboxPage({super.key, this.total});
+  const PagoSandboxPage({
+    super.key,
+    this.total,
+    this.cobros,
+    this.guardador,
+  });
+
+  /// Guarda el comprobante en el dispositivo; si no llega, no hay botón de descarga (SCRUM-890).
+  final GuardadorArchivo? guardador;
+
+  /// Fuente de la retención en garantía; si no llega, no se muestra (SCRUM-891).
+  final FuenteCobros? cobros;
 
   /// Total de la cotización que se está pagando, para mostrarlo antes de pagar.
   final double? total;
@@ -59,9 +76,9 @@ class PagoSandboxPage extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
-                              color: AppTheme.primaryLight,
+                              color: const Color(0xFFFEF9C3),
                               borderRadius: BorderRadius.circular(
-                                AppTheme.radiusLg,
+                                AppTheme.radiusXl,
                               ),
                               border: Border.all(
                                 color: AppTheme.dark,
@@ -180,7 +197,18 @@ class PagoSandboxPage extends StatelessWidget {
                     if (state.comprobante != null)
                       Padding(
                         padding: const EdgeInsets.only(top: 16),
-                        child: _Comprobante(comprobante: state.comprobante!),
+                        child: _Comprobante(
+                          comprobante: state.comprobante!,
+                          guardador: guardador,
+                        ),
+                      ),
+                    if (cobros != null && state.pago!.aprobado)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 16),
+                        child: RetencionPagoCard(
+                          fuente: cobros!,
+                          pagoId: state.pago!.id,
+                        ),
                       ),
                     if (state.falloComprobante)
                       const Padding(
@@ -297,7 +325,7 @@ class _ResultadoPago extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: pago.estado == EstadoPago.aprobado
                       ? const Color(0xFFDCFCE7)
-                      : AppTheme.primaryLight,
+                      : const Color(0xFFFEF9C3),
                   borderRadius: BorderRadius.circular(AppTheme.radiusSm),
                   border: Border.all(color: AppTheme.dark, width: 1.5),
                 ),
@@ -359,9 +387,34 @@ class _ResultadoPago extends StatelessWidget {
 }
 
 class _Comprobante extends StatelessWidget {
-  const _Comprobante({required this.comprobante});
+  const _Comprobante({required this.comprobante, this.guardador});
 
   final ComprobantePago comprobante;
+  final GuardadorArchivo? guardador;
+
+  Future<void> _descargar(BuildContext context) async {
+    final mensajero = ScaffoldMessenger.of(context);
+    try {
+      final guardado = await guardador!.guardar(
+        nombre: comprobante.nombreArchivo,
+        bytes: Uint8List.fromList(utf8.encode(comprobante.comoTexto())),
+        tipoMime: 'text/plain',
+      );
+      if (guardado) {
+        mensajero.showSnackBar(
+          const SnackBar(content: Text('Comprobante guardado.')),
+        );
+      }
+    } catch (_) {
+      mensajero.showSnackBar(
+        const SnackBar(
+          content: Text(
+            'No pudimos guardar el comprobante. Inténtalo de nuevo.',
+          ),
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -396,8 +449,21 @@ class _Comprobante extends StatelessWidget {
               style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13),
             ),
           ],
+          if (guardador != null) ...[
+            const SizedBox(height: 12),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 240),
+              child: ManiButton(
+                key: const Key('btn-descargar-comprobante'),
+                onPressed: () => _descargar(context),
+                icono: Icons.download_outlined,
+                etiqueta: 'Descargar comprobante',
+                variante: ManiButtonVariante.secundario,
+              ),
+            ),
+          ],
           if (comprobante.leyenda != null) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             Text(
               comprobante.leyenda!,
               key: const Key('leyenda-comprobante'),

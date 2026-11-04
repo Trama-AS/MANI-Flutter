@@ -17,12 +17,14 @@ class InicioPage extends StatefulWidget {
     required this.fuenteSesion,
     required this.fuenteResumen,
     required this.onNavegar,
+    this.onCerrarSesion,
   });
 
   final RolUsuario rol;
   final FuenteDatosSesion fuenteSesion;
   final FuenteResumenInicio fuenteResumen;
   final ValueChanged<String> onNavegar;
+  final Future<void> Function()? onCerrarSesion;
 
   @override
   State<InicioPage> createState() => _InicioPageState();
@@ -154,7 +156,6 @@ class _InicioPageState extends State<InicioPage> {
                   );
                 },
               ),
-
               const SizedBox(height: 28),
               Row(
                 children: [
@@ -224,6 +225,57 @@ class _InicioPageState extends State<InicioPage> {
                   ),
                 ),
                 const SizedBox(height: 12),
+              ],
+              if (widget.onCerrarSesion != null) ...[
+                const SizedBox(height: 12),
+                ManiCard(
+                  key: const Key('inicio-card-sesion'),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 6,
+                  ),
+                  sombra: AppTheme.hardShadowSm,
+                  child: ListTile(
+                    key: const Key('inicio-cerrar-sesion'),
+                    contentPadding: EdgeInsets.zero,
+                    leading: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEE2E2),
+                        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                        border: Border.all(color: AppTheme.dark, width: 2),
+                      ),
+                      child: const Icon(
+                        Icons.logout,
+                        color: Color(0xFFDC2626),
+                        size: 20,
+                      ),
+                    ),
+                    title: const Text(
+                      'Cerrar sesión',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFFDC2626),
+                      ),
+                    ),
+                    subtitle: const Text(
+                      'Finaliza la sesión actual en este dispositivo',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                    trailing: const Icon(
+                      Icons.chevron_right,
+                      color: Color(0xFFDC2626),
+                    ),
+                    onTap: () async {
+                      await widget.onCerrarSesion!();
+                    },
+                  ),
+                ),
               ],
             ],
           ),
