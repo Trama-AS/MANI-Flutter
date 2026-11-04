@@ -1,13 +1,11 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:mani/core/session/contexto_plataforma.dart';
 import 'package:mani/core/session/rol_usuario.dart';
 import 'package:mani/core/shell/datos_sesion.dart';
 import 'package:mani/core/shell/menu_por_rol.dart';
 import 'package:mani/core/shell/selector_contexto_plataforma.dart';
 import 'package:mani/core/theme/app_theme.dart';
-import 'package:mani/core/widgets/mani_layout.dart';
 import 'package:mani/features/platform/data/tenants_datasource.dart';
 
 /// Ancho a partir del cual las entradas se muestran como barra; por debajo
@@ -88,6 +86,7 @@ class _AppShellState extends State<AppShell> {
       curve: Curves.easeOutCubic,
     );
   }
+
   bool _coincide(EntradaMenu e) =>
       widget.ubicacion == e.ruta || widget.ubicacion.startsWith('${e.ruta}/');
 
@@ -247,7 +246,7 @@ class _AppShellState extends State<AppShell> {
                 ),
               ),
             ],
-            bottom: expandido ? _barraEntradas(entradas) : null,
+            bottom: expandido ? _barraEntradas(context, entradas) : null,
           ),
           body: cuerpo,
         );
@@ -453,64 +452,13 @@ class _AppShellState extends State<AppShell> {
   }
 }
 
-/// Entrada del menú: pastilla amarilla con borde y sombra dura si está
-/// activa, texto plano si no; mismo lenguaje que los botones del registro.
-class _EntradaBarra extends StatelessWidget {
-  const _EntradaBarra({
-    required this.entrada,
-    required this.activa,
-    required this.onTap,
-  });
-
-  final EntradaMenu entrada;
-  final bool activa;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(AppTheme.radiusXl),
-        boxShadow: [if (activa) AppTheme.hardShadowSm],
-      ),
-      child: TextButton.icon(
-        key: Key('menu-entrada-${entrada.ruta}'),
-        onPressed: onTap,
-        icon: Icon(entrada.icono, size: 18),
-        label: Text(entrada.etiqueta),
-        style: TextButton.styleFrom(
-          foregroundColor: AppTheme.dark,
-          backgroundColor: activa ? AppTheme.primary : null,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppTheme.radiusXl),
-            side: BorderSide(
-              color: activa ? AppTheme.dark : Colors.transparent,
-              width: 2,
-            ),
-          ),
-          textStyle: GoogleFonts.plusJakartaSans(
-            fontSize: 13,
-            fontWeight: activa ? FontWeight.w900 : FontWeight.w700,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 /// Logo, usuario, rol y tenant de la sesión. Mientras carga muestra solo el
 /// rol, y si Core no responde muestra el rol sin nombre: el menú sigue usable.
 class _CabeceraSesion extends StatelessWidget {
-  const _CabeceraSesion({
-    required this.datos,
-    required this.rol,
-    this.conLogo = true,
-  });
+  const _CabeceraSesion({required this.datos, required this.rol});
 
   final Future<DatosSesion> datos;
   final RolUsuario rol;
-  final bool conLogo;
 
   @override
   Widget build(BuildContext context) {
@@ -523,7 +471,9 @@ class _CabeceraSesion extends StatelessWidget {
           etiquetaRol(rol),
           if (d?.nombreTenant != null) d!.nombreTenant!,
         ].join(' · ');
-        return Row(
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               usuario ?? 'MANI',

@@ -169,44 +169,6 @@ class _InicioPageState extends State<InicioPage> {
                     ],
                   );
                 },
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 18,
-                  vertical: 16,
-                ),
-                child: Row(
-                  key: const Key('inicio-cerrar-sesion'),
-                  children: [
-                    const ManiIconoCaja(
-                      icono: Icons.logout,
-                      tamano: 18,
-                      color: Color(0xFFFEE2E2),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Cerrar sesión',
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w900,
-                              color: AppTheme.error,
-                            ),
-                          ),
-                          Text(
-                            'Finaliza la sesión actual en este dispositivo',
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 12,
-                              color: AppTheme.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Icon(Icons.arrow_forward, color: AppTheme.error),
-                  ],
-                ),
               ),
               const SizedBox(height: 28),
               Row(
@@ -433,17 +395,7 @@ class _TarjetaIndicador extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            indicador.etiqueta,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 13,
-              fontWeight: FontWeight.w800,
-              color: AppTheme.textSecondary,
-              letterSpacing: 0.5,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

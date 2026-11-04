@@ -8,9 +8,6 @@ import 'package:mani/features/services/ratings/domain/calificacion_cierre_modelo
 import 'package:mani/features/services/ratings/presentation/calificacion_cierre_cubit.dart';
 import 'package:mani/features/services/ratings/presentation/calificacion_cierre_widgets.dart';
 
-import 'package:mani/features/services/ratings/domain/calificacion_cierre_modelos.dart';
-import 'package:mani/features/services/ratings/presentation/calificacion_cierre_widgets.dart';
-
 import '../domain/solicitud_seguimiento.dart';
 import 'mis_solicitudes_cubit.dart';
 
@@ -160,17 +157,6 @@ class _DialogoCancelar extends StatefulWidget {
 
 class _DialogoCancelarState extends State<_DialogoCancelar> {
   final _motivo = TextEditingController();
-  Future<VistaPreviaPenalizacion>? _vistaPreviaFuture;
-
-  @override
-  void initState() {
-    super.initState();
-    if (sl.isRegistered<FuenteModuloM08>()) {
-      _vistaPreviaFuture = sl<FuenteModuloM08>().previsualizarCancelacion(
-        widget.solicitud.id,
-      );
-    }
-  }
 
   @override
   void dispose() {

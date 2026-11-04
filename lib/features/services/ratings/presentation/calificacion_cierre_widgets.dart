@@ -433,52 +433,38 @@ class _TarjetaHistorialItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final etiquetaContraparte = esAliado ? 'Cliente' : 'Aliado';
-    return ManiCard(
+    return Card(
       key: Key('m08-historial-item-${item.id}'),
-      padding: const EdgeInsets.all(18),
-      sombra: AppTheme.hardShadowSm,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  item.categoria,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900,
-                    color: AppTheme.dark,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    item.categoria,
+                    style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ),
-              ),
-              Chip(
-                key: Key('m08-historial-estado-${item.id}'),
-                label: Text(item.estado),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            item.descripcion,
-            style: const TextStyle(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 4),
-          Text('Zona: ${item.zona} · Dirección: ${item.direccion}'),
-          if (item.nombreContraparte != null)
-            Text('$etiquetaContraparte: ${item.nombreContraparte}'),
-          if (item.valorTotal != null)
-            Text(
-              'Valor total: \$${item.valorTotal!.toStringAsFixed(0)}',
-              style: const TextStyle(fontWeight: FontWeight.w800),
+                Chip(
+                  key: Key('m08-historial-estado-${item.id}'),
+                  label: Text(item.estado),
+                ),
+              ],
             ),
-          if (item.penalizacionAplicada)
-            Text(
-              'Penalización aplicada: \$${item.penalizacionMonto.toStringAsFixed(0)}',
-              key: Key('m08-historial-penalizacion-${item.id}'),
-              style: const TextStyle(
-                color: AppTheme.error,
-                fontWeight: FontWeight.w800,
+            const SizedBox(height: 4),
+            Text(item.descripcion),
+            Text('Zona: ${item.zona} · Dirección: ${item.direccion}'),
+            if (item.nombreContraparte != null)
+              Text('$etiquetaContraparte: ${item.nombreContraparte}'),
+            if (item.valorTotal != null)
+              Text('Valor total: \$${item.valorTotal!.toStringAsFixed(0)}'),
+            if (item.penalizacionAplicada)
+              Text(
+                'Penalización aplicada: \$${item.penalizacionMonto.toStringAsFixed(0)}',
+                key: Key('m08-historial-penalizacion-${item.id}'),
               ),
             if (item.calificacionEmitida != null)
               Text(
@@ -510,7 +496,6 @@ class _TarjetaHistorialItem extends StatelessWidget {
   }
 }
 
-/// Widget de vista previa de penalización por cancelación tardía (SCRUM-878).
 class ResumenPenalizacionCancelacionBanner extends StatelessWidget {
   const ResumenPenalizacionCancelacionBanner({
     super.key,

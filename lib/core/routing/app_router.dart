@@ -69,9 +69,6 @@ import 'package:mani/features/profiles/company_sites/presentation/pages/gestion_
 import 'package:mani/features/profiles/direct_employees/presentation/bloc/empleado_directo_cubit.dart';
 import 'package:mani/features/profiles/direct_employees/presentation/pages/registrar_empleado_directo_page.dart';
 import 'package:mani/features/profiles/own_profile/presentation/pages/editar_perfil_page.dart';
-import 'package:mani/features/services/ratings/data/calificacion_cierre_datasource.dart';
-import 'package:mani/features/services/ratings/presentation/calificacion_cierre_cubit.dart';
-import 'package:mani/features/services/ratings/presentation/calificacion_cierre_widgets.dart';
 import 'package:mani/features/services/ratings/presentation/politica_cancelacion_page.dart';
 import 'package:mani/features/tariffs/data/tarifas_datasource.dart';
 import 'package:mani/features/tariffs/presentation/referencia_tarifa_seccion.dart';
@@ -248,22 +245,18 @@ Widget _pantallaServicio(
               selectorFotos: esAliado ? sl() : null,
             ),
           ),
-          // Calificación y cierre (SCRUM-874, 875 y 1418): aparece cuando el
-          // servicio queda FINALIZADA. Al finalizar la ejecución en esta misma
-          // pantalla se vuelve a consultar el estado para mostrarla.
-          BlocListener<EjecucionCubit, EjecucionState>(
-            listenWhen: (a, b) =>
-                a.ejecucion?.finalizada != b.ejecucion?.finalizada &&
-                (b.ejecucion?.finalizada ?? false),
-            listener: (context, _) =>
-                context.read<CalificacionCierreCubit>().cargar(),
-            child: CalificacionServicioFinalizado(esAliado: esAliado),
-          ),
         ],
       ),
       // Calificación y cierre (SCRUM-874, 875 y 1418).
       calificacion: sl.isRegistered<FuenteModuloM08>()
-          ? CalificacionCierreSeccion(esAliado: esAliado)
+          ? BlocListener<EjecucionCubit, EjecucionState>(
+              listenWhen: (a, b) =>
+                  a.ejecucion?.finalizada != b.ejecucion?.finalizada &&
+                  (b.ejecucion?.finalizada ?? false),
+              listener: (context, _) =>
+                  context.read<CalificacionCierreCubit>().cargar(),
+              child: CalificacionServicioFinalizado(esAliado: esAliado),
+            )
           : null,
       alRefrescar: () async {
         await Future.wait([

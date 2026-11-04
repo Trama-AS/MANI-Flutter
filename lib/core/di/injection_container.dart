@@ -88,7 +88,6 @@ import 'package:mani/features/services/events/data/cola_eventos.dart';
 import 'package:mani/features/services/events/data/eventos_datasource.dart';
 import 'package:mani/features/services/ratings/data/calificacion_cierre_datasource.dart';
 import 'package:mani/core/session/tenant_sesion.dart';
-import 'package:mani/features/services/ratings/data/calificacion_cierre_datasource.dart';
 import 'package:mani/features/services/ratings/data/politica_cancelacion_datasource.dart';
 import 'package:mani/features/tariffs/data/tarifas_datasource.dart';
 import 'package:mani/features/complaints/data/quejas_datasource.dart';
