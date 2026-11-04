@@ -45,9 +45,9 @@ class _InicioPageState extends State<InicioPage> {
 
   @override
   Widget build(BuildContext context) {
-    final accesos = entradasMenuPara(widget.rol)
-        .where((e) => e.ruta != '/inicio')
-        .toList();
+    final accesos = entradasMenuPara(
+      widget.rol,
+    ).where((e) => e.ruta != '/inicio').toList();
     return Scaffold(
       body: LayoutBuilder(
         builder: (context, c) => ListView(

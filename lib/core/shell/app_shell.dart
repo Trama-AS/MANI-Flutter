@@ -58,8 +58,9 @@ class _AppShellState extends State<AppShell> {
   /// "Mis solicitudes".
   bool _esActiva(EntradaMenu e) {
     if (!_coincide(e)) return false;
-    return !entradasMenuPara(widget.rol)
-        .any((o) => o.ruta.length > e.ruta.length && _coincide(o));
+    return !entradasMenuPara(
+      widget.rol,
+    ).any((o) => o.ruta.length > e.ruta.length && _coincide(o));
   }
 
   Future<void> _cerrarSesion() async {

@@ -168,7 +168,8 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
                       const ManiEncabezado(
                         icono: Icons.manage_accounts_outlined,
                         titulo: 'Editar mi perfil',
-                        descripcion: 'Actualiza tus datos de contacto y tu foto. El rol y el estado de la cuenta no se pueden cambiar.',
+                        descripcion:
+                            'Actualiza tus datos de contacto y tu foto. El rol y el estado de la cuenta no se pueden cambiar.',
                       ),
                       const SizedBox(height: 28),
                       if (_mensajeError != null)
