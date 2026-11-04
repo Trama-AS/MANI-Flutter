@@ -45,8 +45,18 @@ class _AppShellState extends State<AppShell> {
     _datos = widget.fuenteDatos.cargar();
   }
 
-  bool _esActiva(EntradaMenu e) =>
+  bool _coincide(EntradaMenu e) =>
       widget.ubicacion == e.ruta || widget.ubicacion.startsWith('${e.ruta}/');
+
+  /// Solo la entrada más específica queda activa: en
+  /// `/cliente/solicitudes/nueva` se resalta "Nueva solicitud" y no también
+  /// "Mis solicitudes", cuya ruta es prefijo de la actual.
+  bool _esActiva(EntradaMenu e) {
+    if (!_coincide(e)) return false;
+    return !entradasMenuPara(
+      widget.rol,
+    ).any((o) => o.ruta.length > e.ruta.length && _coincide(o));
+  }
 
   Future<void> _cerrarSesion() async {
     await widget.onCerrarSesion();

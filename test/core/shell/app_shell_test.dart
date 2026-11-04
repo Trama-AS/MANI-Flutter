@@ -432,5 +432,25 @@ void main() {
       expect(activa.style?.backgroundColor?.resolve({}), isNotNull);
       expect(inactiva.style?.backgroundColor?.resolve({}), isNull);
     });
+
+    testWidgets('en una subruta solo resalta la entrada más específica', (
+      tester,
+    ) async {
+      await _montar(
+        tester,
+        ancho: 1024,
+        rol: RolUsuario.cliente,
+        ubicacion: '/cliente/solicitudes/nueva',
+      );
+
+      Color? fondo(String ruta) => tester
+          .widget<TextButton>(find.byKey(Key('menu-entrada-$ruta')))
+          .style
+          ?.backgroundColor
+          ?.resolve({});
+      expect(fondo('/cliente/solicitudes/nueva'), isNotNull);
+      // "Mis solicitudes" es prefijo de la ruta pero no debe resaltarse.
+      expect(fondo('/cliente/solicitudes'), isNull);
+    });
   });
 }
