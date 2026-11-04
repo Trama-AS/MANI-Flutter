@@ -101,6 +101,17 @@ List<EntradaMenu> entradasMenuPara(RolUsuario rol) {
           icono: Icons.category_outlined,
           ruta: '/admin/categorias',
         ),
+        // Tarifario y cotizaciones fuera de rango (M-10: SCRUM-885 y 887).
+        EntradaMenu(
+          etiqueta: 'Tarifario',
+          icono: Icons.price_change_outlined,
+          ruta: '/admin/tarifas',
+        ),
+        EntradaMenu(
+          etiqueta: 'Fuera de rango',
+          icono: Icons.report_outlined,
+          ruta: '/admin/reportes/cotizaciones-fuera-de-rango',
+        ),
         _miPerfil,
       ];
     case RolUsuario.desconocido:

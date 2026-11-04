@@ -14,6 +14,8 @@ import 'package:mani/features/services/execution/data/ejecucion_datasource.dart'
 import 'package:mani/features/services/quotes/data/cotizaciones_datasource.dart';
 import 'package:mani/features/services/quotes/domain/cotizacion.dart';
 import 'package:mani/features/services/requests/domain/entities/foto_adjunta.dart';
+import 'package:mani/features/tariffs/data/tarifas_datasource.dart';
+import 'package:mani/features/tariffs/domain/tarifa.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class _PkceEnMemoria extends GotrueAsyncStorage {
@@ -54,6 +56,29 @@ class _Cotizaciones implements FuenteCotizaciones {
     DecisionCotizacion decision, {
     String? texto,
   }) => throw UnimplementedError();
+}
+
+// La categoría de la solicitud tiene tarifa vigente (SCRUM-886).
+class _Tarifas implements FuenteTarifas {
+  @override
+  Future<ReferenciaTarifa> referencia(String solicitudId) async =>
+      ReferenciaTarifa.fromJson({
+        'disponible': true,
+        'tarifa': {
+          'id': 'tar-1',
+          'categoriaId': 'cat-1',
+          'categoriaNombre': 'Plomería',
+          'valorMin': 80000,
+          'valorTipico': 120000,
+          'valorMax': 180000,
+          'moneda': 'COP',
+          'vigenciaDesde': '2026-01-01',
+          'version': 2,
+        },
+      });
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => throw UnimplementedError();
 }
 
 // Cotización de 100 con una adición aceptada de 30: total vigente 130 (SCRUM-872).
@@ -197,6 +222,7 @@ void main() {
     eventos = _Eventos();
     adiciones = _Adiciones();
     sl.registerSingleton<FuenteCotizaciones>(_Cotizaciones());
+    sl.registerSingleton<FuenteTarifas>(_Tarifas());
     sl.registerSingleton<FuenteEjecucion>(ejecucion);
     sl.registerSingleton<FuenteAdiciones>(adiciones);
     sl.registerSingleton<FuenteEventos>(eventos);
@@ -243,6 +269,9 @@ void main() {
       'mientras el servicio está en ejecución', (tester) async {
     await montar(tester, 'cotizacion-aliado');
 
+    // SCRUM-886: la tarifa de referencia vigente se ve al cotizar.
+    expect(find.byKey(const Key('referencia-disponible')), findsOneWidget);
+    expect(find.text('\$ 80.000,00 – \$ 180.000,00 COP'), findsOneWidget);
     expect(find.byKey(const Key('cotizacion-v1')), findsOneWidget);
     expect(find.byKey(const Key('seccion-ejecucion')), findsOneWidget);
     await tester.scrollUntilVisible(

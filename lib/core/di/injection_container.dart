@@ -81,6 +81,7 @@ import 'package:mani/features/services/events/data/almacen_cola_eventos.dart';
 import 'package:mani/features/services/events/data/cola_eventos.dart';
 import 'package:mani/features/services/events/data/eventos_datasource.dart';
 import 'package:mani/core/session/tenant_sesion.dart';
+import 'package:mani/features/tariffs/data/tarifas_datasource.dart';
 
 final sl = GetIt.instance; // sl = service locator
 
@@ -274,6 +275,8 @@ Future<void> init() async {
   // Pago en el sandbox (HU-M11-01 / SCRUM-1432), por el Gateway a Core. El Cubit
   // se crea por cotización en la ruta.
   sl.registerLazySingleton<FuentePagos>(() => GatewayFuentePagos(sl()));
+  // Tarifario de referencia (M-10: SCRUM-885, 886 y 887), por el Gateway a Core.
+  sl.registerLazySingleton<FuenteTarifas>(() => GatewayFuenteTarifas(sl()));
   sl.registerLazySingleton<FuenteCobros>(() => GatewayFuenteCobros(sl()));
   sl.registerLazySingleton<GuardadorArchivo>(
     () => const FilePickerGuardadorArchivo(),

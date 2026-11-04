@@ -141,6 +141,9 @@ const _rutasConSesion = {
   '/aliado/disponibilidad',
   '/admin/verificacion-aliados',
   '/admin/categorias',
+  // M-10 (SCRUM-885 y 887).
+  '/admin/tarifas',
+  '/admin/reportes/cotizaciones-fuera-de-rango',
 };
 
 class _GuardadorFalso implements GuardadorArchivo {
