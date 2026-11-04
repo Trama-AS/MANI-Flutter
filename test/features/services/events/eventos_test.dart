@@ -118,6 +118,13 @@ void main() {
         EventoServicio.fromJson(_eventoJson('a', 'OTRO_TIPO')).etiquetaTipo,
         'OTRO_TIPO',
       );
+      // SCRUM-1432: el pago aprobado aparece en la bitácora con un texto legible.
+      expect(
+        EventoServicio.fromJson(
+          _eventoJson('a', 'PAGO_REGISTRADO'),
+        ).etiquetaTipo,
+        'Pago aprobado',
+      );
     },
   );
 

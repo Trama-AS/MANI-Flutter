@@ -72,6 +72,7 @@ class EventoServicio extends Equatable {
     'AJUSTE_SOLICITADO' => 'Ajuste solicitado',
     'INICIO_EJECUCION' => 'Inicio del servicio',
     'FIN_EJECUCION' => 'Fin del servicio',
+    'PAGO_REGISTRADO' => 'Pago aprobado',
     'EJECUCION_AVANCE' => 'Avance',
     'EJECUCION_NOVEDAD' => 'Novedad',
     'EJECUCION_OBSERVACION' => 'Observación',
