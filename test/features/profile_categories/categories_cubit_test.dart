@@ -89,8 +89,12 @@ void main() {
       expect(cubit.state.isSaving, isFalse);
     });
 
+    // Antes esta prueba exigía conservar la selección ante cualquier fallo, que
+    // es el defecto de SCRUM-1632: con un rechazo del servidor la pantalla
+    // quedaba afirmando algo que la base no tenía. Ahora comprueba lo que sí
+    // debe pasar: se expone el error y la selección vuelve a lo confirmado.
     test(
-      'si el backend falla conserva la selección y expone el error',
+      'si el servidor rechaza, expone el error y no deja marcado lo que no se guardó',
       () async {
         final repo = FakeCategoriesRepository(
           fallaGuardado: const CategoriesFailure(
@@ -107,7 +111,79 @@ void main() {
           cubit.state.saveFailure?.tipo,
           CategoriesErrorTipo.categoriaNoDisponible,
         );
+        // Nada había confirmado el servidor, así que la pantalla vuelve a vacío.
+        expect(cubit.state.selectedIds, isEmpty);
+      },
+    );
+
+    // SCRUM-1632: la pantalla no puede afirmar un estado que el servidor no
+    // tiene. Si el servidor respondió y rechazó, se vuelve a lo último que él
+    // confirmó; si fue la red, se conserva lo que el aliado marcó.
+
+    test(
+      'si el servidor rechaza el guardado, la selección vuelve a lo último confirmado',
+      () async {
+        final repo = FakeCategoriesRepository(guardadas: {'c-plo'});
+        final cubit = await _cargado(repo);
         expect(cubit.state.selectedIds, {'c-plo'});
+
+        repo.fallaGuardado = const CategoriesFailure(
+          CategoriesErrorTipo.categoriaNoDisponible,
+        );
+        cubit.toggleCategory('c-ele');
+        expect(cubit.state.selectedIds, {'c-plo', 'c-ele'});
+
+        await cubit.save();
+
+        expect(cubit.state.saveFailure, isNotNull);
+        expect(
+          cubit.state.selectedIds,
+          {'c-plo'},
+          reason:
+              'la categoría que el servidor no aceptó no puede quedar marcada',
+        );
+      },
+    );
+
+    test(
+      'sin conexión la selección se conserva, porque la petición no llegó al servidor',
+      () async {
+        final repo = FakeCategoriesRepository(guardadas: {'c-plo'});
+        final cubit = await _cargado(repo);
+
+        repo.fallaGuardado = const CategoriesFailure(
+          CategoriesErrorTipo.sinConexion,
+        );
+        cubit.toggleCategory('c-ele');
+        await cubit.save();
+
+        expect(cubit.state.saveFailure, isNotNull);
+        expect(
+          cubit.state.selectedIds,
+          {'c-plo', 'c-ele'},
+          reason:
+              'perder lo marcado por un fallo de red sería descartar el trabajo del aliado',
+        );
+      },
+    );
+
+    test(
+      'un guardado exitoso mueve el punto de retorno: el siguiente rechazo vuelve ahí',
+      () async {
+        final repo = FakeCategoriesRepository(guardadas: {'c-plo'});
+        final cubit = await _cargado(repo);
+
+        cubit.toggleCategory('c-ele');
+        await cubit.save();
+        expect(cubit.state.selectedIds, {'c-plo', 'c-ele'});
+
+        repo.fallaGuardado = const CategoriesFailure(
+          CategoriesErrorTipo.noEsAliado,
+        );
+        cubit.toggleCategory('c-cer');
+        await cubit.save();
+
+        expect(cubit.state.selectedIds, {'c-plo', 'c-ele'});
       },
     );
 

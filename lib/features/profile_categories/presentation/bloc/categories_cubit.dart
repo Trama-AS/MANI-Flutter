@@ -38,6 +38,7 @@ class CategoriesCubit extends Cubit<CategoriesState> {
         state.copyWith(
           categories: categories,
           selectedIds: selected,
+          selectedIdsConfirmadas: selected,
           isLoading: false,
         ),
       );
@@ -70,10 +71,32 @@ class CategoriesCubit extends Cubit<CategoriesState> {
     try {
       final saved = await saveSelectedCategoriesUseCase(state.selectedIds);
       emit(
-        state.copyWith(selectedIds: saved, isSaving: false, saveSuccess: true),
+        state.copyWith(
+          selectedIds: saved,
+          selectedIdsConfirmadas: saved,
+          isSaving: false,
+          saveSuccess: true,
+        ),
       );
     } on CategoriesFailure catch (f) {
-      emit(state.copyWith(isSaving: false, saveFailure: f));
+      // Si el servidor respondió y rechazó, la pantalla vuelve a lo último que
+      // él confirmó: dejar marcada una categoría que no se guardó hace creer al
+      // aliado que la declaró, y al recargar desaparece sin explicación.
+      //
+      // Sin conexión es distinto: la petición no llegó, no hay veredicto que
+      // acatar y descartar lo que el aliado acababa de marcar sería perder su
+      // trabajo por un problema de red. Ahí se conserva, que es justo lo que le
+      // promete el mensaje: «Tu selección sigue aquí; inténtalo de nuevo».
+      final servidorRespondio = f.tipo != CategoriesErrorTipo.sinConexion;
+      emit(
+        state.copyWith(
+          selectedIds: servidorRespondio
+              ? state.selectedIdsConfirmadas
+              : state.selectedIds,
+          isSaving: false,
+          saveFailure: f,
+        ),
+      );
     }
   }
 }

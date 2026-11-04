@@ -20,6 +20,13 @@ const _inicio = EntradaMenu(
   ruta: '/inicio',
 );
 
+/// Bandeja de avisos (SCRUM-882 y 884): la ven todos los roles.
+const _avisos = EntradaMenu(
+  etiqueta: 'Avisos',
+  icono: Icons.notifications_none,
+  ruta: '/perfil/avisos',
+);
+
 const _miPerfil = EntradaMenu(
   etiqueta: 'Mi perfil',
   icono: Icons.person_outline,
@@ -46,6 +53,12 @@ List<EntradaMenu> entradasMenuPara(RolUsuario rol) {
           icono: Icons.list_alt_outlined,
           ruta: '/cliente/solicitudes',
         ),
+        // Historial de servicios (SCRUM-879).
+        EntradaMenu(
+          etiqueta: 'Historial',
+          icono: Icons.history,
+          ruta: '/cliente/historial',
+        ),
         EntradaMenu(
           etiqueta: 'Mis sedes',
           icono: Icons.apartment_outlined,
@@ -57,6 +70,7 @@ List<EntradaMenu> entradasMenuPara(RolUsuario rol) {
           icono: Icons.feedback_outlined,
           ruta: '/cliente/quejas',
         ),
+        _avisos,
         _miPerfil,
       ];
     case RolUsuario.aliado:
@@ -66,6 +80,12 @@ List<EntradaMenu> entradasMenuPara(RolUsuario rol) {
           etiqueta: 'Solicitudes',
           icono: Icons.inbox_outlined,
           ruta: '/aliado/solicitudes',
+        ),
+        // Historial de trabajos (SCRUM-880).
+        EntradaMenu(
+          etiqueta: 'Historial',
+          icono: Icons.history,
+          ruta: '/aliado/historial',
         ),
         EntradaMenu(
           etiqueta: 'Cobertura',
@@ -87,11 +107,7 @@ List<EntradaMenu> entradasMenuPara(RolUsuario rol) {
           icono: Icons.event_busy_outlined,
           ruta: '/aliado/disponibilidad',
         ),
-        EntradaMenu(
-          etiqueta: 'Empleados',
-          icono: Icons.badge_outlined,
-          ruta: '/aliado/empleados/nuevo',
-        ),
+        _avisos,
         _miPerfil,
       ];
     case RolUsuario.adminTenant:
@@ -106,6 +122,12 @@ List<EntradaMenu> entradasMenuPara(RolUsuario rol) {
           etiqueta: 'Categorías',
           icono: Icons.category_outlined,
           ruta: '/admin/categorias',
+        ),
+        // Política de cancelación tardía (SCRUM-878).
+        EntradaMenu(
+          etiqueta: 'Cancelaciones',
+          icono: Icons.event_busy_outlined,
+          ruta: '/admin/politica-cancelacion',
         ),
         // Tarifario y cotizaciones fuera de rango (M-10: SCRUM-885 y 887).
         EntradaMenu(
@@ -124,6 +146,23 @@ List<EntradaMenu> entradasMenuPara(RolUsuario rol) {
           icono: Icons.rule_outlined,
           ruta: '/admin/reglas',
         ),
+        // Empleados directos (SCRUM-1376): los registra el administrador, como exige Core.
+        EntradaMenu(
+          etiqueta: 'Empleados',
+          icono: Icons.badge_outlined,
+          ruta: '/admin/empleados/nuevo',
+        ),
+        // Auditoría de transacciones (SCRUM-889) y conversación de una queja (SCRUM-883).
+        EntradaMenu(
+          etiqueta: 'Auditoría',
+          icono: Icons.fact_check_outlined,
+          ruta: '/admin/auditoria-transacciones',
+        ),
+        EntradaMenu(
+          etiqueta: 'Conversaciones',
+          icono: Icons.forum_outlined,
+          ruta: '/admin/conversaciones',
+        ),
         // M-12 (SCRUM-896 y 900).
         EntradaMenu(
           etiqueta: 'Quejas',
@@ -135,6 +174,7 @@ List<EntradaMenu> entradasMenuPara(RolUsuario rol) {
           icono: Icons.insights_outlined,
           ruta: '/admin/metricas',
         ),
+        _avisos,
         _miPerfil,
       ];
     case RolUsuario.adminPlataforma:

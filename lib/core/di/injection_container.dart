@@ -1,6 +1,9 @@
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:get_it/get_it.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:mani/features/audit/data/auditoria_datasource.dart';
+import 'package:mani/features/conversation_review/data/conversacion_queja_datasource.dart';
+import 'package:mani/features/notifications/data/avisos_datasource.dart';
 import 'package:mani/core/network/gateway_client.dart';
 import 'package:mani/core/session/sesion_expirada.dart';
 import 'package:mani/core/shell/datos_sesion.dart';
@@ -83,6 +86,8 @@ import 'package:mani/features/services/events/data/almacen_cola_eventos.dart';
 import 'package:mani/features/services/events/data/cola_eventos.dart';
 import 'package:mani/features/services/events/data/eventos_datasource.dart';
 import 'package:mani/core/session/tenant_sesion.dart';
+import 'package:mani/features/services/ratings/data/calificacion_cierre_datasource.dart';
+import 'package:mani/features/services/ratings/data/politica_cancelacion_datasource.dart';
 import 'package:mani/features/tariffs/data/tarifas_datasource.dart';
 import 'package:mani/features/complaints/data/quejas_datasource.dart';
 import 'package:mani/features/metrics/data/metricas_datasource.dart';
@@ -280,6 +285,13 @@ Future<void> init() async {
   // Pago en el sandbox (HU-M11-01 / SCRUM-1432), por el Gateway a Core. El Cubit
   // se crea por cotización en la ruta.
   sl.registerLazySingleton<FuentePagos>(() => GatewayFuentePagos(sl()));
+  // Módulo M-08: calificación bidireccional, cierre, historial y penalización
+  // por cancelación tardía (SCRUM-874, 875, 878, 879, 880 y 1418), por el
+  // Gateway a Core.
+  sl.registerLazySingleton<FuenteModuloM08>(() => GatewayFuenteModuloM08(sl()));
+  sl.registerLazySingleton<FuentePoliticaCancelacion>(
+    () => GatewayFuentePoliticaCancelacion(sl()),
+  );
   // Tarifario de referencia (M-10: SCRUM-885, 886 y 887), por el Gateway a Core.
   sl.registerLazySingleton<FuenteTarifas>(() => GatewayFuenteTarifas(sl()));
   // Quejas, métricas y tenants (M-12: SCRUM-895, 896, 900 y 901), por el
@@ -294,6 +306,13 @@ Future<void> init() async {
   // Mensajería cliente-aliado (HU-M09-02 / SCRUM-881), por el Gateway a Core. El
   // Cubit se crea por solicitud en la ruta y consulta cada pocos segundos.
   sl.registerLazySingleton<FuenteMensajes>(() => GatewayFuenteMensajes(sl()));
+  // SCRUM-882/884 (bandeja de avisos), SCRUM-889 (auditoría) y SCRUM-883
+  // (conversación de una queja): lecturas por el Gateway; el rol lo decide Core.
+  sl.registerLazySingleton<FuenteAvisos>(() => GatewayFuenteAvisos(sl()));
+  sl.registerLazySingleton<FuenteAuditoria>(() => GatewayFuenteAuditoria(sl()));
+  sl.registerLazySingleton<FuenteConversacionQueja>(
+    () => GatewayFuenteConversacionQueja(sl()),
+  );
   // Ejecución del servicio (US-04.3.1 / SCRUM-868), en la misma pantalla.
   sl.registerLazySingleton<FuenteEjecucion>(() => GatewayFuenteEjecucion(sl()));
   // Adiciones por imprevisto (US-04.3.5 / SCRUM-872), en la misma pantalla.

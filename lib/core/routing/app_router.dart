@@ -5,6 +5,10 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:mani/features/audit/presentation/auditoria_page.dart';
+import 'package:mani/features/conversation_review/presentation/conversacion_queja_page.dart';
+import 'package:mani/features/notifications/domain/aviso.dart';
+import 'package:mani/features/notifications/presentation/avisos_page.dart';
 import 'package:mani/core/di/injection_container.dart';
 import 'package:mani/core/session/guardas_ruta.dart';
 import 'package:mani/core/session/rol_usuario.dart';
@@ -60,6 +64,10 @@ import 'package:mani/features/profiles/company_sites/presentation/pages/gestion_
 import 'package:mani/features/profiles/direct_employees/presentation/bloc/empleado_directo_cubit.dart';
 import 'package:mani/features/profiles/direct_employees/presentation/pages/registrar_empleado_directo_page.dart';
 import 'package:mani/features/profiles/own_profile/presentation/pages/editar_perfil_page.dart';
+import 'package:mani/features/services/ratings/data/calificacion_cierre_datasource.dart';
+import 'package:mani/features/services/ratings/presentation/calificacion_cierre_cubit.dart';
+import 'package:mani/features/services/ratings/presentation/calificacion_cierre_widgets.dart';
+import 'package:mani/features/services/ratings/presentation/politica_cancelacion_page.dart';
 import 'package:mani/features/tariffs/data/tarifas_datasource.dart';
 import 'package:mani/features/tariffs/presentation/referencia_tarifa_seccion.dart';
 import 'package:mani/features/tariffs/presentation/reporte_fuera_rango_page.dart';
@@ -118,6 +126,24 @@ Widget _pantallaChat(String solicitudId) => BlocProvider(
   child: const ChatPage(),
 );
 
+/// Lleva de un aviso a la pantalla de su solicitud según el rol de la sesión
+/// (SCRUM-882 y 884): el mensaje nuevo, al chat; el resto, a la pantalla del
+/// servicio. El administrador no participa en los servicios y no navega.
+void _abrirAviso(Aviso aviso) {
+  final id = aviso.solicitudId;
+  if (id == null) return;
+  final rol = rolDesdeAccessToken(
+    Supabase.instance.client.auth.currentSession?.accessToken,
+  );
+  final base = switch (rol) {
+    RolUsuario.cliente => '/cliente/solicitudes/$id',
+    RolUsuario.aliado => '/aliado/solicitudes/$id',
+    _ => null,
+  };
+  if (base == null) return;
+  appRouter.push(aviso.esMensaje ? '$base/chat' : '$base/cotizacion');
+}
+
 /// Pantalla del servicio de una solicitud: la cotización (SCRUM-865 y 867), la
 /// ejecución (SCRUM-868), las adiciones (SCRUM-872) y la bitácora (SCRUM-869,
 /// 870 y 873). Cada parte tiene su Cubit y consulta a Core por su lado.
@@ -129,6 +155,11 @@ Widget _pantallaServicio(
     BlocProvider(create: (_) => CotizacionCubit(sl(), solicitudId)..cargar()),
     BlocProvider(create: (_) => EjecucionCubit(sl(), solicitudId)..cargar()),
     BlocProvider(create: (_) => AdicionesCubit(sl(), solicitudId)..cargar()),
+    // Calificación bidireccional y cierre (SCRUM-874, 875 y 1418).
+    BlocProvider(
+      create: (_) =>
+          CalificacionCierreCubit(sl(), solicitudId: solicitudId)..cargar(),
+    ),
     BlocProvider(
       create: (_) => EventosCubit(
         sl(),
@@ -205,6 +236,17 @@ Widget _pantallaServicio(
               selectorFotos: esAliado ? sl() : null,
             ),
           ),
+          // Calificación y cierre (SCRUM-874, 875 y 1418): aparece cuando el
+          // servicio queda FINALIZADA. Al finalizar la ejecución en esta misma
+          // pantalla se vuelve a consultar el estado para mostrarla.
+          BlocListener<EjecucionCubit, EjecucionState>(
+            listenWhen: (a, b) =>
+                a.ejecucion?.finalizada != b.ejecucion?.finalizada &&
+                (b.ejecucion?.finalizada ?? false),
+            listener: (context, _) =>
+                context.read<CalificacionCierreCubit>().cargar(),
+            child: CalificacionServicioFinalizado(esAliado: esAliado),
+          ),
         ],
       ),
       alRefrescar: () async {
@@ -212,6 +254,7 @@ Widget _pantallaServicio(
           context.read<EjecucionCubit>().cargar(),
           context.read<AdicionesCubit>().cargar(),
           context.read<EventosCubit>().cargar(),
+          context.read<CalificacionCierreCubit>().cargar(),
         ]);
       },
     ),
@@ -399,9 +442,11 @@ final appRouter = GoRouter(
             child: const GestionSedesEmpresaPage(),
           ),
         ),
-        // Ruta independiente: Registro de empleado directo del aliado (US-02.1.5 / SCRUM-850)
+        // Registro de empleado directo (US-02.1.5 / SCRUM-850, SCRUM-1376). Lo hace el
+        // administrador del tenant: Core exige ese rol, y el catálogo de categorías que
+        // la pantalla consulta (`/catalog/categories`) también es de administración.
         GoRoute(
-          path: '/aliado/empleados/nuevo',
+          path: '/admin/empleados/nuevo',
           name: 'registrar-empleado-directo',
           builder: (context, state) => BlocProvider(
             create: (_) => sl<EmpleadoDirectoCubit>(),
@@ -448,6 +493,9 @@ final appRouter = GoRouter(
                   );
                 }
               },
+              // Penalización por cancelación tardía antes de confirmar (SCRUM-878).
+              previsualizarCancelacion: (id) =>
+                  sl<FuenteModuloM08>().previsualizarCancelacion(id),
             ),
           ),
         ),
@@ -527,6 +575,29 @@ final appRouter = GoRouter(
           ),
         ),
         // Ausencias del aliado (US-02.1.6). Rol y tenant los valida Core.
+        // Bandeja de avisos (SCRUM-882 y 884): mensajes nuevos y cambios de estado.
+        // Va bajo `/perfil/`, abierto a todos los roles; Core entrega solo los de la sesión.
+        GoRoute(
+          path: '/perfil/avisos',
+          name: 'avisos',
+          builder: (context, state) => AvisosPage(onAbrir: _abrirAviso),
+        ),
+        // Auditoría de transacciones (SCRUM-889): solo el administrador.
+        GoRoute(
+          path: '/admin/auditoria-transacciones',
+          name: 'auditoria-transacciones',
+          builder: (context, state) => const AuditoriaPage(),
+        ),
+        // Conversación de una queja (SCRUM-883): solo el administrador. Acepta
+        // `?solicitudId=` y `?quejaRef=` para llegar desde una queja concreta.
+        GoRoute(
+          path: '/admin/conversaciones',
+          name: 'conversacion-queja',
+          builder: (context, state) => ConversacionQuejaPage(
+            solicitudId: state.uri.queryParameters['solicitudId'],
+            quejaRef: state.uri.queryParameters['quejaRef'],
+          ),
+        ),
         // Cobros del aliado (SCRUM-894): retención y liquidación simuladas.
         GoRoute(
           path: '/aliado/cobros',
@@ -613,6 +684,43 @@ final appRouter = GoRouter(
           builder: (context, state) => BlocProvider(
             create: (_) => sl<TenantRulesCubit>()..cargar(),
             child: const ReglasOperativasPage(),
+          ),
+        ),
+        // Historial de servicios del cliente (HU-M08-06 / SCRUM-879). Desde cada
+        // servicio finalizado se abre su pantalla para calificar.
+        GoRoute(
+          path: '/cliente/historial',
+          name: 'historial-cliente',
+          builder: (context, state) => BlocProvider(
+            create: (_) =>
+                HistorialServiciosCubit(sl(), esAliado: false)..cargar(),
+            child: HistorialServiciosPage(
+              onAbrirServicio: (id) =>
+                  context.push('/cliente/solicitudes/$id/cotizacion'),
+            ),
+          ),
+        ),
+        // Historial de trabajos del aliado (HU-M08-07 / SCRUM-880).
+        GoRoute(
+          path: '/aliado/historial',
+          name: 'historial-aliado',
+          builder: (context, state) => BlocProvider(
+            create: (_) =>
+                HistorialServiciosCubit(sl(), esAliado: true)..cargar(),
+            child: HistorialServiciosPage(
+              onAbrirServicio: (id) =>
+                  context.push('/aliado/solicitudes/$id/cotizacion'),
+            ),
+          ),
+        ),
+        // Política de cancelación tardía del tenant (HU-M08-05 / SCRUM-878).
+        // Core exige ADMIN_TENANT para guardarla.
+        GoRoute(
+          path: '/admin/politica-cancelacion',
+          name: 'politica-cancelacion',
+          builder: (context, state) => BlocProvider(
+            create: (_) => PoliticaCancelacionCubit(sl())..cargar(),
+            child: const PoliticaCancelacionPage(),
           ),
         ),
         // Catálogo de categorías de servicio (US-03.1.1). Las RPC exigen rol
