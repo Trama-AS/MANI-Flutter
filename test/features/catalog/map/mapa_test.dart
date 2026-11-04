@@ -41,7 +41,12 @@ Map<String, dynamic> _respuesta({List<String> sinGeometria = const []}) => {
 };
 
 class _DatosFalsos implements MapaRemoteDataSource {
-  _DatosFalsos({this.respuesta, this.zonas, this.sitios, this.fallaSitios = false});
+  _DatosFalsos({
+    this.respuesta,
+    this.zonas,
+    this.sitios,
+    this.fallaSitios = false,
+  });
 
   Map<String, dynamic>? respuesta;
   List<Map<String, dynamic>>? zonas;
@@ -77,8 +82,20 @@ class _DatosFalsos implements MapaRemoteDataSource {
   Future<List<Map<String, dynamic>>> listarZonas() async =>
       zonas ??
       [
-        {'id': _chapinero, 'name': 'Chapinero', 'level': 'LOCALIDAD', 'parentId': null, 'selectable': true},
-        {'id': _chico, 'name': 'Chicó Norte', 'level': 'BARRIO', 'parentId': _chapinero, 'selectable': true},
+        {
+          'id': _chapinero,
+          'name': 'Chapinero',
+          'level': 'LOCALIDAD',
+          'parentId': null,
+          'selectable': true,
+        },
+        {
+          'id': _chico,
+          'name': 'Chicó Norte',
+          'level': 'BARRIO',
+          'parentId': _chapinero,
+          'selectable': true,
+        },
       ];
 
   @override
@@ -93,25 +110,46 @@ void main() {
     // El error clásico: GeoJSON es [lon, lat] y LatLng es (lat, lon).
     // Invertirlo no rompe ninguna prueba de forma, pero manda Bogotá al golfo
     // de Adén. Por eso se afirma el hemisferio, no solo el número de puntos.
-    test('invierte el par para que el punto caiga en Bogotá, no en el golfo de Adén', () {
-      final anillos = GeometriaZona.anillosDesdeGeoJson(
-        _respuesta()['features'][0]['geometry'],
-      );
+    test(
+      'invierte el par para que el punto caiga en Bogotá, no en el golfo de Adén',
+      () {
+        final anillos = GeometriaZona.anillosDesdeGeoJson(
+          _respuesta()['features'][0]['geometry'],
+        );
 
-      expect(anillos, hasLength(1));
-      final p = anillos.first.first;
-      expect(p.latitude, closeTo(4.68132, 0.00001));
-      expect(p.longitude, closeTo(-74.05045, 0.00001));
-      expect(p.latitude > 3 && p.latitude < 6, isTrue, reason: 'latitud de Bogotá');
-      expect(p.longitude < -70, isTrue, reason: 'longitud de Bogotá');
-    });
+        expect(anillos, hasLength(1));
+        final p = anillos.first.first;
+        expect(p.latitude, closeTo(4.68132, 0.00001));
+        expect(p.longitude, closeTo(-74.05045, 0.00001));
+        expect(
+          p.latitude > 3 && p.latitude < 6,
+          isTrue,
+          reason: 'latitud de Bogotá',
+        );
+        expect(p.longitude < -70, isTrue, reason: 'longitud de Bogotá');
+      },
+    );
 
     test('acepta MultiPolygon y aporta un anillo por contorno', () {
       final anillos = GeometriaZona.anillosDesdeGeoJson({
         'type': 'MultiPolygon',
         'coordinates': [
-          [[[-74.1, 4.6], [-74.0, 4.6], [-74.0, 4.7], [-74.1, 4.6]]],
-          [[[-74.3, 4.8], [-74.2, 4.8], [-74.2, 4.9], [-74.3, 4.8]]],
+          [
+            [
+              [-74.1, 4.6],
+              [-74.0, 4.6],
+              [-74.0, 4.7],
+              [-74.1, 4.6],
+            ],
+          ],
+          [
+            [
+              [-74.3, 4.8],
+              [-74.2, 4.8],
+              [-74.2, 4.9],
+              [-74.3, 4.8],
+            ],
+          ],
         ],
       });
       expect(anillos, hasLength(2));
@@ -119,73 +157,117 @@ void main() {
 
     // C2: una geometría inválida es un caso previsto y la pantalla debe poder
     // mostrar el estado vacío, no caerse.
-    test('devuelve vacío ante geometría nula, tipo desconocido o puntos insuficientes', () {
-      expect(GeometriaZona.anillosDesdeGeoJson(null), isEmpty);
-      expect(GeometriaZona.anillosDesdeGeoJson({'type': 'Point', 'coordinates': [-74, 4]}), isEmpty);
-      expect(
-        GeometriaZona.anillosDesdeGeoJson({'type': 'Polygon', 'coordinates': [[[-74, 4], [-74, 5]]]}),
-        isEmpty,
-        reason: 'dos puntos no son un polígono',
-      );
-      expect(
-        GeometriaZona.anillosDesdeGeoJson({'type': 'Polygon', 'coordinates': [[['x', 'y'], [1, 2], [3, 4], [5, 6]]]}),
-        hasLength(1),
-        reason: 'descarta el punto inválido y conserva el resto',
-      );
-    });
+    test(
+      'devuelve vacío ante geometría nula, tipo desconocido o puntos insuficientes',
+      () {
+        expect(GeometriaZona.anillosDesdeGeoJson(null), isEmpty);
+        expect(
+          GeometriaZona.anillosDesdeGeoJson({
+            'type': 'Point',
+            'coordinates': [-74, 4],
+          }),
+          isEmpty,
+        );
+        expect(
+          GeometriaZona.anillosDesdeGeoJson({
+            'type': 'Polygon',
+            'coordinates': [
+              [
+                [-74, 4],
+                [-74, 5],
+              ],
+            ],
+          }),
+          isEmpty,
+          reason: 'dos puntos no son un polígono',
+        );
+        expect(
+          GeometriaZona.anillosDesdeGeoJson({
+            'type': 'Polygon',
+            'coordinates': [
+              [
+                ['x', 'y'],
+                [1, 2],
+                [3, 4],
+                [5, 6],
+              ],
+            ],
+          }),
+          hasLength(1),
+          reason: 'descarta el punto inválido y conserva el resto',
+        );
+      },
+    );
   });
 
   group('MapaCubit', () {
-    test('carga la localidad y pide su geometría junto con la de sus barrios', () async {
-      final datos = _DatosFalsos();
-      final cubit = MapaCubit(datos);
+    test(
+      'carga la localidad y pide su geometría junto con la de sus barrios',
+      () async {
+        final datos = _DatosFalsos();
+        final cubit = MapaCubit(datos);
 
-      await cubit.cargar();
+        await cubit.cargar();
 
-      expect(cubit.state.estado, MapaEstado.listo);
-      expect(cubit.state.localidadId, _chapinero);
-      expect(datos.pedidas, [_chapinero, _chico]);
-      expect(cubit.state.geometrias, hasLength(1));
-      expect(cubit.state.atribuciones, ['UAECD, CC BY 4.0']);
-    });
+        expect(cubit.state.estado, MapaEstado.listo);
+        expect(cubit.state.localidadId, _chapinero);
+        expect(datos.pedidas, [_chapinero, _chico]);
+        expect(cubit.state.geometrias, hasLength(1));
+        expect(cubit.state.atribuciones, ['UAECD, CC BY 4.0']);
+      },
+    );
 
-    test('C2 informa las zonas sin límite cargado en vez de dibujar algo aproximado', () async {
-      final datos = _DatosFalsos(respuesta: _respuesta(sinGeometria: [_chapinero]));
-      final cubit = MapaCubit(datos);
+    test(
+      'C2 informa las zonas sin límite cargado en vez de dibujar algo aproximado',
+      () async {
+        final datos = _DatosFalsos(
+          respuesta: _respuesta(sinGeometria: [_chapinero]),
+        );
+        final cubit = MapaCubit(datos);
 
-      await cubit.cargar();
+        await cubit.cargar();
 
-      expect(cubit.state.sinGeometria, [_chapinero]);
-      expect(cubit.state.geometrias.every((g) => g.zonaId != _chapinero), isTrue);
-    });
+        expect(cubit.state.sinGeometria, [_chapinero]);
+        expect(
+          cubit.state.geometrias.every((g) => g.zonaId != _chapinero),
+          isTrue,
+        );
+      },
+    );
 
-    test('sin ninguna geometría dibujable el estado es vacío, no listo', () async {
-      final datos = _DatosFalsos(
-        respuesta: {
-          'type': 'FeatureCollection',
-          'features': const [],
-          'sinGeometria': [_chapinero],
-          'desconocidas': const <String>[],
-          'atribuciones': const <String>[],
-        },
-      );
-      final cubit = MapaCubit(datos);
+    test(
+      'sin ninguna geometría dibujable el estado es vacío, no listo',
+      () async {
+        final datos = _DatosFalsos(
+          respuesta: {
+            'type': 'FeatureCollection',
+            'features': const [],
+            'sinGeometria': [_chapinero],
+            'desconocidas': const <String>[],
+            'atribuciones': const <String>[],
+          },
+        );
+        final cubit = MapaCubit(datos);
 
-      await cubit.cargar();
+        await cubit.cargar();
 
-      expect(cubit.state.estado, MapaEstado.vacio);
-      expect(cubit.state.geometrias, isEmpty);
-    });
+        expect(cubit.state.estado, MapaEstado.vacio);
+        expect(cubit.state.geometrias, isEmpty);
+      },
+    );
 
-    test('sin localidades en el catálogo el estado es vacío y no se pide geometría', () async {
-      final datos = _DatosFalsos(zonas: const []);
-      final cubit = MapaCubit(datos);
+    test(
+      'sin localidades en el catálogo el estado es vacío y no se pide geometría',
+      () async {
+        final datos = _DatosFalsos(zonas: const []);
+        final cubit = MapaCubit(datos);
 
-      await cubit.cargar();
+        await cubit.cargar();
 
-      expect(cubit.state.estado, MapaEstado.vacio);
-      expect(datos.pedidas, isNull);
-    });
+        expect(cubit.state.estado, MapaEstado.vacio);
+        expect(datos.pedidas, isNull);
+      },
+    );
 
     test('no pide más zonas de las que Core admite por petición', () {
       expect(GatewayMapaDataSource.maxZonasPorPeticion, 20);
@@ -193,108 +275,171 @@ void main() {
 
     // El cliente ve sus propias sedes sobre el mapa; el admin no las puede
     // leer y eso no debe tumbar la pantalla.
-    test('ubica las sedes de la localidad y cuenta aparte las que no tienen punto', () async {
-      final datos = _DatosFalsos(
-        sitios: const [
-          SitioUbicado(id: 's1', nombre: 'Sede Norte', zonaId: _chico, latitud: 4.68, longitud: -74.05),
-          SitioUbicado(id: 's2', nombre: 'Sede sin GPS', zonaId: _chico),
-          SitioUbicado(id: 's3', nombre: 'Sede de otra zona', zonaId: 'zona-ajena', latitud: 1, longitud: 1),
-        ],
-      );
-      final cubit = MapaCubit(datos);
+    test(
+      'ubica las sedes de la localidad y cuenta aparte las que no tienen punto',
+      () async {
+        final datos = _DatosFalsos(
+          sitios: const [
+            SitioUbicado(
+              id: 's1',
+              nombre: 'Sede Norte',
+              zonaId: _chico,
+              latitud: 4.68,
+              longitud: -74.05,
+            ),
+            SitioUbicado(id: 's2', nombre: 'Sede sin GPS', zonaId: _chico),
+            SitioUbicado(
+              id: 's3',
+              nombre: 'Sede de otra zona',
+              zonaId: 'zona-ajena',
+              latitud: 1,
+              longitud: 1,
+            ),
+          ],
+        );
+        final cubit = MapaCubit(datos);
 
-      await cubit.cargar();
+        await cubit.cargar();
 
-      expect(cubit.state.sitios.map((s) => s.id), ['s1'],
-          reason: 'solo la ubicada y de la zona pedida');
-      expect(cubit.state.sitiosSinUbicacion, 1);
-    });
+        expect(cubit.state.sitios.map((s) => s.id), [
+          's1',
+        ], reason: 'solo la ubicada y de la zona pedida');
+        expect(cubit.state.sitiosSinUbicacion, 1);
+      },
+    );
 
-    test('si las sedes no se pueden leer, el mapa sigue mostrando las zonas', () async {
-      final datos = _DatosFalsos(fallaSitios: true);
-      final cubit = MapaCubit(datos);
+    test(
+      'si las sedes no se pueden leer, el mapa sigue mostrando las zonas',
+      () async {
+        final datos = _DatosFalsos(fallaSitios: true);
+        final cubit = MapaCubit(datos);
 
-      await cubit.cargar();
+        await cubit.cargar();
 
-      expect(cubit.state.estado, MapaEstado.listo,
-          reason: 'el error de sedes no tumba el mapa');
-      expect(cubit.state.geometrias, hasLength(1));
-      expect(cubit.state.sitios, isEmpty);
-      expect(cubit.state.mensajeError, isNull);
-    });
+        expect(
+          cubit.state.estado,
+          MapaEstado.listo,
+          reason: 'el error de sedes no tumba el mapa',
+        );
+        expect(cubit.state.geometrias, hasLength(1));
+        expect(cubit.state.sitios, isEmpty);
+        expect(cubit.state.mensajeError, isNull);
+      },
+    );
 
-    test('una sede ubicada sostiene el mapa aunque no haya ningún límite', () async {
-      final datos = _DatosFalsos(
-        respuesta: {
-          'type': 'FeatureCollection',
-          'features': const [],
-          'sinGeometria': [_chapinero],
-          'desconocidas': const <String>[],
-          'atribuciones': const <String>[],
-        },
-        sitios: const [
-          SitioUbicado(id: 's1', nombre: 'Sede Norte', zonaId: _chapinero, latitud: 4.65, longitud: -74.06),
-        ],
-      );
-      final cubit = MapaCubit(datos);
+    test(
+      'una sede ubicada sostiene el mapa aunque no haya ningún límite',
+      () async {
+        final datos = _DatosFalsos(
+          respuesta: {
+            'type': 'FeatureCollection',
+            'features': const [],
+            'sinGeometria': [_chapinero],
+            'desconocidas': const <String>[],
+            'atribuciones': const <String>[],
+          },
+          sitios: const [
+            SitioUbicado(
+              id: 's1',
+              nombre: 'Sede Norte',
+              zonaId: _chapinero,
+              latitud: 4.65,
+              longitud: -74.06,
+            ),
+          ],
+        );
+        final cubit = MapaCubit(datos);
 
-      await cubit.cargar();
+        await cubit.cargar();
 
-      expect(cubit.state.estado, MapaEstado.listo);
-      expect(cubit.state.sitios, hasLength(1));
-    });
+        expect(cubit.state.estado, MapaEstado.listo);
+        expect(cubit.state.sitios, hasLength(1));
+      },
+    );
   });
 
   group('cobertura del aliado', () {
-    test('resalta las zonas que el aliado declaró, y para otros roles queda vacía', () async {
-      final aliado = _DatosFalsos()
-        ..fallaCobertura = false
-        ..cobertura = [_chico];
-      final cubitAliado = MapaCubit(aliado);
-      await cubitAliado.cargar();
-      expect(cubitAliado.state.coberturaPropia, {_chico});
+    test(
+      'resalta las zonas que el aliado declaró, y para otros roles queda vacía',
+      () async {
+        final aliado = _DatosFalsos()
+          ..fallaCobertura = false
+          ..cobertura = [_chico];
+        final cubitAliado = MapaCubit(aliado);
+        await cubitAliado.cargar();
+        expect(cubitAliado.state.coberturaPropia, {_chico});
 
-      // Un cliente o un admin reciben error del endpoint de cobertura: el mapa
-      // sigue funcionando y no resalta nada.
-      final otro = MapaCubit(_DatosFalsos());
-      await otro.cargar();
-      expect(otro.state.coberturaPropia, isEmpty);
-      expect(otro.state.estado, MapaEstado.listo);
-      expect(otro.state.mensajeError, isNull);
-    });
+        // Un cliente o un admin reciben error del endpoint de cobertura: el mapa
+        // sigue funcionando y no resalta nada.
+        final otro = MapaCubit(_DatosFalsos());
+        await otro.cargar();
+        expect(otro.state.coberturaPropia, isEmpty);
+        expect(otro.state.estado, MapaEstado.listo);
+        expect(otro.state.mensajeError, isNull);
+      },
+    );
 
     test('parsea zoneIds y tolera la respuesta sin esa clave', () {
       expect(
-        GatewayMapaDataSource.parsearCobertura({'zoneIds': [_chico, _chapinero]}),
+        GatewayMapaDataSource.parsearCobertura({
+          'zoneIds': [_chico, _chapinero],
+        }),
         [_chico, _chapinero],
       );
       expect(GatewayMapaDataSource.parsearCobertura({}), isEmpty);
-      expect(GatewayMapaDataSource.parsearCobertura({'zoneIds': 'no es lista'}), isEmpty);
+      expect(
+        GatewayMapaDataSource.parsearCobertura({'zoneIds': 'no es lista'}),
+        isEmpty,
+      );
     });
   });
 
   group('parseo de sedes', () {
-    test('normaliza la coordenada que llega como cadena y trata lo no numérico como ausencia', () {
-      final sitios = GatewayMapaDataSource.parsearSitios({
-        'sitios': [
-          {'id': 's1', 'nombre': 'Sede Norte', 'zonaId': _chico, 'latitud': '4.68132', 'longitud': '-74.05045'},
-          {'id': 's2', 'nombre': 'Sin punto', 'zonaId': _chico, 'latitud': null, 'longitud': null},
-          {'id': 's3', 'nombre': 'Basura', 'zonaId': _chico, 'latitud': 'norte', 'longitud': 'occidente'},
-        ],
-      });
+    test(
+      'normaliza la coordenada que llega como cadena y trata lo no numérico como ausencia',
+      () {
+        final sitios = GatewayMapaDataSource.parsearSitios({
+          'sitios': [
+            {
+              'id': 's1',
+              'nombre': 'Sede Norte',
+              'zonaId': _chico,
+              'latitud': '4.68132',
+              'longitud': '-74.05045',
+            },
+            {
+              'id': 's2',
+              'nombre': 'Sin punto',
+              'zonaId': _chico,
+              'latitud': null,
+              'longitud': null,
+            },
+            {
+              'id': 's3',
+              'nombre': 'Basura',
+              'zonaId': _chico,
+              'latitud': 'norte',
+              'longitud': 'occidente',
+            },
+          ],
+        });
 
-      expect(sitios, hasLength(3));
-      expect(sitios[0].latitud, closeTo(4.68132, 0.00001));
-      expect(sitios[0].tieneCoordenadas, isTrue);
-      expect(sitios[1].tieneCoordenadas, isFalse);
-      // Nunca 0: el ecuador no es una ubicación por omisión.
-      expect(sitios[2].latitud, isNull);
-      expect(sitios[2].tieneCoordenadas, isFalse);
-    });
+        expect(sitios, hasLength(3));
+        expect(sitios[0].latitud, closeTo(4.68132, 0.00001));
+        expect(sitios[0].tieneCoordenadas, isTrue);
+        expect(sitios[1].tieneCoordenadas, isFalse);
+        // Nunca 0: el ecuador no es una ubicación por omisión.
+        expect(sitios[2].latitud, isNull);
+        expect(sitios[2].tieneCoordenadas, isFalse);
+      },
+    );
 
     test('sin la clave sitios devuelve vacío en vez de fallar', () {
       expect(GatewayMapaDataSource.parsearSitios({}), isEmpty);
-      expect(GatewayMapaDataSource.parsearSitios({'sitios': 'no es lista'}), isEmpty);
+      expect(
+        GatewayMapaDataSource.parsearSitios({'sitios': 'no es lista'}),
+        isEmpty,
+      );
     });
   });
 }

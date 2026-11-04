@@ -37,7 +37,6 @@ class _CubitFalso extends Cubit<MapaState> implements MapaCubit {
   }
 
   String? seleccionada;
-
 }
 
 Widget _app(MapaState estado, {_CubitFalso? cubit}) {
@@ -50,7 +49,9 @@ Widget _app(MapaState estado, {_CubitFalso? cubit}) {
 }
 
 void main() {
-  testWidgets('dibuja el mapa con un polígono por cada anillo del límite', (tester) async {
+  testWidgets('dibuja el mapa con un polígono por cada anillo del límite', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       _app(
         MapaState(
@@ -86,17 +87,24 @@ void main() {
     expect(p.longitude, closeTo(-74.05045, 0.00001));
   });
 
-  testWidgets('sin geometrías muestra el estado vacío y no dibuja un mapa', (tester) async {
+  testWidgets('sin geometrías muestra el estado vacío y no dibuja un mapa', (
+    tester,
+  ) async {
     await tester.pumpWidget(_app(const MapaState(estado: MapaEstado.vacio)));
     await tester.pump();
 
     expect(find.byType(FlutterMap), findsNothing);
     expect(find.text('Sin límites para mostrar'), findsOneWidget);
     // C2: se dice que no se dibuja una forma aproximada, no se insinúa que no haya zonas.
-    expect(find.textContaining('No se dibuja una forma aproximada'), findsOneWidget);
+    expect(
+      find.textContaining('No se dibuja una forma aproximada'),
+      findsOneWidget,
+    );
   });
 
-  testWidgets('avisa cuántas zonas quedaron sin límite cargado', (tester) async {
+  testWidgets('avisa cuántas zonas quedaron sin límite cargado', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       _app(
         MapaState(
@@ -120,7 +128,9 @@ void main() {
     expect(find.textContaining('1 zona(s) sin límite cargado'), findsOneWidget);
   });
 
-  testWidgets('marca la sede ubicada y avisa de las que no tienen punto', (tester) async {
+  testWidgets('marca la sede ubicada y avisa de las que no tienen punto', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       _app(
         MapaState(
@@ -136,8 +146,11 @@ void main() {
           ],
           sitios: const [
             SitioUbicado(
-              id: 's1', nombre: 'Sede Norte', zonaId: _chico,
-              latitud: 4.68, longitud: -74.048,
+              id: 's1',
+              nombre: 'Sede Norte',
+              zonaId: _chico,
+              latitud: 4.68,
+              longitud: -74.048,
             ),
           ],
           sitiosSinUbicacion: 2,
@@ -154,18 +167,26 @@ void main() {
 
     // C2: las sedes sin punto se cuentan, no se ubican en el centroide.
     expect(find.byKey(const Key('mapa_sitios_sin_ubicacion')), findsOneWidget);
-    expect(find.textContaining('2 sede(s) sin ubicación capturada'), findsOneWidget);
+    expect(
+      find.textContaining('2 sede(s) sin ubicación capturada'),
+      findsOneWidget,
+    );
   });
 
-  testWidgets('una sede ubicada basta para dibujar el mapa sin ningún límite', (tester) async {
+  testWidgets('una sede ubicada basta para dibujar el mapa sin ningún límite', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       _app(
         const MapaState(
           estado: MapaEstado.listo,
           sitios: [
             SitioUbicado(
-              id: 's1', nombre: 'Sede Norte', zonaId: _chapinero,
-              latitud: 4.65, longitud: -74.06,
+              id: 's1',
+              nombre: 'Sede Norte',
+              zonaId: _chapinero,
+              latitud: 4.65,
+              longitud: -74.06,
             ),
           ],
         ),
@@ -174,35 +195,58 @@ void main() {
     await tester.pump();
 
     expect(find.byType(FlutterMap), findsOneWidget);
-    expect(tester.widget<PolygonLayer>(find.byType(PolygonLayer)).polygons, isEmpty);
-    expect(tester.widget<MarkerLayer>(find.byType(MarkerLayer)).markers, hasLength(1));
+    expect(
+      tester.widget<PolygonLayer>(find.byType(PolygonLayer)).polygons,
+      isEmpty,
+    );
+    expect(
+      tester.widget<MarkerLayer>(find.byType(MarkerLayer)).markers,
+      hasLength(1),
+    );
   });
 
   // El aliado ve resaltada su cobertura. Es lectura: cambiarla es de
   // «Zona de cobertura», por lista y hasta localidad.
-  testWidgets('resalta en verde la zona declarada como cobertura y explica que no se edita aquí', (tester) async {
-    final conCobertura = GeometriaZona(
-      zonaId: _chico, nombre: 'Chicó Norte', nivel: 'BARRIO',
-      anillos: _anillo, atribucion: 'UAECD',
-    );
-    await tester.pumpWidget(
-      _app(
-        MapaState(
-          estado: MapaEstado.listo,
-          geometrias: [conCobertura],
-          coberturaPropia: const {_chico},
+  testWidgets(
+    'resalta en verde la zona declarada como cobertura y explica que no se edita aquí',
+    (tester) async {
+      final conCobertura = GeometriaZona(
+        zonaId: _chico,
+        nombre: 'Chicó Norte',
+        nivel: 'BARRIO',
+        anillos: _anillo,
+        atribucion: 'UAECD',
+      );
+      await tester.pumpWidget(
+        _app(
+          MapaState(
+            estado: MapaEstado.listo,
+            geometrias: [conCobertura],
+            coberturaPropia: const {_chico},
+          ),
         ),
-      ),
-    );
-    await tester.pump();
+      );
+      await tester.pump();
 
-    final poligono = tester.widget<PolygonLayer>(find.byType(PolygonLayer)).polygons.first;
-    expect(poligono.borderColor, const Color(0xFF166534), reason: 'verde de cobertura');
-    expect(poligono.borderStrokeWidth, 3, reason: 'trazo más marcado que una zona cualquiera');
+      final poligono = tester
+          .widget<PolygonLayer>(find.byType(PolygonLayer))
+          .polygons
+          .first;
+      expect(
+        poligono.borderColor,
+        const Color(0xFF166534),
+        reason: 'verde de cobertura',
+      );
+      expect(
+        poligono.borderStrokeWidth,
+        3,
+        reason: 'trazo más marcado que una zona cualquiera',
+      );
 
-    expect(find.byKey(const Key('mapa_leyenda_cobertura')), findsOneWidget);
-    expect(find.textContaining('usa Cobertura en el menú'), findsOneWidget);
-  });
+      expect(find.byKey(const Key('mapa_leyenda_cobertura')), findsOneWidget);
+      expect(find.textContaining('usa Cobertura en el menú'), findsOneWidget);
+    },
+  );
 
   testWidgets('sin cobertura propia no hay leyenda ni verde', (tester) async {
     await tester.pumpWidget(
@@ -211,8 +255,11 @@ void main() {
           estado: MapaEstado.listo,
           geometrias: [
             GeometriaZona(
-              zonaId: _chico, nombre: 'Chicó Norte', nivel: 'BARRIO',
-              anillos: _anillo, atribucion: 'UAECD',
+              zonaId: _chico,
+              nombre: 'Chicó Norte',
+              nivel: 'BARRIO',
+              anillos: _anillo,
+              atribucion: 'UAECD',
             ),
           ],
         ),
@@ -220,14 +267,26 @@ void main() {
     );
     await tester.pump();
 
-    final poligono = tester.widget<PolygonLayer>(find.byType(PolygonLayer)).polygons.first;
-    expect(poligono.borderColor, const Color(0xFFC2410C), reason: 'naranja de barrio');
+    final poligono = tester
+        .widget<PolygonLayer>(find.byType(PolygonLayer))
+        .polygons
+        .first;
+    expect(
+      poligono.borderColor,
+      const Color(0xFFC2410C),
+      reason: 'naranja de barrio',
+    );
     expect(find.byKey(const Key('mapa_leyenda_cobertura')), findsNothing);
   });
 
   testWidgets('el error ofrece reintentar', (tester) async {
     await tester.pumpWidget(
-      _app(const MapaState(estado: MapaEstado.error, mensajeError: 'Gateway caído')),
+      _app(
+        const MapaState(
+          estado: MapaEstado.error,
+          mensajeError: 'Gateway caído',
+        ),
+      ),
     );
     await tester.pump();
 
@@ -236,7 +295,9 @@ void main() {
     expect(find.widgetWithText(FilledButton, 'Reintentar'), findsOneWidget);
   });
 
-  testWidgets('con varias localidades el selector cambia la que se pinta', (tester) async {
+  testWidgets('con varias localidades el selector cambia la que se pinta', (
+    tester,
+  ) async {
     final cubit = _CubitFalso(
       const MapaState(
         estado: MapaEstado.vacio,
