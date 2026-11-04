@@ -79,12 +79,14 @@ class EventosSeccion extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 10),
-                  Text(
-                    'Bitácora del servicio',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      color: AppTheme.dark,
+                  Flexible(
+                    child: Text(
+                      'Bitácora del servicio',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.dark,
+                      ),
                     ),
                   ),
                 ],
@@ -99,22 +101,21 @@ class EventosSeccion extends StatelessWidget {
               if (state.cargando && state.eventos.isEmpty)
                 const LinearProgressIndicator(color: AppTheme.dark)
               else if (state.error != null && state.eventos.isEmpty)
-                  Row(
-                    children: [
-                      Expanded(child: Text(state.error!)),
-                      TextButton(
-                        onPressed: context.read<EventosCubit>().cargar,
-                        child: const Text('Reintentar'),
-                      ),
-                    ],
-                  )
-                else if (state.eventos.isEmpty)
-                  const Text('Aún no hay eventos registrados.')
-                else
-                  for (final e in state.eventos)
-                    _Evento(e, urlOpener: urlOpener),
-              ],
-            ),
+                Row(
+                  children: [
+                    Expanded(child: Text(state.error!)),
+                    TextButton(
+                      onPressed: context.read<EventosCubit>().cargar,
+                      child: const Text('Reintentar'),
+                    ),
+                  ],
+                )
+              else if (state.eventos.isEmpty)
+                const Text('Aún no hay eventos registrados.')
+              else
+                for (final e in state.eventos) _Evento(e, urlOpener: urlOpener),
+            ],
+          ),
         );
       },
     );
@@ -340,10 +341,7 @@ class _FormularioEventoState extends State<_FormularioEvento> {
         Align(
           alignment: Alignment.centerLeft,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              minWidth: 180,
-              maxWidth: 260,
-            ),
+            constraints: const BoxConstraints(minWidth: 180, maxWidth: 260),
             child: ManiButton(
               key: const Key('btn-registrar-evento'),
               etiqueta: widget.enviando ? 'Registrando…' : 'Registrar evento',

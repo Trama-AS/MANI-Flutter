@@ -185,47 +185,40 @@ Widget _pantallaServicio(
                       ?.totalVigente ??
                   total,
             ),
-      pie: Column(
+      // Chat del servicio (HU-M09-02 / SCRUM-881): solo participan el cliente
+      // y el aliado asignado; lo valida Core.
+      accionEncabezado: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 270),
+        child: ManiButton(
+          key: const Key('btn-abrir-chat'),
+          etiqueta: esAliado
+              ? 'Mensajes con el cliente'
+              : 'Mensajes con el aliado',
+          icono: Icons.chat_bubble_outline,
+          variante: ManiButtonVariante.secundario,
+          onPressed: () => context.push(
+            '/${esAliado ? 'aliado' : 'cliente'}/solicitudes/$solicitudId/chat',
+          ),
+        ),
+      ),
+      // Adiciones por imprevisto (SCRUM-872): cambian el total a pagar, por eso
+      // van con los pagos. El aliado las pide con el servicio en ejecución; el
+      // cliente decide. Core aplica el tope.
+      pagosExtra: BlocBuilder<EjecucionCubit, EjecucionState>(
+        buildWhen: (a, b) =>
+            a.ejecucion?.enEjecucion != b.ejecucion?.enEjecucion,
+        builder: (context, state) => AdicionesSeccion(
+          esAliado: esAliado,
+          puedePedir: esAliado && (state.ejecucion?.enEjecucion ?? false),
+        ),
+      ),
+      // Ejecución (SCRUM-868) y bitácora. El aliado registra eventos solo con
+      // el servicio en ejecución (la regla definitiva la aplica Core,
+      // MANI-EVT-409E); el cliente la consulta en solo lectura (SCRUM-870).
+      bitacora: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Chat del servicio (HU-M09-02 / SCRUM-881): solo participan el cliente
-          // y el aliado asignado; lo valida Core.
-          Align(
-            alignment: Alignment.centerLeft,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(
-                minWidth: 200,
-                maxWidth: 270,
-              ),
-              child: ManiButton(
-                key: const Key('btn-abrir-chat'),
-                etiqueta: esAliado
-                    ? 'Mensajes con el cliente'
-                    : 'Mensajes con el aliado',
-                icono: Icons.chat_bubble_outline,
-                variante: ManiButtonVariante.secundario,
-                expandir: true,
-                onPressed: () => context.push(
-                  '/${esAliado ? 'aliado' : 'cliente'}/solicitudes/$solicitudId/chat',
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
           EjecucionSeccion(esAliado: esAliado),
-          // Adiciones por imprevisto (SCRUM-872): el aliado las pide con el
-          // servicio en ejecución; el cliente decide. Core aplica el tope.
-          BlocBuilder<EjecucionCubit, EjecucionState>(
-            buildWhen: (a, b) =>
-                a.ejecucion?.enEjecucion != b.ejecucion?.enEjecucion,
-            builder: (context, state) => AdicionesSeccion(
-              esAliado: esAliado,
-              puedePedir: esAliado && (state.ejecucion?.enEjecucion ?? false),
-            ),
-          ),
-          // El aliado registra eventos solo con el servicio en ejecución (la regla
-          // definitiva la aplica Core, MANI-EVT-409E); el cliente consulta la
-          // bitácora en solo lectura (SCRUM-870).
           BlocBuilder<EjecucionCubit, EjecucionState>(
             buildWhen: (a, b) =>
                 a.ejecucion?.enEjecucion != b.ejecucion?.enEjecucion,
@@ -236,12 +229,12 @@ Widget _pantallaServicio(
               selectorFotos: esAliado ? sl() : null,
             ),
           ),
-          if (sl.isRegistered<FuenteModuloM08>()) ...[
-            const SizedBox(height: 12),
-            CalificacionCierreSeccion(esAliado: esAliado),
-          ],
         ],
       ),
+      // Calificación y cierre (SCRUM-874, 875 y 1418).
+      calificacion: sl.isRegistered<FuenteModuloM08>()
+          ? CalificacionCierreSeccion(esAliado: esAliado)
+          : null,
       alRefrescar: () async {
         await Future.wait([
           context.read<EjecucionCubit>().cargar(),

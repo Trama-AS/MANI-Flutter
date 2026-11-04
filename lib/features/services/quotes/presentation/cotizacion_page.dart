@@ -40,6 +40,10 @@ class CotizacionPage extends StatelessWidget {
     this.pie,
     this.alRefrescar,
     this.alPagar,
+    this.accionEncabezado,
+    this.pagosExtra,
+    this.bitacora,
+    this.calificacion,
   });
 
   final bool esAliado;
@@ -56,6 +60,22 @@ class CotizacionPage extends StatelessWidget {
   /// Abre el pago en el sandbox de una cotización aceptada (SCRUM-1432). Solo
   /// el cliente lo recibe; sin él no se ofrece el botón.
   final void Function(String cotizacionId, double total)? alPagar;
+
+  /// Botón a la derecha del encabezado (p. ej. el chat del servicio).
+  final Widget? accionEncabezado;
+
+  /// Va en la columna de cotización y pagos, tras la cotización (p. ej. las
+  /// adiciones, que cambian el total a pagar).
+  final Widget? pagosExtra;
+
+  /// Columna de ejecución y bitácora del servicio.
+  final Widget? bitacora;
+
+  /// Columna de la calificación del servicio.
+  final Widget? calificacion;
+
+  /// Ancho desde el que las columnas van lado a lado.
+  static const anchoTresColumnas = 1000.0;
 
   @override
   Widget build(BuildContext context) {
@@ -75,92 +95,226 @@ class CotizacionPage extends StatelessWidget {
       },
       builder: (context, state) {
         final cubit = context.read<CotizacionCubit>();
-        return Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 680),
-            child: RefreshIndicator(
-              color: AppTheme.dark,
-              backgroundColor: AppTheme.primary,
-              onRefresh: () async {
-                await Future.wait([cubit.cargar(), ?alRefrescar?.call()]);
-              },
-              child: ListView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
+        final pagos = Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (encabezado != null) ...[
+              encabezado!,
+              const SizedBox(height: 16),
+            ],
+            if (state.cargando && state.cotizaciones.isEmpty)
+              const Center(
+                child: CircularProgressIndicator(color: AppTheme.dark),
+              )
+            else if (state.error != null)
+              _Error(mensaje: state.error!, onReintentar: cubit.cargar)
+            else ...[
+              if (state.vigente != null)
+                _TarjetaCotizacion(state.vigente!, vigente: true),
+              if (esAliado)
+                _SeccionAliado(state: state)
+              else
+                _SeccionCliente(state: state, alPagar: alPagar),
+              if (state.cotizaciones.length > 1) ...[
+                const SizedBox(height: 16),
+                Text(
+                  'Versiones anteriores',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                for (final c in state.cotizaciones.skip(1))
+                  _TarjetaCotizacion(c, vigente: false),
+              ],
+            ],
+            if (pagosExtra != null) ...[
+              const SizedBox(height: 16),
+              pagosExtra!,
+            ],
+            if (pie != null) ...[const SizedBox(height: 16), pie!],
+          ],
+        );
+        final columnas = <Widget>[
+          _Columna(
+            key: const Key('servicio-columna-pagos'),
+            icono: Icons.payments_outlined,
+            titulo: esAliado ? 'Cotización y cobro' : 'Cotización y pagos',
+            child: pagos,
+          ),
+          if (bitacora != null)
+            _Columna(
+              key: const Key('servicio-columna-bitacora'),
+              icono: Icons.timeline_outlined,
+              titulo: 'Ejecución y bitácora',
+              child: bitacora!,
+            ),
+          if (calificacion != null)
+            _Columna(
+              key: const Key('servicio-columna-calificacion'),
+              icono: Icons.star_outline_rounded,
+              titulo: 'Calificación del servicio',
+              child: calificacion!,
+            ),
+        ];
+        return RefreshIndicator(
+          color: AppTheme.dark,
+          backgroundColor: AppTheme.primary,
+          onRefresh: () async {
+            await Future.wait([cubit.cargar(), ?alRefrescar?.call()]);
+          },
+          child: LayoutBuilder(
+            builder: (context, c) {
+              final enColumnas =
+                  columnas.length > 1 && c.maxWidth >= anchoTresColumnas;
+              // Scroll que construye todo (no perezoso): cada columna es un
+              // bloque alto que debe existir completo aunque quede fuera de vista.
+              return SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: EdgeInsets.symmetric(
+                  horizontal: c.maxWidth >= 600 ? 32 : 16,
                   vertical: 24,
                 ),
-                children: [
-                  ManiCard(
-                    padding: const EdgeInsets.all(20),
-                    child: Row(
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 1400),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: AppTheme.primary,
-                            borderRadius: BorderRadius.circular(
-                              AppTheme.radiusXl,
-                            ),
-                            border: Border.all(color: AppTheme.dark, width: 2),
-                            boxShadow: const [AppTheme.hardShadowSm],
-                          ),
-                          child: const Icon(
-                            Icons.request_quote_outlined,
-                            color: AppTheme.dark,
-                            size: 24,
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Text(
-                            esAliado
-                                ? 'Cotizar el servicio'
-                                : 'Cotización del servicio',
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w900,
-                              color: AppTheme.dark,
-                            ),
-                          ),
-                        ),
+                        _encabezado(),
+                        const SizedBox(height: 24),
+                        if (enColumnas)
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              for (var k = 0; k < columnas.length; k++) ...[
+                                if (k > 0) const SizedBox(width: 24),
+                                Expanded(child: columnas[k]),
+                              ],
+                            ],
+                          )
+                        else
+                          for (var k = 0; k < columnas.length; k++) ...[
+                            if (k > 0) const SizedBox(height: 28),
+                            columnas[k],
+                          ],
                       ],
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  if (encabezado != null) ...[
-                    encabezado!,
-                    const SizedBox(height: 16),
-                  ],
-                  if (state.cargando && state.cotizaciones.isEmpty)
-                    const Center(
-                      child: CircularProgressIndicator(color: AppTheme.dark),
-                    )
-                  else if (state.error != null)
-                    _Error(mensaje: state.error!, onReintentar: cubit.cargar)
-                  else ...[
-                    if (state.vigente != null)
-                      _TarjetaCotizacion(state.vigente!, vigente: true),
-                    if (esAliado)
-                      _SeccionAliado(state: state)
-                    else
-                      _SeccionCliente(state: state, alPagar: alPagar),
-                    if (state.cotizaciones.length > 1) ...[
-                      const SizedBox(height: 16),
-                      Text(
-                        'Versiones anteriores',
-                        style: Theme.of(context).textTheme.titleSmall,
-                      ),
-                      for (final c in state.cotizaciones.skip(1))
-                        _TarjetaCotizacion(c, vigente: false),
-                    ],
-                  ],
-                  if (pie != null) ...[const SizedBox(height: 16), pie!],
-                ],
-              ),
-            ),
+                ),
+              );
+            },
           ),
         );
       },
+    );
+  }
+
+  Widget _encabezado() {
+    return ManiCard(
+      padding: const EdgeInsets.all(20),
+      child: LayoutBuilder(
+        builder: (context, c) {
+          final titulo = Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppTheme.primary,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusXl),
+                  border: Border.all(color: AppTheme.dark, width: 2),
+                  boxShadow: const [AppTheme.hardShadowSm],
+                ),
+                child: const Icon(
+                  Icons.request_quote_outlined,
+                  color: AppTheme.dark,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  esAliado ? 'Cotizar el servicio' : 'Cotización del servicio',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    color: AppTheme.dark,
+                  ),
+                ),
+              ),
+            ],
+          );
+          // En escritorio el botón va a la derecha del título; en móvil, debajo.
+          if (accionEncabezado == null) return titulo;
+          if (c.maxWidth < 600) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [titulo, const SizedBox(height: 14), accionEncabezado!],
+            );
+          }
+          return Row(
+            children: [
+              Expanded(child: titulo),
+              const SizedBox(width: 16),
+              accionEncabezado!,
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Columna de la pantalla del servicio: título con ícono en caja amarilla y
+/// subrayado negro, y debajo sus tarjetas tal cual.
+class _Columna extends StatelessWidget {
+  const _Columna({
+    super.key,
+    required this.icono,
+    required this.titulo,
+    required this.child,
+  });
+
+  final IconData icono;
+  final String titulo;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          padding: const EdgeInsets.only(bottom: 10),
+          decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: AppTheme.dark, width: 2)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppTheme.primary,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                  border: Border.all(color: AppTheme.dark, width: 2),
+                ),
+                child: Icon(icono, color: AppTheme.dark, size: 18),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  titulo.toUpperCase(),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.6,
+                    color: AppTheme.dark,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        child,
+      ],
     );
   }
 }
@@ -192,7 +346,10 @@ class _TarjetaCotizacion extends StatelessWidget {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: vigente
                       ? const Color(0xFFDCFCE7)
@@ -381,8 +538,9 @@ class _FormularioCotizacionState extends State<_FormularioCotizacion> {
                     labelText: 'Mano de obra',
                     prefixText: '\$ ',
                   ),
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                   inputFormatters: formato,
                   validator: _validar,
                   onChanged: (_) => setState(() {}),
@@ -394,8 +552,9 @@ class _FormularioCotizacionState extends State<_FormularioCotizacion> {
                     labelText: 'Materiales',
                     prefixText: '\$ ',
                   ),
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                   inputFormatters: formato,
                   validator: _validar,
                   onChanged: (_) => setState(() {}),
@@ -455,10 +614,7 @@ class _FormularioCotizacionState extends State<_FormularioCotizacion> {
             Align(
               alignment: Alignment.centerLeft,
               child: ConstrainedBox(
-                constraints: const BoxConstraints(
-                  minWidth: 180,
-                  maxWidth: 260,
-                ),
+                constraints: const BoxConstraints(minWidth: 180, maxWidth: 260),
                 child: ManiButton(
                   key: const Key('btn-enviar-cotizacion'),
                   etiqueta: widget.enviando ? 'Enviando…' : 'Enviar cotización',
@@ -541,10 +697,7 @@ class _SeccionCliente extends StatelessWidget {
         runSpacing: 12,
         children: [
           ConstrainedBox(
-            constraints: const BoxConstraints(
-              minWidth: 160,
-              maxWidth: 230,
-            ),
+            constraints: const BoxConstraints(minWidth: 160, maxWidth: 230),
             child: ManiButton(
               key: const Key('btn-aceptar-cotizacion'),
               etiqueta: 'Aceptar cotización',
@@ -557,10 +710,7 @@ class _SeccionCliente extends StatelessWidget {
             ),
           ),
           ConstrainedBox(
-            constraints: const BoxConstraints(
-              minWidth: 140,
-              maxWidth: 200,
-            ),
+            constraints: const BoxConstraints(minWidth: 140, maxWidth: 200),
             child: ManiButton(
               key: const Key('btn-ajustar-cotizacion'),
               etiqueta: 'Pedir ajuste',
@@ -579,10 +729,7 @@ class _SeccionCliente extends StatelessWidget {
             ),
           ),
           ConstrainedBox(
-            constraints: const BoxConstraints(
-              minWidth: 130,
-              maxWidth: 180,
-            ),
+            constraints: const BoxConstraints(minWidth: 130, maxWidth: 180),
             child: ManiButton(
               key: const Key('btn-rechazar-cotizacion'),
               etiqueta: 'Rechazar',
@@ -700,10 +847,7 @@ class _Error extends StatelessWidget {
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
           ),
-          TextButton(
-            onPressed: onReintentar,
-            child: const Text('Reintentar'),
-          ),
+          TextButton(onPressed: onReintentar, child: const Text('Reintentar')),
         ],
       ),
     );
