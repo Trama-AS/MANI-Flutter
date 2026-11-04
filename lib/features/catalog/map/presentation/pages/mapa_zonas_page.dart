@@ -35,7 +35,8 @@ class MapaZonasPage extends StatelessWidget {
           }
           return Column(
             children: [
-              if (state.localidades.length > 1) _SelectorLocalidad(state: state),
+              if (state.localidades.length > 1)
+                _SelectorLocalidad(state: state),
               Expanded(
                 // Hay algo que dibujar si existe un límite o una sede ubicada:
                 // con solo sedes el mapa sigue teniendo sentido.
@@ -70,7 +71,11 @@ class MapaZonasPage extends StatelessWidget {
                 ),
               if (state.sitiosSinUbicacion > 0)
                 Padding(
-                  padding: const EdgeInsets.only(left: 12, right: 12, bottom: 12),
+                  padding: const EdgeInsets.only(
+                    left: 12,
+                    right: 12,
+                    bottom: 12,
+                  ),
                   child: Text(
                     '${state.sitiosSinUbicacion} sede(s) sin ubicación capturada: '
                     'no se marcan en el mapa.',
@@ -157,7 +162,9 @@ class _Mapa extends StatelessWidget {
     // cero y `CameraFit.bounds` falla con «Camera zoom must be finite». Es el
     // caso real de un cliente con una sola sede ubicada y sin límites
     // cargados, así que se encuadra centrando en el punto.
-    final distintos = <String>{for (final p in puntos) '${p.latitude},${p.longitude}'};
+    final distintos = <String>{
+      for (final p in puntos) '${p.latitude},${p.longitude}',
+    };
     final encuadrable = distintos.length > 1;
     final bounds = encuadrable ? LatLngBounds.fromPoints(puntos) : null;
     final centro = puntos.isEmpty ? MapaZonasPage.centroBogota : puntos.first;
@@ -171,7 +178,10 @@ class _Mapa extends StatelessWidget {
         initialZoom: puntos.isEmpty ? 12 : 15,
         initialCameraFit: bounds == null
             ? null
-            : CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(24)),
+            : CameraFit.bounds(
+                bounds: bounds,
+                padding: const EdgeInsets.all(24),
+              ),
       ),
       children: [
         TileLayer(
@@ -191,7 +201,11 @@ class _Mapa extends StatelessWidget {
                 alignment: Alignment.topCenter,
                 child: Tooltip(
                   message: s.nombre,
-                  child: const Icon(Icons.place, size: 34, color: Color(0xFF166534)),
+                  child: const Icon(
+                    Icons.place,
+                    size: 34,
+                    color: Color(0xFF166534),
+                  ),
                 ),
               ),
           ],

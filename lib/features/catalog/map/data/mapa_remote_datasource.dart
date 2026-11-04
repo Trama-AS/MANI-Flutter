@@ -80,7 +80,10 @@ class GatewayMapaDataSource implements MapaRemoteDataSource {
     final res = await _gateway.get(_rutaZonas);
     final zonas = res['zones'];
     if (zonas is! List) return const [];
-    return zonas.whereType<Map>().map((z) => Map<String, dynamic>.from(z)).toList(growable: false);
+    return zonas
+        .whereType<Map>()
+        .map((z) => Map<String, dynamic>.from(z))
+        .toList(growable: false);
   }
 
   @override
@@ -116,22 +119,28 @@ class GatewayMapaDataSource implements MapaRemoteDataSource {
   static List<String> parsearCobertura(Map<String, dynamic> res) {
     final ids = res['zoneIds'];
     if (ids is! List) return const [];
-    return ids.map((v) => '$v').where((s) => s.isNotEmpty).toList(growable: false);
+    return ids
+        .map((v) => '$v')
+        .where((s) => s.isNotEmpty)
+        .toList(growable: false);
   }
 
   /// Separado del transporte para poder probar el parseo sin red.
   static List<SitioUbicado> parsearSitios(Map<String, dynamic> res) {
     final sitios = res['sitios'];
     if (sitios is! List) return const [];
-    return sitios.whereType<Map>().map((s) {
-      return SitioUbicado(
-        id: '${s['id'] ?? ''}',
-        nombre: '${s['nombre'] ?? ''}',
-        zonaId: '${s['zonaId'] ?? ''}',
-        latitud: _comoDouble(s['latitud']),
-        longitud: _comoDouble(s['longitud']),
-      );
-    }).toList(growable: false);
+    return sitios
+        .whereType<Map>()
+        .map((s) {
+          return SitioUbicado(
+            id: '${s['id'] ?? ''}',
+            nombre: '${s['nombre'] ?? ''}',
+            zonaId: '${s['zonaId'] ?? ''}',
+            latitud: _comoDouble(s['latitud']),
+            longitud: _comoDouble(s['longitud']),
+          );
+        })
+        .toList(growable: false);
   }
 
   /// Un valor ausente o no numérico es ausencia de punto, nunca cero: el

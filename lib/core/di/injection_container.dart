@@ -199,7 +199,9 @@ Future<void> init() async {
 
   // Features - Catalogo / Mapa cartografico (HU-M04-07, SCRUM-1396)
   sl.registerFactory(() => MapaCubit(sl()));
-  sl.registerLazySingleton<MapaRemoteDataSource>(() => GatewayMapaDataSource(sl()));
+  sl.registerLazySingleton<MapaRemoteDataSource>(
+    () => GatewayMapaDataSource(sl()),
+  );
 
   // Features - Profiles / Verification (US-02.1.3)
   sl.registerFactory(
