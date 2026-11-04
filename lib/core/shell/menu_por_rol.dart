@@ -53,10 +53,23 @@ List<EntradaMenu> entradasMenuPara(RolUsuario rol) {
           icono: Icons.list_alt_outlined,
           ruta: '/cliente/solicitudes',
         ),
+        // Historial de servicios (SCRUM-879).
+        EntradaMenu(
+          etiqueta: 'Historial',
+          icono: Icons.history,
+          ruta: '/cliente/historial',
+        ),
         EntradaMenu(
           etiqueta: 'Mis sedes',
           icono: Icons.apartment_outlined,
           ruta: '/cliente/sedes',
+        ),
+        // El cliente ve el catálogo geográfico con la ubicación de sus propias
+        // sedes. No declara cobertura: eso es del aliado (HU-M04-07).
+        EntradaMenu(
+          etiqueta: 'Mapa de zonas',
+          icono: Icons.map_outlined,
+          ruta: '/catalogo/mapa',
         ),
         _avisos,
         _miPerfil,
@@ -69,10 +82,24 @@ List<EntradaMenu> entradasMenuPara(RolUsuario rol) {
           icono: Icons.inbox_outlined,
           ruta: '/aliado/solicitudes',
         ),
+        // Historial de trabajos (SCRUM-880).
+        EntradaMenu(
+          etiqueta: 'Historial',
+          icono: Icons.history,
+          ruta: '/aliado/historial',
+        ),
         EntradaMenu(
           etiqueta: 'Cobertura',
-          icono: Icons.map_outlined,
+          icono: Icons.checklist_outlined,
           ruta: '/aliado/cobertura',
+        ),
+        // El aliado ve en el mapa resaltada la cobertura que ya declaró. Es
+        // consulta: para cambiarla usa «Zona de cobertura», que es por lista
+        // y hasta localidad (HU-M04-07).
+        EntradaMenu(
+          etiqueta: 'Mapa de zonas',
+          icono: Icons.map_outlined,
+          ruta: '/catalogo/mapa',
         ),
         EntradaMenu(
           etiqueta: 'Categorías',
@@ -105,6 +132,12 @@ List<EntradaMenu> entradasMenuPara(RolUsuario rol) {
           icono: Icons.category_outlined,
           ruta: '/admin/categorias',
         ),
+        // Política de cancelación tardía (SCRUM-878).
+        EntradaMenu(
+          etiqueta: 'Cancelaciones',
+          icono: Icons.event_busy_outlined,
+          ruta: '/admin/politica-cancelacion',
+        ),
         // Tarifario y cotizaciones fuera de rango (M-10: SCRUM-885 y 887).
         EntradaMenu(
           etiqueta: 'Tarifario',
@@ -132,6 +165,13 @@ List<EntradaMenu> entradasMenuPara(RolUsuario rol) {
           etiqueta: 'Conversaciones',
           icono: Icons.forum_outlined,
           ruta: '/admin/conversaciones',
+        ),
+        // Consulta del catálogo geográfico: muestra los límites de zonas y
+        // barrios. No declara cobertura ni usa GPS (HU-M04-07).
+        EntradaMenu(
+          etiqueta: 'Mapa de zonas',
+          icono: Icons.map_outlined,
+          ruta: '/catalogo/mapa',
         ),
         _avisos,
         _miPerfil,

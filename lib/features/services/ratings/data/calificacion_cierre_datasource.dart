@@ -73,6 +73,11 @@ class GatewayFuenteModuloM08 implements FuenteModuloM08 {
             if (comentario != null && comentario.trim().isNotEmpty)
               'comentario': comentario.trim(),
           });
+      // Core responde la calificación nueva junto con el resumen completo
+      // (`calificaciones` y `cierre`), igual que el GET.
+      if (res['calificaciones'] is Map && res['cierre'] is Map) {
+        return ResumenCalificacionesSolicitud.fromJson(res);
+      }
       final califRaw = res['calificacion'];
       final cierreRaw = res['cierre'];
       if (califRaw is! Map || cierreRaw is! Map) {
@@ -172,7 +177,12 @@ class GatewayFuenteModuloM08 implements FuenteModuloM08 {
   ) async {
     try {
       final res = await _gateway.get(rutaPreviewCancelacion(solicitudId));
-      return VistaPreviaPenalizacion.fromJson(res);
+      // Core envuelve la vista previa en `penalizacion` (ratings.controller.js).
+      final pen = res['penalizacion'];
+      final cuerpo = pen is Map && pen.containsKey('aplicaPenalizacion')
+          ? Map<String, dynamic>.from(pen)
+          : res;
+      return VistaPreviaPenalizacion.fromJson(cuerpo);
     } on GatewayException catch (e) {
       throw mapearGateway(e);
     }

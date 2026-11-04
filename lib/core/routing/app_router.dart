@@ -38,6 +38,8 @@ import 'package:mani/features/auth/presentation/pages/registro_aliado_page.dart'
 import 'package:mani/features/auth/presentation/pages/registro_aliado_empresa_page.dart';
 import 'package:mani/features/availability/presentation/pages/disponibilidad_page.dart';
 import 'package:mani/features/profile_categories/presentation/pages/categories_page.dart';
+import 'package:mani/features/catalog/map/presentation/bloc/mapa_cubit.dart';
+import 'package:mani/features/catalog/map/presentation/pages/mapa_zonas_page.dart';
 import 'package:mani/features/profiles/coverage/presentation/pages/declarar_cobertura_page.dart';
 import 'package:mani/features/profiles/verification/presentation/bloc/bandeja_verificacion_cubit.dart';
 import 'package:mani/features/profiles/verification/presentation/pages/bandeja_verificacion_page.dart';
@@ -65,6 +67,10 @@ import 'package:mani/features/profiles/company_sites/presentation/pages/gestion_
 import 'package:mani/features/profiles/direct_employees/presentation/bloc/empleado_directo_cubit.dart';
 import 'package:mani/features/profiles/direct_employees/presentation/pages/registrar_empleado_directo_page.dart';
 import 'package:mani/features/profiles/own_profile/presentation/pages/editar_perfil_page.dart';
+import 'package:mani/features/services/ratings/data/calificacion_cierre_datasource.dart';
+import 'package:mani/features/services/ratings/presentation/calificacion_cierre_cubit.dart';
+import 'package:mani/features/services/ratings/presentation/calificacion_cierre_widgets.dart';
+import 'package:mani/features/services/ratings/presentation/politica_cancelacion_page.dart';
 import 'package:mani/features/tariffs/data/tarifas_datasource.dart';
 import 'package:mani/features/tariffs/presentation/referencia_tarifa_seccion.dart';
 import 'package:mani/features/tariffs/presentation/reporte_fuera_rango_page.dart';
@@ -144,6 +150,11 @@ Widget _pantallaServicio(
     BlocProvider(create: (_) => CotizacionCubit(sl(), solicitudId)..cargar()),
     BlocProvider(create: (_) => EjecucionCubit(sl(), solicitudId)..cargar()),
     BlocProvider(create: (_) => AdicionesCubit(sl(), solicitudId)..cargar()),
+    // Calificación bidireccional y cierre (SCRUM-874, 875 y 1418).
+    BlocProvider(
+      create: (_) =>
+          CalificacionCierreCubit(sl(), solicitudId: solicitudId)..cargar(),
+    ),
     BlocProvider(
       create: (_) => EventosCubit(
         sl(),
@@ -220,6 +231,17 @@ Widget _pantallaServicio(
               selectorFotos: esAliado ? sl() : null,
             ),
           ),
+          // Calificación y cierre (SCRUM-874, 875 y 1418): aparece cuando el
+          // servicio queda FINALIZADA. Al finalizar la ejecución en esta misma
+          // pantalla se vuelve a consultar el estado para mostrarla.
+          BlocListener<EjecucionCubit, EjecucionState>(
+            listenWhen: (a, b) =>
+                a.ejecucion?.finalizada != b.ejecucion?.finalizada &&
+                (b.ejecucion?.finalizada ?? false),
+            listener: (context, _) =>
+                context.read<CalificacionCierreCubit>().cargar(),
+            child: CalificacionServicioFinalizado(esAliado: esAliado),
+          ),
         ],
       ),
       alRefrescar: () async {
@@ -227,6 +249,7 @@ Widget _pantallaServicio(
           context.read<EjecucionCubit>().cargar(),
           context.read<AdicionesCubit>().cargar(),
           context.read<EventosCubit>().cargar(),
+          context.read<CalificacionCierreCubit>().cargar(),
         ]);
       },
     ),
@@ -252,6 +275,7 @@ Widget _pantallaServicio(
 ///   cotización, ejecución y bitácora (US-04.2.1 a US-04.3.3)
 /// - `/admin/verificacion-aliados`: Bandeja de verificación del admin del tenant (US-02.1.3)
 /// - `/admin/categorias`: Catálogo de categorías de servicio del tenant (US-03.1.1)
+/// - `/catalogo/mapa`: Mapa de zonas y barrios del catálogo, sin GPS en vivo (HU-M04-07)
 ///
 /// El `redirect` protege cualquier ruta que no esté en `_publicPaths`: sin
 /// sesión activa en Supabase el usuario va a `/login`, y con sesión una ruta
@@ -451,6 +475,9 @@ final appRouter = GoRouter(
                   context.push('/cliente/solicitudes/$id/cotizacion'),
               onVerAliados: (id) =>
                   context.push('/cliente/solicitudes/$id/aliados'),
+              // Penalización por cancelación tardía antes de confirmar (SCRUM-878).
+              previsualizarCancelacion: (id) =>
+                  sl<FuenteModuloM08>().previsualizarCancelacion(id),
             ),
           ),
         ),
@@ -595,8 +622,53 @@ final appRouter = GoRouter(
             child: const ReporteFueraDeRangoPage(),
           ),
         ),
+        // Historial de servicios del cliente (HU-M08-06 / SCRUM-879). Desde cada
+        // servicio finalizado se abre su pantalla para calificar.
+        GoRoute(
+          path: '/cliente/historial',
+          name: 'historial-cliente',
+          builder: (context, state) => BlocProvider(
+            create: (_) =>
+                HistorialServiciosCubit(sl(), esAliado: false)..cargar(),
+            child: HistorialServiciosPage(
+              onAbrirServicio: (id) =>
+                  context.push('/cliente/solicitudes/$id/cotizacion'),
+            ),
+          ),
+        ),
+        // Historial de trabajos del aliado (HU-M08-07 / SCRUM-880).
+        GoRoute(
+          path: '/aliado/historial',
+          name: 'historial-aliado',
+          builder: (context, state) => BlocProvider(
+            create: (_) =>
+                HistorialServiciosCubit(sl(), esAliado: true)..cargar(),
+            child: HistorialServiciosPage(
+              onAbrirServicio: (id) =>
+                  context.push('/aliado/solicitudes/$id/cotizacion'),
+            ),
+          ),
+        ),
+        // Política de cancelación tardía del tenant (HU-M08-05 / SCRUM-878).
+        // Core exige ADMIN_TENANT para guardarla.
+        GoRoute(
+          path: '/admin/politica-cancelacion',
+          name: 'politica-cancelacion',
+          builder: (context, state) => BlocProvider(
+            create: (_) => PoliticaCancelacionCubit(sl())..cargar(),
+            child: const PoliticaCancelacionPage(),
+          ),
+        ),
         // Catálogo de categorías de servicio (US-03.1.1). Las RPC exigen rol
         // ADMIN_TENANT; el tenant sale de la sesión, nunca de la app.
+        GoRoute(
+          path: '/catalogo/mapa',
+          name: 'catalogo-mapa',
+          builder: (context, state) => BlocProvider(
+            create: (_) => sl<MapaCubit>()..cargar(),
+            child: const MapaZonasPage(),
+          ),
+        ),
         GoRoute(
           path: '/admin/categorias',
           name: 'categorias',
