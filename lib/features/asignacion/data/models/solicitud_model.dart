@@ -38,7 +38,8 @@ class SolicitudModel extends SolicitudEntity {
         ),
         descripcion: json['descripcion'] as String?,
         cantidadFotos: (json['fotos'] as num?)?.toInt() ?? 0,
-        fotosRutas: (json['fotosRutas'] as List<dynamic>?)
+        fotosRutas:
+            (json['fotosRutas'] as List<dynamic>?)
                 ?.map((e) => e.toString())
                 .toList() ??
             const [],

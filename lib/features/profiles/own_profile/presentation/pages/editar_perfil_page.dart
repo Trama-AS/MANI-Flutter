@@ -156,9 +156,7 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
       backgroundColor: AppTheme.background,
       appBar: AppBar(title: const Text('Editar mi perfil')),
       body: _cargando
-          ? const Center(
-              child: CircularProgressIndicator(color: AppTheme.dark),
-            )
+          ? const Center(child: CircularProgressIndicator(color: AppTheme.dark))
           : Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 720),

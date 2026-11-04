@@ -100,7 +100,10 @@ class PagoSandboxPage extends StatelessWidget {
                         guardador: guardador,
                       ),
                     if (cobros != null && state.pago!.aprobado)
-                      RetencionPagoCard(fuente: cobros!, pagoId: state.pago!.id),
+                      RetencionPagoCard(
+                        fuente: cobros!,
+                        pagoId: state.pago!.id,
+                      ),
                     if (state.falloComprobante)
                       const Padding(
                         padding: EdgeInsets.only(top: 8),

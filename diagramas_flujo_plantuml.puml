@@ -1,0 +1,428 @@
+@startuml mani_flujos_funcionalidades
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam sequenceMessageAlign center
+skinparam roundCorner 8
+skinparam shadowing false
+skinparam ArrowColor #2563EB
+skinparam ArrowThickness 1.5
+skinparam BoxPadding 10
+skinparam ParticipantPadding 10
+
+skinparam sequenceParticipant {
+    BackgroundColor #FFFFFF
+    BorderColor #334155
+    BorderThickness 1.5
+    FontColor #0F172A
+    FontStyle bold
+}
+
+skinparam note {
+    BackgroundColor #FFFFFF
+    BorderColor #64748B
+    FontColor #334155
+}
+
+title DIAGRAMAS DE FLUJO - TODAS LAS FUNCIONALIDADES DEL SISTEMA MANI
+
+' ==============================================================================
+' 1. REGISTRO DE ALIADO TÉCNICO (US-02.1.1-M2)
+' ==============================================================================
+newpage 1. Registro de Aliado Técnico (US-02.1.1-M2)
+
+actor "Aliado Técnico\n(Usuario)" as User
+participant "MANI-Flutter\n(UI / BLoC)" as Flutter
+participant "GatewayClient\n(Flutter Network)" as GWClient
+participant "MANI-APIGateway\n(NGINX :80)" as Gateway
+participant "MANI-Node\n(Core Controller :3000)" as NodeCtrl
+participant "RegisterAllyNatural\nPersonUseCase" as UseCaseAliado
+participant "TenantRepository\n(Core Node)" as TenantRepo
+participant "AuthIdentityService\n(Core Node)" as AuthServ
+database "Base de Datos\n(PostgreSQL / mani_db)" as DB
+
+User -> Flutter: Completa formulario de Aliado\n(nombre, email, cédula, categorías, experiencia)
+activate Flutter
+
+Flutter -> Flutter: Validación reactiva de campos en UI
+Flutter -> GWClient: post('/api/v1/core/auth/register/aliado', data)
+activate GWClient
+
+GWClient -> GWClient: Inyecta X-Correlation-ID (UUID v4)\nInyecta X-Tenant-Slug (ej. cerrajeria-total-gdl)
+GWClient -> Gateway: POST /api/v1/core/auth/register/aliado\n[Headers: X-Correlation-ID, X-Tenant-Slug]
+activate Gateway
+
+Gateway -> NodeCtrl: Proxy pass -> upstream mani-core-service:3000
+activate NodeCtrl
+
+NodeCtrl -> UseCaseAliado: execute(payload, context)
+activate UseCaseAliado
+
+UseCaseAliado -> TenantRepo: findBySlug(tenantSlug)
+TenantRepo --> UseCaseAliado: tenantId resuelto
+
+UseCaseAliado -> DB: Validar si email o identificación existen
+alt Datos duplicados (Email o Documento)
+    DB --> UseCaseAliado: Registro existente
+    UseCaseAliado --> NodeCtrl: 409 Conflict (DomainError)
+    NodeCtrl --> Gateway: HTTP 409 Conflict
+    Gateway --> GWClient: HTTP 409 Conflict
+    GWClient --> Flutter: Excepción de Conflicto
+    Flutter --> User: Alerta: "El correo o documento ya se encuentra registrado"
+else Datos Válidos
+    UseCaseAliado -> AuthServ: createIdentity(email, password)
+    AuthServ --> UseCaseAliado: authUserId creado
+
+    note over UseCaseAliado, DB: Transacción con compensación (Saga local)
+    UseCaseAliado -> DB: INSERT INTO usuario (auth_user_id, tenant_id, rol='aliado')
+    UseCaseAliado -> DB: INSERT INTO aliado (usuario_id, experiencia, estado='pendiente_kyc')
+    UseCaseAliado -> DB: INSERT INTO aliado_categoria (aliado_id, categoria_id)
+
+    alt Falla de inserción en BD
+        DB --> UseCaseAliado: Error SQL / Fallo de integridad
+        UseCaseAliado -> AuthServ: deleteIdentity(authUserId) [ROLLBACK]
+        UseCaseAliado --> NodeCtrl: Error 500 Compensado
+        NodeCtrl --> Gateway: HTTP 500
+        Gateway --> Flutter: HTTP 500
+        Flutter --> User: Notificación de error transaccional
+    else Inserción exitosa
+        DB --> UseCaseAliado: Registros creados correctamente
+        UseCaseAliado --> NodeCtrl: Success { user, allyId, status: 'CREATED' }
+        NodeCtrl --> Gateway: HTTP 201 Created (Token + Datos usuario)
+        deactivate NodeCtrl
+        Gateway --> GWClient: HTTP 201 Created
+        deactivate Gateway
+        GWClient --> Flutter: AuthSuccess
+        deactivate GWClient
+        Flutter --> User: Redirige a pantalla de bienvenida / Pendiente KYC
+        deactivate Flutter
+    end
+end
+
+' ==============================================================================
+' 2. REGISTRO DE CLIENTE PERSONA NATURAL (US-02.2.1-M2)
+' ==============================================================================
+newpage 2. Registro de Cliente Persona Natural (US-02.2.1-M2)
+
+actor "Cliente Natural\n(Usuario)" as Cliente
+participant "MANI-Flutter\n(UI / BLoC)" as FlutterCli
+participant "GatewayClient\n(Flutter Network)" as GWClientCli
+participant "MANI-APIGateway\n(NGINX :80)" as GatewayCli
+participant "MANI-Node\n(Core Controller :3000)" as NodeCtrlCli
+participant "RegisterClientNatural\nPersonUseCase" as UseCaseCli
+participant "TenantRepository\n(Core Node)" as TenantRepoCli
+participant "AuthIdentityService\n(Core Node)" as AuthServCli
+database "Base de Datos\n(PostgreSQL / mani_db)" as DBCli
+
+Cliente -> FlutterCli: Diligencia formulario de Cliente\n(nombre, email, teléfono, dirección hogar)
+activate FlutterCli
+
+FlutterCli -> GWClientCli: post('/api/v1/core/auth/register/cliente-natural', data)
+activate GWClientCli
+
+GWClientCli -> GatewayCli: POST /api/v1/core/auth/register/cliente-natural\n[X-Correlation-ID, X-Tenant-Slug]
+activate GatewayCli
+
+GatewayCli -> NodeCtrlCli: Proxy pass -> upstream mani-core-service:3000
+activate NodeCtrlCli
+
+NodeCtrlCli -> UseCaseCli: execute(payload, context)
+activate UseCaseCli
+
+UseCaseCli -> TenantRepoCli: findBySlug(tenantSlug)
+TenantRepoCli --> UseCaseCli: tenantId resuelto
+
+UseCaseCli -> DBCli: Validar unicidad (email, tipo_documento, numero)
+alt Conflicto de usuario existente
+    DBCli --> UseCaseCli: Usuario ya existe
+    UseCaseCli --> NodeCtrlCli: 409 Conflict
+    NodeCtrlCli --> GatewayCli: HTTP 409 Conflict
+    GatewayCli --> FlutterCli: HTTP 409
+    FlutterCli --> Cliente: Error: "El cliente ya se encuentra registrado"
+else Validación exitosa
+    UseCaseCli -> AuthServCli: createIdentity(email, password)
+    AuthServCli --> UseCaseCli: authUserId creado
+
+    note over UseCaseCli, DBCli: Transacción coordinada con Rollback automático
+    UseCaseCli -> DBCli: INSERT INTO usuario (auth_user_id, tenant_id, rol='cliente')
+    UseCaseCli -> DBCli: INSERT INTO cliente (usuario_id, tipo='natural')
+    UseCaseCli -> DBCli: INSERT INTO sitio (cliente_id, nombre='Hogar', direccion, reglas)
+
+    alt Falla inserción de sitio o perfil
+        DBCli --> UseCaseCli: Error de persistencia
+        UseCaseCli -> AuthServCli: deleteIdentity(authUserId) [ROLLBACK]
+        UseCaseCli --> NodeCtrlCli: 500 Compensado
+        NodeCtrlCli --> GatewayCli: HTTP 500
+        GatewayCli --> FlutterCli: Error del servidor
+        FlutterCli --> Cliente: Mensaje de error controlado
+    else Éxito total
+        DBCli --> UseCaseCli: Filas creadas correctamente
+        UseCaseCli --> NodeCtrlCli: 201 Created { user, clientProfile, site }
+        NodeCtrlCli --> GatewayCli: HTTP 201 Created
+        deactivate NodeCtrlCli
+        GatewayCli --> GWClientCli: HTTP 201 Created
+        deactivate GatewayCli
+        GWClientCli --> FlutterCli: Response Ok
+        deactivate GWClientCli
+        FlutterCli --> Cliente: Sesión iniciada y redirección al Home
+        deactivate FlutterCli
+    end
+end
+
+' ==============================================================================
+' 3. AUTENTICACIÓN / LOGIN (FLUJO HÍBRIDO CON JWT)
+' ==============================================================================
+newpage 3. Autenticación / Inicio de Sesión de Usuario
+
+actor "Usuario\n(Cliente/Aliado/Admin)" as UserLogin
+participant "MANI-Flutter\n(LoginBloc)" as FlutterLog
+participant "MANI-APIGateway\n(NGINX :80)" as GatewayLog
+participant "Supabase Auth / Node\n(Auth Provider)" as AuthLog
+participant "MANI-Node\n(Core /profiles/me :3000)" as NodeMe
+database "Base de Datos\n(PostgreSQL / mani_db)" as DBLog
+
+UserLogin -> FlutterLog: Ingresa Email, Contraseña y Franquicia (Tenant)
+activate FlutterLog
+
+FlutterLog -> AuthLog: Autenticación de credenciales (signInWithPassword)
+activate AuthLog
+
+alt Credenciales Inválidas
+    AuthLog --> FlutterLog: 400 Invalid Credentials
+    FlutterLog --> UserLogin: Mensaje: "Email o contraseña incorrectos"
+else Credenciales Válidas
+    AuthLog --> FlutterLog: 200 OK + JWT Access Token + User UID
+    deactivate AuthLog
+
+    FlutterLog -> GatewayLog: GET /api/v1/core/profiles/me\n[Authorization: Bearer JWT, X-Tenant-Slug, X-Correlation-ID]
+    activate GatewayLog
+
+    GatewayLog -> NodeMe: Proxy pass a /api/v1/core/profiles/me
+    activate NodeMe
+
+    NodeMe -> DBLog: SELECT * FROM usuario WHERE auth_user_id = :uid AND tenant_id = :tenantId
+    DBLog --> NodeMe: Perfil de usuario (rol: 'admin' | 'aliado' | 'cliente')
+
+    NodeMe --> GatewayLog: 200 OK { id, email, rol, tenant, perfiles }
+    deactivate NodeMe
+    GatewayLog --> FlutterLog: 200 OK Perfil Resuelto
+    deactivate GatewayLog
+
+    FlutterLog -> FlutterLog: Guarda sesión local y determina Dashboard según Rol
+    alt Rol = Admin
+        FlutterLog --> UserLogin: Carga Panel Administrativo / Backoffice
+    else Rol = Aliado
+        FlutterLog --> UserLogin: Carga Bandeja de Solicitudes y Estado KYC
+    else Rol = Cliente
+        FlutterLog --> UserLogin: Carga Catálogo y Solicitud de Servicios
+    end
+    deactivate FlutterLog
+end
+
+' ==============================================================================
+' 4. GESTIÓN Y DECLARACIÓN DE CATEGORÍAS DEL ALIADO (SCRUM-859 / SCRUM-1071)
+' ==============================================================================
+newpage 4. Selección y Declaración de Categorías del Aliado
+
+actor "Aliado Técnico" as AllyCat
+participant "MANI-Flutter\n(CategoriesPage)" as FlutterCat
+participant "MANI-APIGateway\n(NGINX :80)" as GatewayCat
+participant "MANI-Node\n(Catalog & Profile :3000)" as NodeCat
+database "Base de Datos\n(PostgreSQL / mani_db)" as DBCat
+
+AllyCat -> FlutterCat: Abre pantalla "Mis Especialidades / Categorías"
+activate FlutterCat
+
+FlutterCat -> GatewayCat: GET /api/v1/core/catalog/categories (Categorías del Tenant)
+activate GatewayCat
+GatewayCat -> NodeCat: ListCatalogCategoriesUseCase
+activate NodeCat
+NodeCat -> DBCat: SELECT * FROM categoria_servicio WHERE tenant_id = :tenantId AND activo = true
+DBCat --> NodeCat: Lista de categorías activas
+NodeCat --> GatewayCat: 200 OK [Cerrajería, Plomería, Electricidad...]
+deactivate NodeCat
+GatewayCat --> FlutterCat: 200 OK Categorías
+deactivate GatewayCat
+
+FlutterCat -> GatewayCat: GET /api/v1/core/profiles/me/categories (Categorías declaradas previas)
+activate GatewayCat
+GatewayCat -> NodeCat: GetAllyCategoriesUseCase
+activate NodeCat
+NodeCat -> DBCat: SELECT categoria_id FROM aliado_categoria WHERE aliado_id = :aliadoId
+DBCat --> NodeCat: IDs seleccionados previamente
+NodeCat --> GatewayCat: 200 OK [IDs seleccionados]
+deactivate NodeCat
+GatewayCat --> FlutterCat: 200 OK [IDs seleccionados]
+deactivate GatewayCat
+
+FlutterCat --> AllyCat: Renderiza checkboxes con categorías disponibles y marcadas
+
+AllyCat -> FlutterCat: Modifica selección y presiona "Guardar Especialidades"
+FlutterCat -> GatewayCat: PUT /api/v1/core/profiles/me/categories\n[Body: { categoryIds: [...] }, Auth: Bearer]
+activate GatewayCat
+
+GatewayCat -> NodeCat: SaveAllyCategoriesUseCase
+activate NodeCat
+NodeCat -> DBCat: DELETE FROM aliado_categoria WHERE aliado_id = :aliadoId
+NodeCat -> DBCat: INSERT INTO aliado_categoria (aliado_id, categoria_id) VALUES (...)
+DBCat --> NodeCat: Transacción confirmada
+NodeCat --> GatewayCat: 200 OK { updated: true, total: N }
+deactivate NodeCat
+GatewayCat --> FlutterCat: 200 OK
+deactivate GatewayCat
+
+FlutterCat --> AllyCat: Notificación: "Especialidades actualizadas exitosamente"
+deactivate FlutterCat
+
+' ==============================================================================
+' 5. SOLICITUD DE SERVICIO Y COTIZACIÓN EN VIVO (CLIENTE + MOTOR DE REGLAS)
+' ==============================================================================
+newpage 5. Creación de Solicitud de Servicio y Cotización Dinámica
+
+actor "Cliente" as CliReq
+participant "MANI-Flutter\n(NuevaSolicitudPage)" as FlutterReq
+participant "MANI-APIGateway\n(NGINX :80)" as GatewayReq
+participant "MANI-Node\n(Core :3000)" as NodeCore
+participant "MANI-Rules-Java\n(Rules Service :8080)" as RulesEngine
+participant "MANI-Dispatch-DotNet\n(Dispatch Service :5000)" as DispatchService
+database "Base de Datos\n(PostgreSQL / mani_db)" as DBReq
+
+CliReq -> FlutterReq: Selecciona categoría, dirección (sitio) y fecha/hora
+activate FlutterReq
+
+FlutterReq -> GatewayReq: POST /api/v1/rules/quote\n[Body: { categoriaId, lat, lng, fechaHora, sitioId }]
+activate GatewayReq
+
+GatewayReq -> RulesEngine: Proxy pass a MANI-Rules-Java (:8080)
+activate RulesEngine
+RulesEngine -> RulesEngine: Evalúa Drools / Tablas de Decisión:\n- Tarifa base por categoría\n- Recargo nocturno / festivo\n- Recargo por zona / clima
+RulesEngine --> GatewayReq: 200 OK { tarifaBase: $X, recargos: $Y, totalEstimado: $Z }
+deactivate RulesEngine
+GatewayReq --> FlutterReq: 200 OK Resumen de Cotización
+deactivate GatewayReq
+
+FlutterReq --> CliReq: Muestra tarifa estimada y botón "Confirmar Solicitud"
+
+CliReq -> FlutterReq: Presiona "Confirmar Solicitud de Servicio"
+FlutterReq -> GatewayReq: POST /api/v1/dispatch/requests\n[Body: { cotizacionId, categoriaId, sitioId, notas }]
+activate GatewayReq
+
+GatewayReq -> DispatchService: Proxy pass a MANI-Dispatch-DotNet (:5000)
+activate DispatchService
+
+DispatchService -> DBReq: INSERT INTO orden_servicio (estado='creada', cliente_id, monto)
+DispatchService -> DispatchService: Inicia ciclo de búsqueda y cálculo geoespacial de aliados cercanos
+DispatchService --> GatewayReq: 201 Created { ordenId, estado: 'buscando_aliados' }
+deactivate DispatchService
+GatewayReq --> FlutterReq: 201 Created
+deactivate GatewayReq
+
+FlutterReq --> CliReq: Redirige a pantalla de seguimiento en vivo ("Buscando aliad@ cercano...")
+deactivate FlutterReq
+
+' ==============================================================================
+' 6. BANDEJA DE DESPACHO Y EXCLUSIÓN CONCURRENTE (ALIADO TÉCNICO)
+' ==============================================================================
+newpage 6. Despacho y Aceptación Concurrente de Solicitudes (Exclusión Mutua)
+
+actor "Aliado A\n(Más veloz)" as AllyA
+actor "Aliado B\n(Concurrente)" as AllyB
+participant "MANI-Flutter (App A)" as FlutterA
+participant "MANI-Flutter (App B)" as FlutterB
+participant "MANI-APIGateway\n(NGINX :80)" as GatewayDisp
+participant "MANI-Dispatch-DotNet\n(Dispatch Engine :5000)" as DispatchCore
+database "Base de Datos\n(PostgreSQL / mani_db)" as DBDisp
+
+note over DispatchCore: La orden está en estado 'disponible' para aliados del sector
+DispatchCore -->> FlutterA: Notificación Push / SSE: "Nueva orden disponible #101"
+DispatchCore -->> FlutterB: Notificación Push / SSE: "Nueva orden disponible #101"
+
+AllyA -> FlutterA: Presiona botón "ACEPTAR TRABAJO"
+activate FlutterA
+FlutterA -> GatewayDisp: POST /api/v1/dispatch/requests/101/accept
+activate GatewayDisp
+
+GatewayDisp -> DispatchCore: AcceptRequestCommand(ordenId=101, aliadoId=A)
+activate DispatchCore
+
+note over DispatchCore, DBDisp: Bloqueo pesimista / Transacción atómica concurrente
+DispatchCore -> DBDisp: SELECT * FROM orden_servicio WHERE id=101 FOR UPDATE
+DBDisp --> DispatchCore: Orden disponible (estado='disponible')
+
+DispatchCore -> DBDisp: UPDATE orden_servicio SET aliado_id=A, estado='asignada' WHERE id=101
+DBDisp --> DispatchCore: 1 Fila Actualizada
+
+DispatchCore --> GatewayDisp: 200 OK { success: true, estado: 'asignada_a_ti' }
+deactivate DispatchCore
+GatewayDisp --> FlutterA: 200 OK
+deactivate GatewayDisp
+FlutterA --> AllyA: "¡Trabajo aceptado! Dirígete a la dirección del cliente"
+deactivate FlutterA
+
+== Intento concurrente segundos después por Aliado B ==
+
+AllyB -> FlutterB: Presiona botón "ACEPTAR TRABAJO"
+activate FlutterB
+FlutterB -> GatewayDisp: POST /api/v1/dispatch/requests/101/accept
+activate GatewayDisp
+
+GatewayDisp -> DispatchCore: AcceptRequestCommand(ordenId=101, aliadoId=B)
+activate DispatchCore
+
+DispatchCore -> DBDisp: SELECT * FROM orden_servicio WHERE id=101 FOR UPDATE
+DBDisp --> DispatchCore: Orden en estado 'asignada' (ya no disponible)
+
+DispatchCore --> GatewayDisp: 409 Conflict { code: 'ORDER_ALREADY_TAKEN' }
+deactivate DispatchCore
+GatewayDisp --> FlutterB: 409 Conflict
+deactivate GatewayDisp
+
+FlutterB --> AllyB: Alerta: "Esta solicitud ya fue tomada por otro profesional"
+deactivate FlutterB
+
+' ==============================================================================
+' 7. VERIFICACIÓN Y VALIDACIÓN KYC (ADMINISTRADOR)
+' ==============================================================================
+newpage 7. Flujo de Verificación KYC por el Administrador
+
+actor "Administrador" as Admin
+participant "MANI-Flutter\n(Admin Backoffice)" as FlutterAdm
+participant "MANI-APIGateway\n(NGINX :80)" as GatewayAdm
+participant "MANI-Node\n(Core Backoffice :3000)" as NodeAdm
+database "Base de Datos\n(PostgreSQL / mani_db)" as DBAdm
+
+Admin -> FlutterAdm: Abre pestaña "Aliados Pendientes de Verificación"
+activate FlutterAdm
+
+FlutterAdm -> GatewayAdm: GET /api/v1/core/admin/kyc/pending\n[Auth: Bearer JWT Admin]
+activate GatewayAdm
+GatewayAdm -> NodeAdm: ListPendingKycUseCase
+activate NodeAdm
+
+NodeAdm -> DBAdm: SELECT a.*, u.nombre, u.email FROM aliado a JOIN usuario u ON ... WHERE a.estado = 'pendiente_kyc'
+DBAdm --> NodeAdm: Lista de expedientes pendientes y documentos
+NodeAdm --> GatewayAdm: 200 OK [Expedientes KYC]
+deactivate NodeAdm
+GatewayAdm --> FlutterAdm: 200 OK
+deactivate GatewayAdm
+
+FlutterAdm --> Admin: Muestra lista con antecedentes, cédula y certificados
+
+Admin -> FlutterAdm: Revisa documentos y presiona "Aprobar Aliado"
+FlutterAdm -> GatewayAdm: POST /api/v1/core/admin/kyc/{aliadoId}/approve\n[Body: { comentario: 'Documentación válida' }]
+activate GatewayAdm
+
+GatewayAdm -> NodeAdm: ApproveAllyKycUseCase
+activate NodeAdm
+NodeAdm -> DBAdm: UPDATE aliado SET estado = 'aprobado_activo', verificado_at = NOW() WHERE id = :aliadoId
+DBAdm --> NodeAdm: Confirmación de actualización
+NodeAdm --> GatewayAdm: 200 OK { status: 'aprobado_activo' }
+deactivate NodeAdm
+GatewayAdm --> FlutterAdm: 200 OK
+deactivate GatewayAdm
+
+FlutterAdm --> Admin: Notificación: "Aliado verificado y habilitado para recibir órdenes"
+deactivate FlutterAdm
+
+@enduml
+

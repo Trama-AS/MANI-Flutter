@@ -75,8 +75,8 @@ class _FotosAdjuntasPreviewState extends State<FotosAdjuntasPreview> {
             );
             if (res.statusCode == 200) {
               final data = jsonDecode(res.body) as Map<String, dynamic>;
-              final rawSigned =
-                  (data['signedURL'] ?? data['signedUrl'] ?? '').toString();
+              final rawSigned = (data['signedURL'] ?? data['signedUrl'] ?? '')
+                  .toString();
               _resolvedUrls[ruta] = rawSigned.startsWith('http')
                   ? rawSigned
                   : '$baseStorageUrl$rawSigned';
@@ -110,10 +110,8 @@ class _FotosAdjuntasPreviewState extends State<FotosAdjuntasPreview> {
     showDialog<void>(
       context: context,
       barrierDismissible: true,
-      builder: (ctx) => FotosDetalleDialog(
-        urls: validUrls,
-        initialIndex: initialIndex,
-      ),
+      builder: (ctx) =>
+          FotosDetalleDialog(urls: validUrls, initialIndex: initialIndex),
     );
   }
 
@@ -170,11 +168,18 @@ class _FotosAdjuntasPreviewState extends State<FotosAdjuntasPreview> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.broken_image_outlined, size: 18, color: AppTheme.textSecondary),
+            const Icon(
+              Icons.broken_image_outlined,
+              size: 18,
+              color: AppTheme.textSecondary,
+            ),
             const SizedBox(width: 6),
             Text(
               '${widget.fotosRutas.length} foto(s) no disponible(s)',
-              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppTheme.textSecondary,
+              ),
             ),
           ],
         ),
@@ -190,7 +195,11 @@ class _FotosAdjuntasPreviewState extends State<FotosAdjuntasPreview> {
           children: [
             Row(
               children: [
-                const Icon(Icons.photo_library_outlined, size: 16, color: AppTheme.dark),
+                const Icon(
+                  Icons.photo_library_outlined,
+                  size: 16,
+                  color: AppTheme.dark,
+                ),
                 const SizedBox(width: 6),
                 Text(
                   widget.fotosRutas.length == 1
@@ -261,7 +270,11 @@ class _FotosAdjuntasPreviewState extends State<FotosAdjuntasPreview> {
                                 url,
                                 fit: BoxFit.cover,
                                 errorBuilder: (_, _, _) => const Center(
-                                  child: Icon(Icons.broken_image, size: 24, color: AppTheme.textSecondary),
+                                  child: Icon(
+                                    Icons.broken_image,
+                                    size: 24,
+                                    color: AppTheme.textSecondary,
+                                  ),
                                 ),
                                 loadingBuilder: (_, child, progress) {
                                   if (progress == null) return child;
@@ -269,7 +282,9 @@ class _FotosAdjuntasPreviewState extends State<FotosAdjuntasPreview> {
                                     child: SizedBox(
                                       width: 16,
                                       height: 16,
-                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
                                     ),
                                   );
                                 },
@@ -293,7 +308,11 @@ class _FotosAdjuntasPreviewState extends State<FotosAdjuntasPreview> {
                             ],
                           )
                         : const Center(
-                            child: Icon(Icons.image, size: 24, color: AppTheme.textSecondary),
+                            child: Icon(
+                              Icons.image,
+                              size: 24,
+                              color: AppTheme.textSecondary,
+                            ),
                           ),
                   ),
                 ),
@@ -357,10 +376,7 @@ class _FotosDetalleDialogState extends State<FotosDetalleDialog> {
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(
-            maxWidth: 760,
-            maxHeight: 640,
-          ),
+          constraints: const BoxConstraints(maxWidth: 760, maxHeight: 640),
           child: Container(
             decoration: BoxDecoration(
               color: AppTheme.surface,
@@ -374,7 +390,10 @@ class _FotosDetalleDialogState extends State<FotosDetalleDialog> {
               children: [
                 // Barra superior
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                   decoration: const BoxDecoration(
                     border: Border(
                       bottom: BorderSide(color: AppTheme.dark, width: 2),
@@ -386,10 +405,16 @@ class _FotosDetalleDialogState extends State<FotosDetalleDialog> {
                         padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
                           color: AppTheme.primary,
-                          borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.radiusSm,
+                          ),
                           border: Border.all(color: AppTheme.dark, width: 1.5),
                         ),
-                        child: const Icon(Icons.image_outlined, size: 20, color: AppTheme.dark),
+                        child: const Icon(
+                          Icons.image_outlined,
+                          size: 20,
+                          color: AppTheme.dark,
+                        ),
                       ),
                       const SizedBox(width: 10),
                       Text(
@@ -406,15 +431,26 @@ class _FotosDetalleDialogState extends State<FotosDetalleDialog> {
                         label: 'Cerrar vista detallada',
                         child: InkWell(
                           onTap: () => Navigator.of(context).pop(),
-                          borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.radiusSm,
+                          ),
                           child: Container(
                             padding: const EdgeInsets.all(6),
                             decoration: BoxDecoration(
                               color: AppTheme.background,
-                              borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                              border: Border.all(color: AppTheme.dark, width: 1.5),
+                              borderRadius: BorderRadius.circular(
+                                AppTheme.radiusSm,
+                              ),
+                              border: Border.all(
+                                color: AppTheme.dark,
+                                width: 1.5,
+                              ),
                             ),
-                            child: const Icon(Icons.close, size: 20, color: AppTheme.dark),
+                            child: const Icon(
+                              Icons.close,
+                              size: 20,
+                              color: AppTheme.dark,
+                            ),
                           ),
                         ),
                       ),
@@ -432,7 +468,8 @@ class _FotosDetalleDialogState extends State<FotosDetalleDialog> {
                         child: PageView.builder(
                           controller: _pageController,
                           itemCount: total,
-                          onPageChanged: (idx) => setState(() => _currentIndex = idx),
+                          onPageChanged: (idx) =>
+                              setState(() => _currentIndex = idx),
                           itemBuilder: (context, index) {
                             return InteractiveViewer(
                               minScale: 0.8,
@@ -453,11 +490,17 @@ class _FotosDetalleDialogState extends State<FotosDetalleDialog> {
                                     child: Column(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Icon(Icons.broken_image, size: 48, color: Colors.white54),
+                                        Icon(
+                                          Icons.broken_image,
+                                          size: 48,
+                                          color: Colors.white54,
+                                        ),
                                         SizedBox(height: 8),
                                         Text(
                                           'No se pudo cargar la imagen',
-                                          style: TextStyle(color: Colors.white70),
+                                          style: TextStyle(
+                                            color: Colors.white70,
+                                          ),
                                         ),
                                       ],
                                     ),
@@ -475,16 +518,25 @@ class _FotosDetalleDialogState extends State<FotosDetalleDialog> {
                           left: 12,
                           child: InkWell(
                             onTap: () => _irA(_currentIndex - 1),
-                            borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                            borderRadius: BorderRadius.circular(
+                              AppTheme.radiusMd,
+                            ),
                             child: Container(
                               padding: const EdgeInsets.all(10),
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 shape: BoxShape.circle,
-                                border: Border.all(color: AppTheme.dark, width: 2),
+                                border: Border.all(
+                                  color: AppTheme.dark,
+                                  width: 2,
+                                ),
                                 boxShadow: const [AppTheme.hardShadowSm],
                               ),
-                              child: const Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: AppTheme.dark),
+                              child: const Icon(
+                                Icons.arrow_back_ios_new_rounded,
+                                size: 18,
+                                color: AppTheme.dark,
+                              ),
                             ),
                           ),
                         ),
@@ -495,16 +547,25 @@ class _FotosDetalleDialogState extends State<FotosDetalleDialog> {
                           right: 12,
                           child: InkWell(
                             onTap: () => _irA(_currentIndex + 1),
-                            borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                            borderRadius: BorderRadius.circular(
+                              AppTheme.radiusMd,
+                            ),
                             child: Container(
                               padding: const EdgeInsets.all(10),
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 shape: BoxShape.circle,
-                                border: Border.all(color: AppTheme.dark, width: 2),
+                                border: Border.all(
+                                  color: AppTheme.dark,
+                                  width: 2,
+                                ),
                                 boxShadow: const [AppTheme.hardShadowSm],
                               ),
-                              child: const Icon(Icons.arrow_forward_ios_rounded, size: 18, color: AppTheme.dark),
+                              child: const Icon(
+                                Icons.arrow_forward_ios_rounded,
+                                size: 18,
+                                color: AppTheme.dark,
+                              ),
                             ),
                           ),
                         ),
@@ -516,7 +577,10 @@ class _FotosDetalleDialogState extends State<FotosDetalleDialog> {
                 if (total > 1)
                   Container(
                     height: 72,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     decoration: const BoxDecoration(
                       color: AppTheme.background,
                       border: Border(
@@ -533,21 +597,31 @@ class _FotosDetalleDialogState extends State<FotosDetalleDialog> {
                           final isSelected = index == _currentIndex;
                           return InkWell(
                             onTap: () => _irA(index),
-                            borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                            borderRadius: BorderRadius.circular(
+                              AppTheme.radiusSm,
+                            ),
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 200),
                               width: 52,
                               height: 52,
                               decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                                borderRadius: BorderRadius.circular(
+                                  AppTheme.radiusSm,
+                                ),
                                 border: Border.all(
-                                  color: isSelected ? AppTheme.dark : AppTheme.borderLight,
+                                  color: isSelected
+                                      ? AppTheme.dark
+                                      : AppTheme.borderLight,
                                   width: isSelected ? 2.5 : 1.5,
                                 ),
-                                boxShadow: isSelected ? const [AppTheme.hardShadowSm] : null,
+                                boxShadow: isSelected
+                                    ? const [AppTheme.hardShadowSm]
+                                    : null,
                               ),
                               child: ClipRRect(
-                                borderRadius: BorderRadius.circular(AppTheme.radiusSm - 1),
+                                borderRadius: BorderRadius.circular(
+                                  AppTheme.radiusSm - 1,
+                                ),
                                 child: Image.network(
                                   widget.urls[index],
                                   fit: BoxFit.cover,
