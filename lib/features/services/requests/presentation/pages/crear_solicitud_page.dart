@@ -175,7 +175,10 @@ class _Asistente extends StatelessWidget {
                   children: [
                     IndicadorPasos(actual: paso),
                     const SizedBox(height: 24),
-                    pasoActual,
+                    ManiCard(
+                      padding: const EdgeInsets.all(24),
+                      child: pasoActual,
+                    ),
                   ],
                 ),
               ),
@@ -212,7 +215,7 @@ class _BarraAcciones extends StatelessWidget {
     };
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 16),
       decoration: const BoxDecoration(
         color: AppTheme.surface,
         border: Border(top: BorderSide(color: AppTheme.dark, width: 2)),
@@ -232,16 +235,18 @@ class _BarraAcciones extends StatelessWidget {
                     key: const ValueKey('pista-paso'),
                     textAlign: TextAlign.center,
                     style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
                       color: AppTheme.textSecondary,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 10),
                 ],
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Expanded(
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(minWidth: 120, maxWidth: 160),
                       child: ManiButton(
                         key: const ValueKey('btn-atras'),
                         etiqueta: 'Atrás',
@@ -251,9 +256,9 @@ class _BarraAcciones extends StatelessWidget {
                         onPressed: state.publicando ? null : cubit.anterior,
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      flex: 2,
+                    const SizedBox(width: 16),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(minWidth: 160, maxWidth: 260),
                       child: esRevision
                           ? ManiButton(
                               key: const ValueKey('btn-publicar'),

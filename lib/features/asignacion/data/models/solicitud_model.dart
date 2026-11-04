@@ -17,6 +17,7 @@ class SolicitudModel extends SolicitudEntity {
     super.reglasSitio,
     super.descripcion,
     super.cantidadFotos,
+    super.fotosRutas,
     super.direccion,
     super.fechaAsignacion,
   });
@@ -37,6 +38,10 @@ class SolicitudModel extends SolicitudEntity {
         ),
         descripcion: json['descripcion'] as String?,
         cantidadFotos: (json['fotos'] as num?)?.toInt() ?? 0,
+        fotosRutas: (json['fotosRutas'] as List<dynamic>?)
+                ?.map((e) => e.toString())
+                .toList() ??
+            const [],
         direccion: json['direccion'] as String?,
         fechaCreacion:
             _fecha(json['creadaEn']) ?? DateTime.fromMillisecondsSinceEpoch(0),

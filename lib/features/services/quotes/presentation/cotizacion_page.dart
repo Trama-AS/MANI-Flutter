@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-
+import 'package:mani/core/theme/app_theme.dart';
 import 'package:mani/core/widgets/mani_button.dart';
+import 'package:mani/core/widgets/mani_card.dart';
 
 import '../domain/cotizacion.dart';
 import 'cotizacion_cubit.dart';
@@ -35,12 +36,16 @@ class CotizacionPage extends StatelessWidget {
   const CotizacionPage({
     super.key,
     required this.esAliado,
+    this.encabezado,
     this.pie,
     this.alRefrescar,
     this.alPagar,
   });
 
   final bool esAliado;
+
+  /// Sección bajo el título (p. ej. la tarifa de referencia, SCRUM-886).
+  final Widget? encabezado;
 
   /// Sección que va al final de la pantalla (p. ej. la ejecución, SCRUM-868).
   final Widget? pie;
@@ -70,41 +75,89 @@ class CotizacionPage extends StatelessWidget {
       },
       builder: (context, state) {
         final cubit = context.read<CotizacionCubit>();
-        return RefreshIndicator(
-          onRefresh: () async {
-            await Future.wait([cubit.cargar(), ?alRefrescar?.call()]);
-          },
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              Text(
-                esAliado ? 'Cotizar el servicio' : 'Cotización del servicio',
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-              const SizedBox(height: 12),
-              if (state.cargando && state.cotizaciones.isEmpty)
-                const Center(child: CircularProgressIndicator())
-              else if (state.error != null)
-                _Error(mensaje: state.error!, onReintentar: cubit.cargar)
-              else ...[
-                if (state.vigente != null)
-                  _TarjetaCotizacion(state.vigente!, vigente: true),
-                if (esAliado)
-                  _SeccionAliado(state: state)
-                else
-                  _SeccionCliente(state: state, alPagar: alPagar),
-                if (state.cotizaciones.length > 1) ...[
-                  const SizedBox(height: 16),
-                  Text(
-                    'Versiones anteriores',
-                    style: Theme.of(context).textTheme.titleSmall,
+        return Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 680),
+            child: RefreshIndicator(
+              color: AppTheme.dark,
+              backgroundColor: AppTheme.primary,
+              onRefresh: () async {
+                await Future.wait([cubit.cargar(), ?alRefrescar?.call()]);
+              },
+              child: ListView(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 24,
+                ),
+                children: [
+                  ManiCard(
+                    padding: const EdgeInsets.all(20),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primary,
+                            borderRadius: BorderRadius.circular(
+                              AppTheme.radiusXl,
+                            ),
+                            border: Border.all(color: AppTheme.dark, width: 2),
+                            boxShadow: const [AppTheme.hardShadowSm],
+                          ),
+                          child: const Icon(
+                            Icons.request_quote_outlined,
+                            color: AppTheme.dark,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Text(
+                            esAliado
+                                ? 'Cotizar el servicio'
+                                : 'Cotización del servicio',
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w900,
+                              color: AppTheme.dark,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  for (final c in state.cotizaciones.skip(1))
-                    _TarjetaCotizacion(c, vigente: false),
+                  const SizedBox(height: 16),
+                  if (encabezado != null) ...[
+                    encabezado!,
+                    const SizedBox(height: 16),
+                  ],
+                  if (state.cargando && state.cotizaciones.isEmpty)
+                    const Center(
+                      child: CircularProgressIndicator(color: AppTheme.dark),
+                    )
+                  else if (state.error != null)
+                    _Error(mensaje: state.error!, onReintentar: cubit.cargar)
+                  else ...[
+                    if (state.vigente != null)
+                      _TarjetaCotizacion(state.vigente!, vigente: true),
+                    if (esAliado)
+                      _SeccionAliado(state: state)
+                    else
+                      _SeccionCliente(state: state, alPagar: alPagar),
+                    if (state.cotizaciones.length > 1) ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        'Versiones anteriores',
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                      for (final c in state.cotizaciones.skip(1))
+                        _TarjetaCotizacion(c, vigente: false),
+                    ],
+                  ],
+                  if (pie != null) ...[const SizedBox(height: 16), pie!],
                 ],
-              ],
-              if (pie != null) ...[const SizedBox(height: 16), pie!],
-            ],
+              ),
+            ),
           ),
         );
       },
@@ -120,32 +173,50 @@ class _TarjetaCotizacion extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tema = Theme.of(context).textTheme;
-    return Card(
+    return ManiCard(
       key: Key('cotizacion-v${c.version}'),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Versión ${c.version}',
-                    style: vigente ? tema.titleMedium : tema.titleSmall,
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Versión ${c.version}',
+                  style: TextStyle(
+                    fontSize: vigente ? 16 : 14,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.dark,
                   ),
                 ),
-                Chip(label: Text(c.etiquetaEstado)),
-              ],
-            ),
-            const SizedBox(height: 8),
-            _Renglon('Mano de obra', formatearPesos(c.valorManoObra)),
-            _Renglon('Materiales', formatearPesos(c.valorMateriales)),
-            const Divider(),
-            _Renglon('Total', formatearPesos(c.total), negrita: true),
-          ],
-        ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: vigente
+                      ? const Color(0xFFDCFCE7)
+                      : AppTheme.background,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                  border: Border.all(color: AppTheme.dark, width: 1.5),
+                ),
+                child: Text(
+                  c.etiquetaEstado,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.dark,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _Renglon('Mano de obra', formatearPesos(c.valorManoObra)),
+          _Renglon('Materiales', formatearPesos(c.valorMateriales)),
+          const Divider(color: AppTheme.dark, thickness: 1.5, height: 24),
+          _Renglon('Total', formatearPesos(c.total), negrita: true),
+        ],
       ),
     );
   }
@@ -266,53 +337,140 @@ class _FormularioCotizacionState extends State<_FormularioCotizacion> {
     final formato = [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))];
     return Form(
       key: _form,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const SizedBox(height: 8),
-          Text(widget.titulo, style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: 8),
-          TextFormField(
-            key: const Key('campo-mano-obra'),
-            controller: _manoObra,
-            decoration: const InputDecoration(
-              labelText: 'Mano de obra',
-              prefixText: '\$ ',
+      child: ManiCard(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                    border: Border.all(color: AppTheme.dark, width: 1.5),
+                  ),
+                  child: const Icon(
+                    Icons.edit_note_rounded,
+                    size: 18,
+                    color: AppTheme.dark,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    widget.titulo,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: AppTheme.dark,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            inputFormatters: formato,
-            validator: _validar,
-            onChanged: (_) => setState(() {}),
-          ),
-          const SizedBox(height: 8),
-          TextFormField(
-            key: const Key('campo-materiales'),
-            controller: _materiales,
-            decoration: const InputDecoration(
-              labelText: 'Materiales',
-              prefixText: '\$ ',
+            const SizedBox(height: 16),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final enFila = constraints.maxWidth > 460;
+                final campoManoObra = TextFormField(
+                  key: const Key('campo-mano-obra'),
+                  controller: _manoObra,
+                  decoration: const InputDecoration(
+                    labelText: 'Mano de obra',
+                    prefixText: '\$ ',
+                  ),
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: formato,
+                  validator: _validar,
+                  onChanged: (_) => setState(() {}),
+                );
+                final campoMateriales = TextFormField(
+                  key: const Key('campo-materiales'),
+                  controller: _materiales,
+                  decoration: const InputDecoration(
+                    labelText: 'Materiales',
+                    prefixText: '\$ ',
+                  ),
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: formato,
+                  validator: _validar,
+                  onChanged: (_) => setState(() {}),
+                );
+
+                if (enFila) {
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: campoManoObra),
+                      const SizedBox(width: 16),
+                      Expanded(child: campoMateriales),
+                    ],
+                  );
+                }
+                return Column(
+                  children: [
+                    campoManoObra,
+                    const SizedBox(height: 12),
+                    campoMateriales,
+                  ],
+                );
+              },
             ),
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            inputFormatters: formato,
-            validator: _validar,
-            onChanged: (_) => setState(() {}),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Total: ${formatearPesos((_valor(_manoObra.text) ?? 0) + (_valor(_materiales.text) ?? 0))}',
-            key: const Key('total-calculado'),
-            style: const TextStyle(fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 12),
-          ManiButton(
-            key: const Key('btn-enviar-cotizacion'),
-            etiqueta: widget.enviando ? 'Enviando…' : 'Enviar cotización',
-            icono: Icons.send_rounded,
-            expandir: true,
-            cargando: widget.enviando,
-            onPressed: widget.enviando ? null : _enviar,
-          ),
-        ],
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: AppTheme.background,
+                borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                border: Border.all(color: AppTheme.dark, width: 1.5),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Total calculado:',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.dark,
+                    ),
+                  ),
+                  Text(
+                    'Total: ${formatearPesos((_valor(_manoObra.text) ?? 0) + (_valor(_materiales.text) ?? 0))}',
+                    key: const Key('total-calculado'),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                      color: AppTheme.dark,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  minWidth: 180,
+                  maxWidth: 260,
+                ),
+                child: ManiButton(
+                  key: const Key('btn-enviar-cotizacion'),
+                  etiqueta: widget.enviando ? 'Enviando…' : 'Enviar cotización',
+                  icono: Icons.send_rounded,
+                  expandir: true,
+                  cargando: widget.enviando,
+                  onPressed: widget.enviando ? null : _enviar,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -352,13 +510,22 @@ class _SeccionCliente extends StatelessWidget {
             Text(texto, key: const Key('estado-cotizacion-cliente')),
             if (vigente.estado == EstadoCotizacion.aceptada &&
                 alPagar != null) ...[
-              const SizedBox(height: 8),
-              ManiButton(
-                key: const Key('btn-pagar-cotizacion'),
-                etiqueta: 'Pagar (sandbox)',
-                icono: Icons.payments_outlined,
-                expandir: true,
-                onPressed: () => alPagar!(vigente.id, vigente.total),
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    minWidth: 180,
+                    maxWidth: 260,
+                  ),
+                  child: ManiButton(
+                    key: const Key('btn-pagar-cotizacion'),
+                    etiqueta: 'Pagar (sandbox)',
+                    icono: Icons.payments_outlined,
+                    expandir: true,
+                    onPressed: () => alPagar!(vigente.id, vigente.total),
+                  ),
+                ),
               ),
             ],
           ],
@@ -367,55 +534,74 @@ class _SeccionCliente extends StatelessWidget {
     }
     final cubit = context.read<CotizacionCubit>();
     final habilitado = !state.enviando;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const SizedBox(height: 8),
-        ManiButton(
-          key: const Key('btn-aceptar-cotizacion'),
-          etiqueta: 'Aceptar cotización',
-          icono: Icons.check_rounded,
-          expandir: true,
-          cargando: state.enviando,
-          onPressed: habilitado
-              ? () => cubit.responder(DecisionCotizacion.aceptar)
-              : null,
-        ),
-        const SizedBox(height: 8),
-        ManiButton(
-          key: const Key('btn-ajustar-cotizacion'),
-          etiqueta: 'Pedir ajuste',
-          icono: Icons.edit_note_rounded,
-          variante: ManiButtonVariante.secundario,
-          expandir: true,
-          onPressed: habilitado
-              ? () => _pedirTexto(
-                  context,
-                  titulo: 'Pedir ajuste',
-                  etiqueta: '¿Qué debe cambiar el aliado?',
-                  minimo: 3,
-                  decision: DecisionCotizacion.ajustar,
-                )
-              : null,
-        ),
-        const SizedBox(height: 8),
-        ManiButton(
-          key: const Key('btn-rechazar-cotizacion'),
-          etiqueta: 'Rechazar',
-          icono: Icons.close_rounded,
-          variante: ManiButtonVariante.secundario,
-          expandir: true,
-          onPressed: habilitado
-              ? () => _pedirTexto(
-                  context,
-                  titulo: 'Rechazar cotización',
-                  etiqueta: 'Motivo del rechazo',
-                  minimo: 5,
-                  decision: DecisionCotizacion.rechazar,
-                )
-              : null,
-        ),
-      ],
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Wrap(
+        spacing: 12,
+        runSpacing: 12,
+        children: [
+          ConstrainedBox(
+            constraints: const BoxConstraints(
+              minWidth: 160,
+              maxWidth: 230,
+            ),
+            child: ManiButton(
+              key: const Key('btn-aceptar-cotizacion'),
+              etiqueta: 'Aceptar cotización',
+              icono: Icons.check_rounded,
+              expandir: true,
+              cargando: state.enviando,
+              onPressed: habilitado
+                  ? () => cubit.responder(DecisionCotizacion.aceptar)
+                  : null,
+            ),
+          ),
+          ConstrainedBox(
+            constraints: const BoxConstraints(
+              minWidth: 140,
+              maxWidth: 200,
+            ),
+            child: ManiButton(
+              key: const Key('btn-ajustar-cotizacion'),
+              etiqueta: 'Pedir ajuste',
+              icono: Icons.edit_note_rounded,
+              variante: ManiButtonVariante.secundario,
+              expandir: true,
+              onPressed: habilitado
+                  ? () => _pedirTexto(
+                      context,
+                      titulo: 'Pedir ajuste',
+                      etiqueta: '¿Qué debe cambiar el aliado?',
+                      minimo: 3,
+                      decision: DecisionCotizacion.ajustar,
+                    )
+                  : null,
+            ),
+          ),
+          ConstrainedBox(
+            constraints: const BoxConstraints(
+              minWidth: 130,
+              maxWidth: 180,
+            ),
+            child: ManiButton(
+              key: const Key('btn-rechazar-cotizacion'),
+              etiqueta: 'Rechazar',
+              icono: Icons.close_rounded,
+              variante: ManiButtonVariante.secundario,
+              expandir: true,
+              onPressed: habilitado
+                  ? () => _pedirTexto(
+                      context,
+                      titulo: 'Rechazar cotización',
+                      etiqueta: 'Motivo del rechazo',
+                      minimo: 5,
+                      decision: DecisionCotizacion.rechazar,
+                    )
+                  : null,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -501,15 +687,24 @@ class _Error extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    return ManiCard(
       key: const Key('error-cotizacion'),
-      child: ListTile(
-        leading: const Icon(Icons.error_outline),
-        title: Text(mensaje),
-        trailing: TextButton(
-          onPressed: onReintentar,
-          child: const Text('Reintentar'),
-        ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline, color: AppTheme.error, size: 22),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              mensaje,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+          TextButton(
+            onPressed: onReintentar,
+            child: const Text('Reintentar'),
+          ),
+        ],
       ),
     );
   }

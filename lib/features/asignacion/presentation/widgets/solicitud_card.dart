@@ -8,6 +8,7 @@ import '../../domain/entities/regla_sitio.dart';
 import '../../domain/entities/solicitud_entity.dart';
 import '../bloc/solicitudes_aliado_cubit.dart';
 import '../utils/formato_solicitud.dart';
+import 'fotos_adjuntas_viewer.dart';
 
 /// Tarjeta de una solicitud. Si está disponible muestra Rechazar / Aceptar;
 /// si ya es del aliado muestra la dirección y cuándo la ganó.
@@ -124,7 +125,12 @@ class SolicitudCard extends StatelessWidget {
           ),
           if ((s.descripcion ?? '').trim().isNotEmpty) ...[
             const SizedBox(height: 12),
-            _Problema(texto: s.descripcion!.trim(), fotos: s.cantidadFotos),
+            _Problema(
+              texto: s.descripcion!.trim(),
+              fotos: s.cantidadFotos,
+              fotosRutas: s.fotosRutas,
+              solicitudId: s.id,
+            ),
           ],
           const SizedBox(height: 12),
           _ModalidadBadge(modalidad: s.modalidad),
@@ -210,10 +216,17 @@ class _Dato extends StatelessWidget {
 
 /// Problema descrito por el cliente (US-04.1.1): base para decidir y cotizar.
 class _Problema extends StatelessWidget {
-  const _Problema({required this.texto, required this.fotos});
+  const _Problema({
+    required this.texto,
+    required this.fotos,
+    this.fotosRutas = const [],
+    this.solicitudId,
+  });
 
   final String texto;
   final int fotos;
+  final List<String> fotosRutas;
+  final String? solicitudId;
 
   @override
   Widget build(BuildContext context) {
@@ -234,7 +247,12 @@ class _Problema extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontSize: 13, height: 1.35),
           ),
-          if (fotos > 0) ...[
+          if (fotosRutas.isNotEmpty)
+            FotosAdjuntasPreview(
+              fotosRutas: fotosRutas,
+              solicitudId: solicitudId,
+            )
+          else if (fotos > 0) ...[
             const SizedBox(height: 8),
             _Dato(
               icono: Icons.photo_library_outlined,

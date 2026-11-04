@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:mani/core/theme/app_theme.dart';
 import 'package:mani/core/widgets/mani_button.dart';
 
 import '../domain/mensaje.dart';
@@ -69,39 +70,44 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Mensajes del servicio')),
-      body: BlocConsumer<ChatCubit, ChatState>(
-        listenWhen: (a, b) => a.mensajes.length != b.mensajes.length,
-        listener: (context, state) =>
-            _bajarSiCorresponde(state.mensajes.length),
-        builder: (context, state) => Column(
-          children: [
-            if (state.errorLectura != null)
-              _Aviso(
-                key: const Key('aviso-lectura'),
-                texto: state.errorLectura!.mensajeUsuario,
-              ),
-            Expanded(
-              child: _Hilo(state: state, scroll: _scroll),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 780),
+          child: BlocConsumer<ChatCubit, ChatState>(
+            listenWhen: (a, b) => a.mensajes.length != b.mensajes.length,
+            listener: (context, state) =>
+                _bajarSiCorresponde(state.mensajes.length),
+            builder: (context, state) => Column(
+              children: [
+                if (state.errorLectura != null)
+                  _Aviso(
+                    key: const Key('aviso-lectura'),
+                    texto: state.errorLectura!.mensajeUsuario,
+                  ),
+                Expanded(
+                  child: _Hilo(state: state, scroll: _scroll),
+                ),
+                if (state.soloLectura)
+                  const _Aviso(
+                    key: Key('aviso-solo-lectura'),
+                    texto:
+                        'Este servicio ya no admite mensajes nuevos. Puedes leer '
+                        'la conversación.',
+                  )
+                else if (state.errorEnvio != null)
+                  _Aviso(
+                    key: const Key('error-envio'),
+                    texto: state.errorEnvio!.mensajeUsuario,
+                  ),
+                if (state.puedeEscribir)
+                  _Redactor(
+                    controlador: _texto,
+                    enviando: state.enviando,
+                    alEnviar: _enviar,
+                  ),
+              ],
             ),
-            if (state.soloLectura)
-              const _Aviso(
-                key: Key('aviso-solo-lectura'),
-                texto:
-                    'Este servicio ya no admite mensajes nuevos. Puedes leer '
-                    'la conversación.',
-              )
-            else if (state.errorEnvio != null)
-              _Aviso(
-                key: const Key('error-envio'),
-                texto: state.errorEnvio!.mensajeUsuario,
-              ),
-            if (state.puedeEscribir)
-              _Redactor(
-                controlador: _texto,
-                enviando: state.enviando,
-                alEnviar: _enviar,
-              ),
-          ],
+          ),
         ),
       ),
     );
@@ -228,7 +234,7 @@ class _Redactor extends StatelessWidget {
     return SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
@@ -240,20 +246,56 @@ class _Redactor extends StatelessWidget {
                 minLines: 1,
                 maxLines: 4,
                 maxLength: maxCaracteresMensaje,
+                buildCounter:
+                    (
+                      _, {
+                      required currentLength,
+                      required isFocused,
+                      maxLength,
+                    }) => null,
                 textCapitalization: TextCapitalization.sentences,
-                decoration: const InputDecoration(
-                  hintText: 'Escribe un mensaje',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  hintText: 'Escribe un mensaje…',
+                  filled: true,
+                  fillColor: AppTheme.surface,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                    borderSide: const BorderSide(
+                      color: AppTheme.dark,
+                      width: 2,
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                    borderSide: const BorderSide(
+                      color: AppTheme.dark,
+                      width: 2,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                    borderSide: const BorderSide(
+                      color: AppTheme.dark,
+                      width: 2,
+                    ),
+                  ),
                 ),
               ),
             ),
-            const SizedBox(width: 8),
-            ManiButton(
-              key: const Key('btn-enviar-mensaje'),
-              etiqueta: 'Enviar',
-              icono: Icons.send,
-              cargando: enviando,
-              onPressed: enviando ? null : alEnviar,
+            const SizedBox(width: 10),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 2),
+              child: ManiButton(
+                key: const Key('btn-enviar-mensaje'),
+                etiqueta: 'Enviar',
+                icono: Icons.send,
+                cargando: enviando,
+                onPressed: enviando ? null : alEnviar,
+              ),
             ),
           ],
         ),

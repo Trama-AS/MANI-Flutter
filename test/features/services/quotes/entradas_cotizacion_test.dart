@@ -73,7 +73,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('ver-cotizacion-sol-asignada')), findsNothing);
-    await tester.tap(find.byKey(const Key('ver-cotizacion-sol-cotizando')));
+    final finder = find.byKey(const Key('ver-cotizacion-sol-cotizando'));
+    await tester.ensureVisible(finder);
+    await tester.pumpAndSettle();
+    await tester.tap(finder);
+    await tester.pumpAndSettle();
     expect(abiertas, ['sol-cotizando']);
   });
 

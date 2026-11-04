@@ -1,6 +1,8 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:mani/core/theme/app_theme.dart';
+import 'package:mani/core/widgets/mani_card.dart';
 import 'package:mani/features/profiles/own_profile/data/datasources/perfil_propio_remote_datasource.dart';
 import 'package:mani/features/profiles/own_profile/domain/entities/perfil_propio.dart';
 import 'package:mani/features/profiles/own_profile/presentation/widgets/foto_perfil_selector_widget.dart';
@@ -151,112 +153,130 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppTheme.background,
       appBar: AppBar(title: const Text('Editar mi perfil')),
       body: _cargando
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (_perfil != null) ...[
-                      FotoPerfilSelectorWidget(
-                        fullName: _perfil!.fullName,
-                        photoUrl: _perfil!.photoUrl,
-                        subiendo: _subiendoFoto,
-                        onFotoSeleccionada: _subirFoto,
-                        selectorImagen: widget.selectorImagen,
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+          ? const Center(
+              child: CircularProgressIndicator(color: AppTheme.dark),
+            )
+          : Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 720),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(24),
+                  child: ManiCard(
+                    padding: const EdgeInsets.all(24),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Chip(
-                            key: const Key('chip-rol-solo-lectura'),
-                            label: Text('Rol: ${_perfil!.role}'),
+                          if (_perfil != null) ...[
+                            FotoPerfilSelectorWidget(
+                              fullName: _perfil!.fullName,
+                              photoUrl: _perfil!.photoUrl,
+                              subiendo: _subiendoFoto,
+                              onFotoSeleccionada: _subirFoto,
+                              selectorImagen: widget.selectorImagen,
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Chip(
+                                  key: const Key('chip-rol-solo-lectura'),
+                                  label: Text('Rol: ${_perfil!.role}'),
+                                ),
+                                const SizedBox(width: 8),
+                                Chip(
+                                  key: const Key('chip-estado-solo-lectura'),
+                                  label: Text('Estado: ${_perfil!.status}'),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 20),
+                          ],
+                          if (_mensajeError != null)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: Text(
+                                _mensajeError!,
+                                key: const Key('banner-error-perfil'),
+                                style: const TextStyle(
+                                  color: Colors.red,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          if (_mensajeExito != null)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: Text(
+                                _mensajeExito!,
+                                key: const Key('banner-exito-perfil'),
+                                style: const TextStyle(
+                                  color: Colors.green,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          TextFormField(
+                            key: const Key('input-nombre-perfil'),
+                            controller: _nombreController,
+                            decoration: const InputDecoration(
+                              labelText: 'Nombre completo o razón social',
+                            ),
+                            validator: (v) {
+                              final clean = v?.trim() ?? '';
+                              if (clean.length < 2) {
+                                return 'El nombre debe tener al menos 2 caracteres';
+                              }
+                              return null;
+                            },
                           ),
-                          const SizedBox(width: 8),
-                          Chip(
-                            key: const Key('chip-estado-solo-lectura'),
-                            label: Text('Estado: ${_perfil!.status}'),
+                          const SizedBox(height: 14),
+                          TextFormField(
+                            key: const Key('input-telefono-perfil'),
+                            controller: _telefonoController,
+                            decoration: const InputDecoration(
+                              labelText: 'Teléfono de contacto',
+                            ),
+                            validator: (v) {
+                              final clean = v?.trim() ?? '';
+                              if (clean.isEmpty ||
+                                  !_phoneRegex.hasMatch(clean)) {
+                                return 'Ingresa un teléfono válido';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 14),
+                          TextFormField(
+                            key: const Key('input-direccion-perfil'),
+                            controller: _direccionController,
+                            decoration: const InputDecoration(
+                              labelText: 'Dirección principal',
+                            ),
+                            validator: (v) {
+                              final clean = v?.trim() ?? '';
+                              if (clean.length < 5) {
+                                return 'La dirección no puede estar vacía (mínimo 5 caracteres)';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 20),
+                          ElevatedButton(
+                            key: const Key('btn-guardar-perfil'),
+                            onPressed: _guardando ? null : _guardarCambios,
+                            child: Text(
+                              _guardando ? 'Guardando...' : 'Guardar cambios',
+                            ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 16),
-                    ],
-                    if (_mensajeError != null)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: Text(
-                          _mensajeError!,
-                          key: const Key('banner-error-perfil'),
-                          style: const TextStyle(color: Colors.red),
-                        ),
-                      ),
-                    if (_mensajeExito != null)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: Text(
-                          _mensajeExito!,
-                          key: const Key('banner-exito-perfil'),
-                          style: const TextStyle(color: Colors.green),
-                        ),
-                      ),
-                    TextFormField(
-                      key: const Key('input-nombre-perfil'),
-                      controller: _nombreController,
-                      decoration: const InputDecoration(
-                        labelText: 'Nombre completo o razón social',
-                      ),
-                      validator: (v) {
-                        final clean = v?.trim() ?? '';
-                        if (clean.length < 2) {
-                          return 'El nombre debe tener al menos 2 caracteres';
-                        }
-                        return null;
-                      },
                     ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      key: const Key('input-telefono-perfil'),
-                      controller: _telefonoController,
-                      decoration: const InputDecoration(
-                        labelText: 'Teléfono de contacto',
-                      ),
-                      validator: (v) {
-                        final clean = v?.trim() ?? '';
-                        if (clean.isEmpty || !_phoneRegex.hasMatch(clean)) {
-                          return 'Ingresa un teléfono válido';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      key: const Key('input-direccion-perfil'),
-                      controller: _direccionController,
-                      decoration: const InputDecoration(
-                        labelText: 'Dirección principal',
-                      ),
-                      validator: (v) {
-                        final clean = v?.trim() ?? '';
-                        if (clean.length < 5) {
-                          return 'La dirección no puede estar vacía (mínimo 5 caracteres)';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 20),
-                    ElevatedButton(
-                      key: const Key('btn-guardar-perfil'),
-                      onPressed: _guardando ? null : _guardarCambios,
-                      child: Text(
-                        _guardando ? 'Guardando...' : 'Guardar cambios',
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),

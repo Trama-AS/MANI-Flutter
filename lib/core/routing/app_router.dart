@@ -50,6 +50,9 @@ import 'package:mani/features/services/execution/presentation/ejecucion_seccion.
 import 'package:mani/features/services/events/data/cola_eventos.dart';
 import 'package:mani/features/services/events/presentation/eventos_cubit.dart';
 import 'package:mani/features/services/events/presentation/eventos_seccion.dart';
+import 'package:mani/features/services/ratings/data/calificacion_cierre_datasource.dart';
+import 'package:mani/features/services/ratings/presentation/calificacion_cierre_cubit.dart';
+import 'package:mani/features/services/ratings/presentation/calificacion_cierre_widgets.dart';
 import 'package:mani/features/profiles/site_rules/presentation/bloc/reglas_sitio_cubit.dart';
 import 'package:mani/features/profiles/site_rules/presentation/pages/reglas_sitio_page.dart';
 import 'package:mani/features/profiles/company_sites/presentation/bloc/sedes_empresa_cubit.dart';
@@ -123,6 +126,11 @@ Widget _pantallaServicio(
         usuarioActual: () => sl<SupabaseClient>().auth.currentUser?.id,
       )..cargar(),
     ),
+    if (sl.isRegistered<FuenteModuloM08>())
+      BlocProvider(
+        create: (_) =>
+            CalificacionCierreCubit(sl(), solicitudId: solicitudId)..cargar(),
+      ),
   ],
   child: Builder(
     builder: (context) => CotizacionPage(
@@ -147,16 +155,25 @@ Widget _pantallaServicio(
         children: [
           // Chat del servicio (HU-M09-02 / SCRUM-881): solo participan el cliente
           // y el aliado asignado; lo valida Core.
-          ManiButton(
-            key: const Key('btn-abrir-chat'),
-            etiqueta: esAliado
-                ? 'Mensajes con el cliente'
-                : 'Mensajes con el aliado',
-            icono: Icons.chat_bubble_outline,
-            variante: ManiButtonVariante.secundario,
-            expandir: true,
-            onPressed: () => context.push(
-              '/${esAliado ? 'aliado' : 'cliente'}/solicitudes/$solicitudId/chat',
+          Align(
+            alignment: Alignment.centerLeft,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                minWidth: 200,
+                maxWidth: 270,
+              ),
+              child: ManiButton(
+                key: const Key('btn-abrir-chat'),
+                etiqueta: esAliado
+                    ? 'Mensajes con el cliente'
+                    : 'Mensajes con el aliado',
+                icono: Icons.chat_bubble_outline,
+                variante: ManiButtonVariante.secundario,
+                expandir: true,
+                onPressed: () => context.push(
+                  '/${esAliado ? 'aliado' : 'cliente'}/solicitudes/$solicitudId/chat',
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 12),
@@ -184,6 +201,10 @@ Widget _pantallaServicio(
               selectorFotos: esAliado ? sl() : null,
             ),
           ),
+          if (sl.isRegistered<FuenteModuloM08>()) ...[
+            const SizedBox(height: 12),
+            CalificacionCierreSeccion(esAliado: esAliado),
+          ],
         ],
       ),
       alRefrescar: () async {
@@ -191,6 +212,8 @@ Widget _pantallaServicio(
           context.read<EjecucionCubit>().cargar(),
           context.read<AdicionesCubit>().cargar(),
           context.read<EventosCubit>().cargar(),
+          if (sl.isRegistered<FuenteModuloM08>())
+            context.read<CalificacionCierreCubit>().cargar(),
         ]);
       },
     ),
