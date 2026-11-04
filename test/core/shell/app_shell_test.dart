@@ -140,14 +140,21 @@ void main() {
       },
     );
 
-    test('admin del tenant ve verificación y catálogo de categorías', () {
-      final r = rutas(RolUsuario.adminTenant);
-      expect(
-        r,
-        containsAll(['/admin/verificacion-aliados', '/admin/categorias']),
-      );
-      expect(r.any((x) => x.startsWith('/aliado')), isFalse);
-    });
+    test(
+      'admin del tenant ve administración y módulos de pruebas de cliente y aliado',
+      () {
+        final r = rutas(RolUsuario.adminTenant);
+        expect(
+          r,
+          containsAll([
+            '/admin/verificacion-aliados',
+            '/admin/categorias',
+            '/aliado/solicitudes',
+            '/cliente/solicitudes',
+          ]),
+        );
+      },
+    );
 
     test(
       'SCRUM-1376: el registro de empleados está en el menú del admin, que es quien lo hace en Core, y no en el del aliado',

@@ -336,7 +336,9 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(find.byKey(const Key('inicio-card-sesion')), findsOneWidget);
+        final cardSesion = find.byKey(const Key('inicio-card-sesion'));
+        await tester.scrollUntilVisible(cardSesion, 200);
+        expect(cardSesion, findsOneWidget);
         await tester.tap(find.byKey(const Key('inicio-cerrar-sesion')));
         await tester.pumpAndSettle();
         expect(cerro, isTrue);

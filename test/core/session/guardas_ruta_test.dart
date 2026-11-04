@@ -60,14 +60,22 @@ void main() {
       expect(_redirigir('/cliente/sedes', rol: RolUsuario.aliado), rutaInicio);
     });
 
-    test('un admin no abre rutas de aliado ni de cliente', () {
+    test('el admin puede abrir todas las rutas para pruebas (cliente, aliado, admin)', () {
       expect(
         _redirigir('/aliado/cobertura', rol: RolUsuario.adminTenant),
-        rutaInicio,
+        isNull,
       );
       expect(
         _redirigir('/categories', rol: RolUsuario.adminTenant),
-        rutaInicio,
+        isNull,
+      );
+      expect(
+        _redirigir('/cliente/solicitudes', rol: RolUsuario.adminTenant),
+        isNull,
+      );
+      expect(
+        _redirigir('/cliente/sedes', rol: RolUsuario.adminTenant),
+        isNull,
       );
     });
 

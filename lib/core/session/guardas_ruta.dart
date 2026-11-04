@@ -17,15 +17,16 @@ const _todosLosRoles = {
 /// Roles que pueden abrir cada prefijo de ruta con sesión (US-11.2.2 /
 /// SCRUM-1445). El orden importa: gana el primer prefijo que coincide.
 ///
-/// Esto evita que la app pinte una pantalla que no le corresponde al rol; no
-/// es la autorización. Core y Dispatch siguen respondiendo 403 con el token
-/// verificado (T4, T7), y esa es la barrera que cuenta.
+/// El rol [RolUsuario.adminTenant] tiene acceso completo de prueba y supervisión
+/// a todas las rutas de cliente, aliado y administración de su tenant.
+/// Core y Dispatch siguen respondiendo 403 con el token verificado (T4, T7)
+/// cuando una operación requiera una condición específica de identidad.
 const _rolesPorPrefijo = <String, Set<RolUsuario>>{
   rutaInicio: _todosLosRoles,
   '/admin/': {RolUsuario.adminTenant},
-  '/aliado/': {RolUsuario.aliado},
-  '/categories': {RolUsuario.aliado},
-  '/cliente/': {RolUsuario.cliente},
+  '/aliado/': {RolUsuario.aliado, RolUsuario.adminTenant},
+  '/categories': {RolUsuario.aliado, RolUsuario.adminTenant},
+  '/cliente/': {RolUsuario.cliente, RolUsuario.adminTenant},
   // El cliente configura las reglas de su sitio y el aliado las consulta
   // antes de programar (US-02.2.3).
   '/sitios/': {RolUsuario.cliente, RolUsuario.aliado, RolUsuario.adminTenant},

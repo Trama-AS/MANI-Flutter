@@ -133,6 +133,47 @@ List<EntradaMenu> entradasMenuPara(RolUsuario rol) {
           icono: Icons.forum_outlined,
           ruta: '/admin/conversaciones',
         ),
+        // Acceso completo de pruebas para el administrador (Cliente y Aliado)
+        EntradaMenu(
+          etiqueta: 'Nueva solicitud (Cliente)',
+          icono: Icons.add_circle_outline,
+          ruta: '/cliente/solicitudes/nueva',
+        ),
+        EntradaMenu(
+          etiqueta: 'Mis solicitudes (Cliente)',
+          icono: Icons.list_alt_outlined,
+          ruta: '/cliente/solicitudes',
+        ),
+        EntradaMenu(
+          etiqueta: 'Mis sedes (Cliente)',
+          icono: Icons.apartment_outlined,
+          ruta: '/cliente/sedes',
+        ),
+        EntradaMenu(
+          etiqueta: 'Bandeja aliado',
+          icono: Icons.inbox_outlined,
+          ruta: '/aliado/solicitudes',
+        ),
+        EntradaMenu(
+          etiqueta: 'Cobertura (Aliado)',
+          icono: Icons.map_outlined,
+          ruta: '/aliado/cobertura',
+        ),
+        EntradaMenu(
+          etiqueta: 'Categorías (Aliado)',
+          icono: Icons.category_outlined,
+          ruta: '/categories',
+        ),
+        EntradaMenu(
+          etiqueta: 'Cobros (Aliado)',
+          icono: Icons.payments_outlined,
+          ruta: '/aliado/cobros',
+        ),
+        EntradaMenu(
+          etiqueta: 'Disponibilidad (Aliado)',
+          icono: Icons.event_busy_outlined,
+          ruta: '/aliado/disponibilidad',
+        ),
         _avisos,
         _miPerfil,
       ];

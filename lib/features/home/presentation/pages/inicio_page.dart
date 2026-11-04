@@ -227,7 +227,7 @@ class _InicioPageState extends State<InicioPage> {
                 const SizedBox(height: 12),
               ],
               if (widget.onCerrarSesion != null) ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: 20),
                 ManiCard(
                   key: const Key('inicio-card-sesion'),
                   padding: const EdgeInsets.symmetric(
@@ -237,39 +237,20 @@ class _InicioPageState extends State<InicioPage> {
                   sombra: AppTheme.hardShadowSm,
                   child: ListTile(
                     key: const Key('inicio-cerrar-sesion'),
-                    contentPadding: EdgeInsets.zero,
-                    leading: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFEE2E2),
-                        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-                        border: Border.all(color: AppTheme.dark, width: 2),
-                      ),
-                      child: const Icon(
-                        Icons.logout,
-                        color: Color(0xFFDC2626),
-                        size: 20,
-                      ),
-                    ),
+                    leading: const Icon(Icons.logout, color: Colors.redAccent),
                     title: const Text(
                       'Cerrar sesión',
                       style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFFDC2626),
+                        fontWeight: FontWeight.w700,
+                        color: Colors.redAccent,
                       ),
                     ),
                     subtitle: const Text(
                       'Finaliza la sesión actual en este dispositivo',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppTheme.textSecondary,
-                      ),
                     ),
                     trailing: const Icon(
                       Icons.chevron_right,
-                      color: Color(0xFFDC2626),
+                      color: Colors.redAccent,
                     ),
                     onTap: () async {
                       await widget.onCerrarSesion!();
@@ -291,7 +272,7 @@ class _InicioPageState extends State<InicioPage> {
       case RolUsuario.aliado:
         return 'Revisa las solicitudes y mantén al día tu cobertura.';
       case RolUsuario.adminTenant:
-        return 'Verifica aliados y administra el catálogo de tu empresa.';
+        return 'Acceso total: administra tu empresa y prueba todas las funciones del sistema.';
       case RolUsuario.desconocido:
         return 'Solo puedes consultar tu perfil por ahora.';
     }
