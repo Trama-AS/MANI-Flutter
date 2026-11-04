@@ -58,6 +58,16 @@ class MapaZonasPage extends StatelessWidget {
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ),
+              if (state.coberturaPropia.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(left: 12, right: 12, top: 8),
+                  child: Text(
+                    'En verde, las zonas que ya declaraste como cobertura. '
+                    'Para cambiarlas, usa Cobertura en el menú.',
+                    key: const Key('mapa_leyenda_cobertura'),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
               if (state.sitiosSinUbicacion > 0)
                 Padding(
                   padding: const EdgeInsets.only(left: 12, right: 12, bottom: 12),
@@ -117,14 +127,20 @@ class _Mapa extends StatelessWidget {
       // El barrio se distingue de la localidad por color, no por rótulo:
       // rotular cada polígono tapa el mapa cuando hay varios.
       final esBarrio = g.nivel == 'BARRIO';
+      // Al aliado se le resalta en verde lo que ya declaró como cobertura, para
+      // que vea de un golpe dónde atiende. Es solo lectura: declarar cobertura
+      // es de `/aliado/cobertura`, por lista y hasta localidad.
+      final esCobertura = state.coberturaPropia.contains(g.zonaId);
+      final base = esCobertura
+          ? const Color(0xFF166534)
+          : (esBarrio ? const Color(0xFFC2410C) : const Color(0xFF1D4ED8));
       for (final anillo in g.anillos) {
         poligonos.add(
           Polygon(
             points: anillo,
-            borderStrokeWidth: 2,
-            borderColor: esBarrio ? const Color(0xFFC2410C) : const Color(0xFF1D4ED8),
-            color: (esBarrio ? const Color(0xFFC2410C) : const Color(0xFF1D4ED8))
-                .withValues(alpha: 0.18),
+            borderStrokeWidth: esCobertura ? 3 : 2,
+            borderColor: base,
+            color: base.withValues(alpha: esCobertura ? 0.30 : 0.18),
           ),
         );
       }

@@ -52,6 +52,12 @@ abstract interface class MapaRemoteDataSource {
   /// admin el servicio responde error, y el mapa debe seguir funcionando con
   /// las zonas, sin sedes.
   Future<List<SitioUbicado>> listarMisSitios();
+
+  /// Zonas que el aliado de la sesión declaró como cobertura. Solo el rol
+  /// aliado las obtiene. **Es lectura:** la cobertura se declara por lista en
+  /// `/aliado/cobertura` y hasta localidad (decisión del 04-nov-2026); este
+  /// mapa la muestra, no la modifica.
+  Future<List<String>> listarMiCobertura();
 }
 
 /// Todo sale por el API Gateway hacia Core Node; no hay llamada directa a
@@ -62,6 +68,7 @@ class GatewayMapaDataSource implements MapaRemoteDataSource {
   static const _rutaZonas = '/api/v1/core/catalog/zones';
   static const _rutaGeometrias = '/api/v1/core/catalog/geometrias';
   static const _rutaSitios = '/api/v1/core/solicitudes/sitios';
+  static const _rutaCobertura = '/api/v1/core/profiles/me/coverage';
 
   /// Mismo tope que impone Core: pedir más devuelve 400.
   static const maxZonasPorPeticion = 20;
@@ -97,6 +104,19 @@ class GatewayMapaDataSource implements MapaRemoteDataSource {
   Future<List<SitioUbicado>> listarMisSitios() async {
     final res = await _gateway.get(_rutaSitios);
     return parsearSitios(res);
+  }
+
+  @override
+  Future<List<String>> listarMiCobertura() async {
+    final res = await _gateway.get(_rutaCobertura);
+    return parsearCobertura(res);
+  }
+
+  /// Separado del transporte para poder probar el parseo sin red.
+  static List<String> parsearCobertura(Map<String, dynamic> res) {
+    final ids = res['zoneIds'];
+    if (ids is! List) return const [];
+    return ids.map((v) => '$v').where((s) => s.isNotEmpty).toList(growable: false);
   }
 
   /// Separado del transporte para poder probar el parseo sin red.
