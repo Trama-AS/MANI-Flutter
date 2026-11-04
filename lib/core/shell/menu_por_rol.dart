@@ -70,8 +70,16 @@ List<EntradaMenu> entradasMenuPara(RolUsuario rol) {
         ),
         EntradaMenu(
           etiqueta: 'Cobertura',
-          icono: Icons.map_outlined,
+          icono: Icons.checklist_outlined,
           ruta: '/aliado/cobertura',
+        ),
+        // El aliado ve en el mapa resaltada la cobertura que ya declaró. Es
+        // consulta: para cambiarla usa «Zona de cobertura», que es por lista
+        // y hasta localidad (HU-M04-07).
+        EntradaMenu(
+          etiqueta: 'Mapa de zonas',
+          icono: Icons.map_outlined,
+          ruta: '/catalogo/mapa',
         ),
         EntradaMenu(
           etiqueta: 'Categorías',

@@ -52,12 +52,25 @@ class _DatosFalsos implements MapaRemoteDataSource {
 
   List<String>? pedidas;
 
+  /// Cobertura declarada del aliado. Para los demás roles el servicio
+  /// responde error, que es lo que reproduce `fallaCobertura`.
+  List<String>? cobertura;
+  bool fallaCobertura = true;
+
   @override
   Future<List<SitioUbicado>> listarMisSitios() async {
     if (fallaSitios) {
       throw GatewayException(message: 'No tienes permiso', statusCode: 403);
     }
     return sitios ?? const [];
+  }
+
+  @override
+  Future<List<String>> listarMiCobertura() async {
+    if (fallaCobertura) {
+      throw GatewayException(message: 'No tienes permiso', statusCode: 403);
+    }
+    return cobertura ?? const [];
   }
 
   @override
@@ -229,6 +242,34 @@ void main() {
 
       expect(cubit.state.estado, MapaEstado.listo);
       expect(cubit.state.sitios, hasLength(1));
+    });
+  });
+
+  group('cobertura del aliado', () {
+    test('resalta las zonas que el aliado declaró, y para otros roles queda vacía', () async {
+      final aliado = _DatosFalsos()
+        ..fallaCobertura = false
+        ..cobertura = [_chico];
+      final cubitAliado = MapaCubit(aliado);
+      await cubitAliado.cargar();
+      expect(cubitAliado.state.coberturaPropia, {_chico});
+
+      // Un cliente o un admin reciben error del endpoint de cobertura: el mapa
+      // sigue funcionando y no resalta nada.
+      final otro = MapaCubit(_DatosFalsos());
+      await otro.cargar();
+      expect(otro.state.coberturaPropia, isEmpty);
+      expect(otro.state.estado, MapaEstado.listo);
+      expect(otro.state.mensajeError, isNull);
+    });
+
+    test('parsea zoneIds y tolera la respuesta sin esa clave', () {
+      expect(
+        GatewayMapaDataSource.parsearCobertura({'zoneIds': [_chico, _chapinero]}),
+        [_chico, _chapinero],
+      );
+      expect(GatewayMapaDataSource.parsearCobertura({}), isEmpty);
+      expect(GatewayMapaDataSource.parsearCobertura({'zoneIds': 'no es lista'}), isEmpty);
     });
   });
 
