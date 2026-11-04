@@ -256,9 +256,11 @@ void main() {
         findsOneWidget,
       );
       expect(find.byKey(const Key('inicio-acceso-/inicio')), findsNothing);
+      // El administrador tiene acceso completo de pruebas a las pantallas de
+      // cliente y aliado (menu_por_rol.dart), así que también ve sus accesos.
       expect(
         find.byKey(const Key('inicio-acceso-/aliado/solicitudes')),
-        findsNothing,
+        findsOneWidget,
       );
       expect(find.byKey(const Key('inicio-sin-rol')), findsNothing);
     });

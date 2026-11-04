@@ -180,52 +180,64 @@ class _InicioPageState extends State<InicioPage> {
                 ],
               ),
               const SizedBox(height: 14),
-              for (final e in accesos) ...[
-                ManiCard(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 6,
-                  ),
-                  sombra: AppTheme.hardShadowSm,
-                  child: ListTile(
-                    key: Key('inicio-acceso-${e.ruta}'),
-                    contentPadding: EdgeInsets.zero,
-                    leading: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: AppTheme.primary,
-                        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-                        border: Border.all(color: AppTheme.dark, width: 2),
+              // Accesos en columnas: tres en escritorio, dos en tableta y una
+              // en móvil. Cada tarjeta conserva el borde negro, la caja del
+              // ícono y la flecha enmarcada (contraste alto sobre blanco).
+              _RejillaAccesos(
+                children: [
+                  for (final e in accesos)
+                    ManiCard(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 6,
                       ),
-                      child: Icon(e.icono, color: AppTheme.dark, size: 20),
+                      sombra: AppTheme.hardShadowSm,
+                      child: ListTile(
+                        key: Key('inicio-acceso-${e.ruta}'),
+                        contentPadding: EdgeInsets.zero,
+                        leading: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: AppTheme.primary,
+                            borderRadius: BorderRadius.circular(
+                              AppTheme.radiusMd,
+                            ),
+                            border: Border.all(color: AppTheme.dark, width: 2),
+                          ),
+                          child: Icon(e.icono, color: AppTheme.dark, size: 20),
+                        ),
+                        title: Text(
+                          e.etiqueta,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            color: AppTheme.dark,
+                          ),
+                        ),
+                        trailing: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: AppTheme.background,
+                            borderRadius: BorderRadius.circular(
+                              AppTheme.radiusMd,
+                            ),
+                            border: Border.all(
+                              color: AppTheme.dark,
+                              width: 1.5,
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.arrow_forward_rounded,
+                            color: AppTheme.dark,
+                            size: 18,
+                          ),
+                        ),
+                        onTap: () => widget.onNavegar(e.ruta),
+                      ),
                     ),
-                    title: Text(
-                      e.etiqueta,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        color: AppTheme.dark,
-                      ),
-                    ),
-                    trailing: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: AppTheme.background,
-                        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-                        border: Border.all(color: AppTheme.dark, width: 1.5),
-                      ),
-                      child: const Icon(
-                        Icons.arrow_forward_rounded,
-                        color: AppTheme.dark,
-                        size: 18,
-                      ),
-                    ),
-                    onTap: () => widget.onNavegar(e.ruta),
-                  ),
-                ),
-                const SizedBox(height: 12),
-              ],
+                ],
+              ),
               if (widget.onCerrarSesion != null) ...[
                 const SizedBox(height: 20),
                 ManiCard(
@@ -237,12 +249,12 @@ class _InicioPageState extends State<InicioPage> {
                   sombra: AppTheme.hardShadowSm,
                   child: ListTile(
                     key: const Key('inicio-cerrar-sesion'),
-                    leading: const Icon(Icons.logout, color: Colors.redAccent),
+                    leading: const Icon(Icons.logout, color: _rojoSesion),
                     title: const Text(
                       'Cerrar sesión',
                       style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: Colors.redAccent,
+                        fontWeight: FontWeight.w800,
+                        color: _rojoSesion,
                       ),
                     ),
                     subtitle: const Text(
@@ -250,7 +262,7 @@ class _InicioPageState extends State<InicioPage> {
                     ),
                     trailing: const Icon(
                       Icons.chevron_right,
-                      color: Colors.redAccent,
+                      color: _rojoSesion,
                     ),
                     onTap: () async {
                       await widget.onCerrarSesion!();
@@ -276,6 +288,41 @@ class _InicioPageState extends State<InicioPage> {
       case RolUsuario.desconocido:
         return 'Solo puedes consultar tu perfil por ahora.';
     }
+  }
+}
+
+/// Rojo de "Cerrar sesión": #B91C1C da 6.5:1 sobre blanco (WCAG AA), a
+/// diferencia de `Colors.redAccent`, que no llega a 4.5:1 para texto.
+const _rojoSesion = Color(0xFFB91C1C);
+
+/// Reparte las tarjetas de acceso en columnas de igual ancho según el espacio:
+/// tres desde 900 px, dos desde 560 px y una en móvil.
+class _RejillaAccesos extends StatelessWidget {
+  const _RejillaAccesos({required this.children});
+
+  final List<Widget> children;
+
+  static const _espacio = 16.0;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, c) {
+        final columnas = c.maxWidth >= 900
+            ? 3
+            : c.maxWidth >= 560
+            ? 2
+            : 1;
+        final ancho = (c.maxWidth - _espacio * (columnas - 1)) / columnas;
+        return Wrap(
+          spacing: _espacio,
+          runSpacing: _espacio,
+          children: [
+            for (final h in children) SizedBox(width: ancho, child: h),
+          ],
+        );
+      },
+    );
   }
 }
 
