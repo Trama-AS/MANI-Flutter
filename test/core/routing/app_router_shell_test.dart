@@ -151,6 +151,8 @@ const _rutasConSesion = {
   '/cliente/historial',
   '/aliado/historial',
   '/admin/politica-cancelacion',
+  // Mapa del catálogo geográfico (HU-M04-07).
+  '/catalogo/mapa',
 };
 
 class _GuardadorFalso implements GuardadorArchivo {
