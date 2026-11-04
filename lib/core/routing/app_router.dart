@@ -29,6 +29,7 @@ import 'package:mani/features/auth/presentation/pages/restablecer_contrasena_pag
 import 'package:mani/features/messaging/presentation/chat_cubit.dart';
 import 'package:mani/features/messaging/presentation/chat_page.dart';
 import 'package:mani/core/platform/guardador_archivo.dart';
+import 'package:mani/core/platform/selector_foto_perfil.dart';
 import 'package:mani/features/payments/data/cobros_datasource.dart';
 import 'package:mani/features/payments/presentation/cobros_aliado_page.dart';
 import 'package:mani/features/payments/presentation/pago_cubit.dart';
@@ -401,7 +402,10 @@ final appRouter = GoRouter(
         GoRoute(
           path: '/perfil/editar',
           name: 'editar-perfil',
-          builder: (context, state) => EditarPerfilPage(dataSource: sl()),
+          builder: (context, state) => EditarPerfilPage(
+            dataSource: sl(),
+            selectorImagen: seleccionarFotoPerfil,
+          ),
         ),
         // Gestión de múltiples sedes del cliente empresa (US-02.2.2 /
         // SCRUM-852, SCRUM-1387). Core resuelve el cliente por el token.
