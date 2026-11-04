@@ -256,10 +256,7 @@ class AppTheme {
           side: const BorderSide(color: primary, width: 2),
         ),
       ),
-      dividerTheme: const DividerThemeData(
-        color: dark,
-        thickness: 1.5,
-      ),
+      dividerTheme: const DividerThemeData(color: dark, thickness: 1.5),
     );
   }
 }

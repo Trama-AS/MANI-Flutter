@@ -18,21 +18,31 @@ const _todosLosRoles = {
 /// Roles que pueden abrir cada prefijo de ruta con sesión (US-11.2.2 /
 /// SCRUM-1445). El orden importa: gana el primer prefijo que coincide.
 ///
-/// El rol [RolUsuario.adminTenant] tiene acceso completo de prueba y supervisión
-/// a todas las rutas de cliente, aliado y administración de su tenant.
-/// Core y Dispatch siguen respondiendo 403 con el token verificado (T4, T7)
-/// cuando una operación requiera una condición específica de identidad.
+/// - El administrador del tenant ([RolUsuario.adminTenant]) solo abre la
+///   administración de su empresa: ni pantallas de cliente o aliado ni las de
+///   la plataforma.
+/// - El administrador de plataforma ([RolUsuario.adminPlataforma]) abre todas:
+///   la administración de tenants y las de administración, cliente y aliado.
+///
+/// Esto evita que la app pinte una pantalla que no le corresponde al rol; no
+/// es la autorización. Core y Dispatch siguen respondiendo 403 con el token
+/// verificado (T4, T7), y esa es la barrera que cuenta.
 const _rolesPorPrefijo = <String, Set<RolUsuario>>{
   rutaInicio: _todosLosRoles,
-  '/admin/': {RolUsuario.adminTenant},
+  '/admin/': {RolUsuario.adminTenant, RolUsuario.adminPlataforma},
   // Administración global de tenants (SCRUM-901): solo el permiso de plataforma.
   '/plataforma/': {RolUsuario.adminPlataforma},
-  '/aliado/': {RolUsuario.aliado, RolUsuario.adminTenant},
-  '/categories': {RolUsuario.aliado, RolUsuario.adminTenant},
-  '/cliente/': {RolUsuario.cliente, RolUsuario.adminTenant},
+  '/aliado/': {RolUsuario.aliado, RolUsuario.adminPlataforma},
+  '/categories': {RolUsuario.aliado, RolUsuario.adminPlataforma},
+  '/cliente/': {RolUsuario.cliente, RolUsuario.adminPlataforma},
   // El cliente configura las reglas de su sitio y el aliado las consulta
   // antes de programar (US-02.2.3).
-  '/sitios/': {RolUsuario.cliente, RolUsuario.aliado, RolUsuario.adminTenant},
+  '/sitios/': {
+    RolUsuario.cliente,
+    RolUsuario.aliado,
+    RolUsuario.adminTenant,
+    RolUsuario.adminPlataforma,
+  },
   '/perfil/': _todosLosRoles,
 };
 

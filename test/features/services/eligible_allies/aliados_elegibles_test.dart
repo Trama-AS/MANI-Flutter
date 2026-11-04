@@ -432,11 +432,12 @@ void main() {
   });
 
   group('SCRUM-1401 · acceso', () {
-    test('cliente y admin (para pruebas) pueden abrir la ruta de elegibles', () {
+    test('el cliente y el admin de plataforma abren la ruta de elegibles', () {
       const ruta = '/cliente/solicitudes/sol-1/aliados';
       expect(rolPuedeAbrir(RolUsuario.cliente, ruta), isTrue);
       expect(rolPuedeAbrir(RolUsuario.aliado, ruta), isFalse);
-      expect(rolPuedeAbrir(RolUsuario.adminTenant, ruta), isTrue);
+      expect(rolPuedeAbrir(RolUsuario.adminTenant, ruta), isFalse);
+      expect(rolPuedeAbrir(RolUsuario.adminPlataforma, ruta), isTrue);
     });
 
     testWidgets('«Ver aliados» solo aparece en las solicitudes pendientes', (

@@ -140,21 +140,42 @@ void main() {
       },
     );
 
-    test(
-      'admin del tenant ve administración y módulos de pruebas de cliente y aliado',
-      () {
-        final r = rutas(RolUsuario.adminTenant);
-        expect(
-          r,
-          containsAll([
-            '/admin/verificacion-aliados',
-            '/admin/categorias',
-            '/aliado/solicitudes',
-            '/cliente/solicitudes',
-          ]),
-        );
-      },
-    );
+    test('admin del tenant ve solo la administración de su empresa', () {
+      final r = rutas(RolUsuario.adminTenant);
+      expect(
+        r,
+        containsAll(['/admin/verificacion-aliados', '/admin/categorias']),
+      );
+      expect(
+        r.where(
+          (x) =>
+              x.startsWith('/aliado/') ||
+              x.startsWith('/cliente/') ||
+              x.startsWith('/plataforma/') ||
+              x == '/categories',
+        ),
+        isEmpty,
+      );
+    });
+
+    test('admin de plataforma ve tenants y todas las pantallas', () {
+      final r = rutas(RolUsuario.adminPlataforma);
+      expect(
+        r,
+        containsAll({
+          '/plataforma/tenants',
+          ...rutas(RolUsuario.adminTenant),
+          ...rutas(RolUsuario.cliente),
+          ...rutas(RolUsuario.aliado),
+        }),
+      );
+      // Las de cliente y aliado llevan el rol en la etiqueta.
+      final etiquetas = entradasMenuPara(
+        RolUsuario.adminPlataforma,
+      ).map((e) => e.etiqueta);
+      expect(etiquetas, contains('Mis solicitudes (Cliente)'));
+      expect(etiquetas, contains('Cobertura (Aliado)'));
+    });
 
     test(
       'SCRUM-1376: el registro de empleados está en el menú del admin, que es quien lo hace en Core, y no en el del aliado',

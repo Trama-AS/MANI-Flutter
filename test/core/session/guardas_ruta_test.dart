@@ -60,23 +60,41 @@ void main() {
       expect(_redirigir('/cliente/sedes', rol: RolUsuario.aliado), rutaInicio);
     });
 
-    test('el admin puede abrir todas las rutas para pruebas (cliente, aliado, admin)', () {
-      expect(
-        _redirigir('/aliado/cobertura', rol: RolUsuario.adminTenant),
-        isNull,
-      );
-      expect(
-        _redirigir('/categories', rol: RolUsuario.adminTenant),
-        isNull,
-      );
-      expect(
-        _redirigir('/cliente/solicitudes', rol: RolUsuario.adminTenant),
-        isNull,
-      );
-      expect(
-        _redirigir('/cliente/sedes', rol: RolUsuario.adminTenant),
-        isNull,
-      );
+    test('el admin del tenant solo abre la administración de su empresa', () {
+      for (final ruta in [
+        '/aliado/cobertura',
+        '/categories',
+        '/cliente/solicitudes',
+        '/cliente/sedes',
+        '/plataforma/tenants',
+      ]) {
+        expect(
+          _redirigir(ruta, rol: RolUsuario.adminTenant),
+          rutaInicio,
+          reason: ruta,
+        );
+      }
+      expect(_redirigir('/admin/quejas', rol: RolUsuario.adminTenant), isNull);
+    });
+
+    test('el admin de plataforma abre todas las pantallas', () {
+      for (final ruta in [
+        '/plataforma/tenants',
+        '/admin/quejas',
+        '/admin/categorias',
+        '/aliado/cobertura',
+        '/categories',
+        '/cliente/solicitudes',
+        '/cliente/sedes',
+        '/sitios/s-1/reglas',
+        '/perfil/editar',
+      ]) {
+        expect(
+          _redirigir(ruta, rol: RolUsuario.adminPlataforma),
+          isNull,
+          reason: ruta,
+        );
+      }
     });
 
     test('sin rol reconocible solo se llega al inicio y al perfil', () {
