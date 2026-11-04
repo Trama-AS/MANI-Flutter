@@ -20,7 +20,14 @@ class CalificacionServicio extends Equatable {
       solicitudId: (json['solicitudId'] as String?) ?? '',
       autorId: (json['autorId'] as String?) ?? '',
       destinatarioId: (json['destinatarioId'] as String?) ?? '',
-      rolAutor: (json['rolAutor'] as String?) ?? '',
+      // Core informa la dirección (CLIENTE_A_ALIADO / ALIADO_A_CLIENTE), no el rol.
+      rolAutor:
+          (json['rolAutor'] as String?) ??
+          switch (json['direccion']) {
+            'CLIENTE_A_ALIADO' => 'CLIENT',
+            'ALIADO_A_CLIENTE' => 'ALLY',
+            _ => '',
+          },
       puntaje: (json['puntaje'] as num?)?.toInt() ?? 0,
       comentario: json['comentario'] as String?,
       creadaEn:
@@ -68,17 +75,25 @@ class EstadoCierreSolicitud extends Equatable {
 
   factory EstadoCierreSolicitud.fromJson(Map<String, dynamic> json) {
     final pendientesRaw = json['pendientes'];
+    final estado = (json['estadoSolicitud'] as String?) ?? 'COMPLETADA';
+    // Core: calificacionClienteRegistrada / calificacionAliadoRegistrada.
+    final cliente =
+        json['tieneCalificacionCliente'] == true ||
+        json['calificacionClienteRegistrada'] == true;
+    final aliado =
+        json['tieneCalificacionAliado'] == true ||
+        json['calificacionAliadoRegistrada'] == true;
     return EstadoCierreSolicitud(
-      cerrada: json['cerrada'] == true,
-      estadoSolicitud: (json['estadoSolicitud'] as String?) ?? 'COMPLETADA',
+      cerrada: json['cerrada'] == true || estado.toUpperCase() == 'CERRADA',
+      estadoSolicitud: estado,
       cerradaEn: json['cerradaEn'] is String
           ? DateTime.tryParse(json['cerradaEn'] as String)?.toLocal()
           : null,
-      tieneCalificacionCliente: json['tieneCalificacionCliente'] == true,
-      tieneCalificacionAliado: json['tieneCalificacionAliado'] == true,
+      tieneCalificacionCliente: cliente,
+      tieneCalificacionAliado: aliado,
       pendientes: pendientesRaw is List
           ? pendientesRaw.whereType<String>().toList(growable: false)
-          : const [],
+          : [if (!cliente) 'CLIENTE', if (!aliado) 'ALIADO'],
     );
   }
 
@@ -131,20 +146,31 @@ class ResumenCalificacionesSolicitud extends Equatable {
     final cierreMap = json['cierre'] is Map
         ? Map<String, dynamic>.from(json['cierre'] as Map)
         : const <String, dynamic>{};
+    // Core responde `calificaciones.clienteAlAliado` / `aliadoAlCliente` y el
+    // estado de la solicitud dentro de `cierre.estadoSolicitud`.
+    CalificacionServicio? leer(List<String> claves) {
+      for (final c in claves) {
+        if (califs[c] is Map) {
+          return CalificacionServicio.fromJson(
+            Map<String, dynamic>.from(califs[c] as Map),
+          );
+        }
+      }
+      return null;
+    }
+
     return ResumenCalificacionesSolicitud(
-      solicitudId: (json['solicitudId'] as String?) ?? '',
-      estado: (json['estado'] as String?) ?? '',
+      solicitudId:
+          (json['solicitudId'] as String?) ??
+          (cierreMap['solicitudId'] as String?) ??
+          '',
+      estado:
+          (json['estado'] as String?) ??
+          (cierreMap['estadoSolicitud'] as String?) ??
+          '',
       cierre: EstadoCierreSolicitud.fromJson(cierreMap),
-      clienteAAliado: califs['clienteAAliado'] is Map
-          ? CalificacionServicio.fromJson(
-              Map<String, dynamic>.from(califs['clienteAAliado'] as Map),
-            )
-          : null,
-      aliadoACliente: califs['aliadoACliente'] is Map
-          ? CalificacionServicio.fromJson(
-              Map<String, dynamic>.from(califs['aliadoACliente'] as Map),
-            )
-          : null,
+      clienteAAliado: leer(['clienteAlAliado', 'clienteAAliado']),
+      aliadoACliente: leer(['aliadoAlCliente', 'aliadoACliente']),
     );
   }
 
@@ -223,6 +249,14 @@ class CalificacionAgregadaAliado extends Equatable {
 }
 
 /// Vista previa de penalización por cancelación tardía (SCRUM-878).
+/// Estados en los que Core ya no admite cancelar (SCRUM-877).
+const _estadosNoCancelables = {
+  'CANCELADA',
+  'EN_EJECUCION',
+  'FINALIZADA',
+  'CERRADA',
+};
+
 class VistaPreviaPenalizacion extends Equatable {
   const VistaPreviaPenalizacion({
     required this.solicitudId,
@@ -236,6 +270,22 @@ class VistaPreviaPenalizacion extends Equatable {
   });
 
   factory VistaPreviaPenalizacion.fromJson(Map<String, dynamic> json) {
+    // Forma que responde Core en GET /solicitudes/me/{id}/cancelacion-preview
+    // (calculoPenalizacionCancelacion.js): campos planos dentro de `penalizacion`,
+    // con `razon` y sin `cancelable`.
+    if (json.containsKey('aplicaPenalizacion')) {
+      final estado = (json['estadoActual'] as String?) ?? '';
+      return VistaPreviaPenalizacion(
+        solicitudId: (json['solicitudId'] as String?) ?? '',
+        estadoActual: estado,
+        cancelable: !_estadosNoCancelables.contains(estado.toUpperCase()),
+        aplicaPenalizacion: json['aplicaPenalizacion'] == true,
+        montoPenalizacion: (json['montoPenalizacion'] as num?)?.toDouble() ?? 0,
+        motivoPenalizacion: json['razon'] as String?,
+        modoCalculo: json['tipoCobro'] as String?,
+        politicaActiva: json['politicaActiva'] == true,
+      );
+    }
     final pen = json['penalizacion'] is Map
         ? Map<String, dynamic>.from(json['penalizacion'] as Map)
         : const <String, dynamic>{};
@@ -319,14 +369,21 @@ class RegistroHistorialServicio extends Equatable {
     Map<String, dynamic> json, {
     required String categoriaPorDefecto,
     required String? nombreContraparte,
-    required String claveEmitida,
-    required String claveRecibida,
+    // (clave de Core, clave anterior)
+    required (String, String) claveEmitida,
+    required (String, String) claveRecibida,
   }) {
-    final pen = json['penalizacion'] is Map
-        ? Map<String, dynamic>.from(json['penalizacion'] as Map)
+    // El historial del aliado trae `penalizacionCancelacion` y `valorCotizado`; la
+    // zona viene en `zonaDeclarada` en ambos historiales.
+    final penRaw = json['penalizacion'] ?? json['penalizacionCancelacion'];
+    final pen = penRaw is Map
+        ? Map<String, dynamic>.from(penRaw)
         : const <String, dynamic>{};
     final califs = json['calificaciones'] is Map
         ? Map<String, dynamic>.from(json['calificaciones'] as Map)
+        : const <String, dynamic>{};
+    final zonaDeclarada = json['zonaDeclarada'] is Map
+        ? Map<String, dynamic>.from(json['zonaDeclarada'] as Map)
         : const <String, dynamic>{};
     return RegistroHistorialServicio(
       id: (json['id'] as String?) ?? '',
@@ -335,14 +392,24 @@ class RegistroHistorialServicio extends Equatable {
       categoria: (json['categoria'] as String?) ?? categoriaPorDefecto,
       descripcion: (json['descripcion'] as String?) ?? '',
       direccion: (json['direccion'] as String?) ?? '',
-      zona: (json['zona'] as String?) ?? '',
-      zonaPadre: json['zonaPadre'] as String?,
+      zona:
+          (json['zona'] as String?) ??
+          (zonaDeclarada['nombre'] as String?) ??
+          '',
+      zonaPadre:
+          (json['zonaPadre'] as String?) ??
+          (zonaDeclarada['zonaPadre'] as String?),
       nombreContraparte: nombreContraparte,
-      valorTotal: (json['valorTotal'] as num?)?.toDouble(),
+      valorTotal: ((json['valorTotal'] ?? json['valorCotizado']) as num?)
+          ?.toDouble(),
       penalizacionAplicada: pen['aplicada'] == true,
       penalizacionMonto: (pen['monto'] as num?)?.toDouble() ?? 0,
-      calificacionEmitida: _leerCalificacion(califs, claveEmitida),
-      calificacionRecibida: _leerCalificacion(califs, claveRecibida),
+      calificacionEmitida:
+          _leerCalificacion(califs, claveEmitida.$1) ??
+          _leerCalificacion(califs, claveEmitida.$2),
+      calificacionRecibida:
+          _leerCalificacion(califs, claveRecibida.$1) ??
+          _leerCalificacion(califs, claveRecibida.$2),
       creadaEn:
           DateTime.tryParse((json['creadaEn'] as String?) ?? '')?.toLocal() ??
           DateTime.fromMillisecondsSinceEpoch(0),
@@ -362,8 +429,8 @@ class RegistroHistorialServicio extends Equatable {
       json,
       categoriaPorDefecto: 'Servicio',
       nombreContraparte: aliado?['nombreRazonSocial'] as String?,
-      claveEmitida: 'emitidaAlAliado',
-      claveRecibida: 'recibidaDelAliado',
+      claveEmitida: ('clienteAlAliado', 'emitidaAlAliado'),
+      claveRecibida: ('aliadoAlCliente', 'recibidaDelAliado'),
     );
   }
 
@@ -377,8 +444,8 @@ class RegistroHistorialServicio extends Equatable {
       json,
       categoriaPorDefecto: 'Trabajo',
       nombreContraparte: cliente?['nombre'] as String?,
-      claveEmitida: 'emitidaAlCliente',
-      claveRecibida: 'recibidaDelCliente',
+      claveEmitida: ('aliadoAlCliente', 'emitidaAlCliente'),
+      claveRecibida: ('clienteAlAliado', 'recibidaDelCliente'),
     );
   }
 
