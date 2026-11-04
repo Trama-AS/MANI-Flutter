@@ -41,6 +41,11 @@ void main() {
     final casos = <String, CategoriesErrorTipo>{
       'MANI-CAT-401: sesión requerida': CategoriesErrorTipo.sinSesion,
       'MANI-CAT-403: solo un aliado activo': CategoriesErrorTipo.noEsAliado,
+      // SCRUM-1392 C2: Core usa el mismo código cuando el aliado existe pero su
+      // verificación no está aprobada.
+      'MANI-CAT-403: la verificación del aliado debe estar aprobada para '
+              'declarar categorías':
+          CategoriesErrorTipo.noEsAliado,
       'MANI-CAT-422V: selecciona al menos una categoría':
           CategoriesErrorTipo.seleccionVacia,
       'MANI-CAT-422C: categoría no disponible':
@@ -63,6 +68,18 @@ void main() {
         );
       });
     }
+
+    // SCRUM-1392 C2: Core agrupa bajo MANI-CAT-403 dos casos — quien pide no es
+    // aliado de este tenant, y es un aliado sin la verificación aprobada. El
+    // mensaje al usuario tiene que ser cierto en los dos.
+    test('el mensaje del 403 no afirma que baste con ser aliado', () {
+      const falla = CategoriesFailure(CategoriesErrorTipo.noEsAliado);
+      expect(falla.mensajeUsuario, contains('verificación aprobada'));
+      expect(
+        falla.mensajeUsuario,
+        isNot('Solo los aliados pueden declarar las categorías que atienden.'),
+      );
+    });
 
     test('sin red -> sinConexion', () async {
       ds.error = Exception('SocketException: Failed host lookup');

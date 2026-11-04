@@ -120,20 +120,24 @@ void main() {
       expect(r.any((x) => x.startsWith('/admin')), isFalse);
     });
 
-    test('aliado ve bandeja, cobertura, categorías y disponibilidad', () {
-      final r = rutas(RolUsuario.aliado);
-      expect(
-        r,
-        containsAll([
-          '/aliado/solicitudes',
-          '/aliado/cobertura',
-          '/categories',
-          '/aliado/disponibilidad',
-        ]),
-      );
-      expect(r.any((x) => x.startsWith('/admin')), isFalse);
-      expect(r.any((x) => x.startsWith('/cliente')), isFalse);
-    });
+    test(
+      'aliado ve bandeja, cobertura, categorías, cobros y disponibilidad',
+      () {
+        final r = rutas(RolUsuario.aliado);
+        expect(
+          r,
+          containsAll([
+            '/aliado/solicitudes',
+            '/aliado/cobertura',
+            '/categories',
+            '/aliado/cobros',
+            '/aliado/disponibilidad',
+          ]),
+        );
+        expect(r.any((x) => x.startsWith('/admin')), isFalse);
+        expect(r.any((x) => x.startsWith('/cliente')), isFalse);
+      },
+    );
 
     test('admin del tenant ve verificación y catálogo de categorías', () {
       final r = rutas(RolUsuario.adminTenant);
@@ -295,6 +299,30 @@ void main() {
       await tester.pumpAndSettle();
       expect(destino, '/cliente/sedes');
     });
+
+    testWidgets(
+      'en móvil el menú desplegable incluye cerrar sesión y ejecuta onCerrarSesion',
+      (tester) async {
+        var cerro = false;
+        await _montar(
+          tester,
+          ancho: 390,
+          rol: RolUsuario.cliente,
+          onCerrarSesion: () async => cerro = true,
+        );
+
+        await tester.tap(find.byKey(const Key('menu-compacto')));
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const Key('menu-compacto-cerrar-sesion')),
+          findsOneWidget,
+        );
+
+        await tester.tap(find.byKey(const Key('menu-compacto-cerrar-sesion')));
+        await tester.pumpAndSettle();
+        expect(cerro, isTrue);
+      },
+    );
 
     testWidgets('si Core no responde, el menú sigue usable con el rol', (
       tester,

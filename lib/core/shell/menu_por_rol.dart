@@ -72,6 +72,11 @@ List<EntradaMenu> entradasMenuPara(RolUsuario rol) {
           ruta: '/categories',
         ),
         EntradaMenu(
+          etiqueta: 'Mis cobros',
+          icono: Icons.payments_outlined,
+          ruta: '/aliado/cobros',
+        ),
+        EntradaMenu(
           etiqueta: 'Disponibilidad',
           icono: Icons.event_busy_outlined,
           ruta: '/aliado/disponibilidad',
@@ -95,6 +100,17 @@ List<EntradaMenu> entradasMenuPara(RolUsuario rol) {
           etiqueta: 'Categorías',
           icono: Icons.category_outlined,
           ruta: '/admin/categorias',
+        ),
+        // Tarifario y cotizaciones fuera de rango (M-10: SCRUM-885 y 887).
+        EntradaMenu(
+          etiqueta: 'Tarifario',
+          icono: Icons.price_change_outlined,
+          ruta: '/admin/tarifas',
+        ),
+        EntradaMenu(
+          etiqueta: 'Fuera de rango',
+          icono: Icons.report_outlined,
+          ruta: '/admin/reportes/cotizaciones-fuera-de-rango',
         ),
         _miPerfil,
       ];
