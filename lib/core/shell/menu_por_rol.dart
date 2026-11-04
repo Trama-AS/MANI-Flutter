@@ -33,6 +33,13 @@ const _miPerfil = EntradaMenu(
   ruta: '/perfil/editar',
 );
 
+/// Consulta del catálogo geográfico (HU-M04-07), para los tres roles.
+const _mapaZonas = EntradaMenu(
+  etiqueta: 'Mapa de zonas',
+  icono: Icons.map_outlined,
+  ruta: '/catalogo/mapa',
+);
+
 /// Pantallas del cliente.
 const _entradasCliente = [
   EntradaMenu(
@@ -45,11 +52,19 @@ const _entradasCliente = [
     icono: Icons.list_alt_outlined,
     ruta: '/cliente/solicitudes',
   ),
+  // Historial de servicios (SCRUM-879).
+  EntradaMenu(
+    etiqueta: 'Historial',
+    icono: Icons.history,
+    ruta: '/cliente/historial',
+  ),
   EntradaMenu(
     etiqueta: 'Mis sedes',
     icono: Icons.apartment_outlined,
     ruta: '/cliente/sedes',
   ),
+  // El cliente ubica sus propias sedes en el catálogo geográfico (HU-M04-07).
+  _mapaZonas,
   // Quejas del cliente (SCRUM-895).
   EntradaMenu(
     etiqueta: 'Mis quejas',
@@ -65,11 +80,20 @@ const _entradasAliado = [
     icono: Icons.inbox_outlined,
     ruta: '/aliado/solicitudes',
   ),
+  // Historial de trabajos (SCRUM-880).
+  EntradaMenu(
+    etiqueta: 'Historial',
+    icono: Icons.history,
+    ruta: '/aliado/historial',
+  ),
   EntradaMenu(
     etiqueta: 'Cobertura',
-    icono: Icons.map_outlined,
+    icono: Icons.checklist_outlined,
     ruta: '/aliado/cobertura',
   ),
+  // El aliado ve resaltada la cobertura que ya declaró; la cambia en
+  // «Cobertura», por lista y hasta localidad (HU-M04-07).
+  _mapaZonas,
   EntradaMenu(
     etiqueta: 'Categorías',
     icono: Icons.category_outlined,
@@ -99,6 +123,12 @@ const _entradasAdminTenant = [
     etiqueta: 'Categorías',
     icono: Icons.category_outlined,
     ruta: '/admin/categorias',
+  ),
+  // Política de cancelación tardía (SCRUM-878).
+  EntradaMenu(
+    etiqueta: 'Cancelaciones',
+    icono: Icons.event_busy_outlined,
+    ruta: '/admin/politica-cancelacion',
   ),
   // Tarifario y cotizaciones fuera de rango (M-10: SCRUM-885 y 887).
   EntradaMenu(
@@ -145,6 +175,8 @@ const _entradasAdminTenant = [
     icono: Icons.insights_outlined,
     ruta: '/admin/metricas',
   ),
+  // Límites de zonas y barrios del catálogo; no declara cobertura (HU-M04-07).
+  _mapaZonas,
 ];
 
 // Administración de la plataforma (SCRUM-901).

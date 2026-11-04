@@ -246,48 +246,50 @@ class _BarraAcciones extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(
-                        minWidth: 120,
-                        maxWidth: 160,
-                      ),
-                      child: ManiButton(
-                        key: const ValueKey('btn-atras'),
-                        etiqueta: 'Atrás',
-                        icono: Icons.arrow_back_rounded,
-                        variante: ManiButtonVariante.secundario,
-                        expandir: true,
-                        onPressed: state.publicando ? null : cubit.anterior,
+                    // Flexible: en un teléfono los dos botones comparten el
+                    // ancho sin desbordar; en escritorio llegan a su máximo.
+                    Flexible(
+                      flex: 2,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 160),
+                        child: ManiButton(
+                          key: const ValueKey('btn-atras'),
+                          etiqueta: 'Atrás',
+                          icono: Icons.arrow_back_rounded,
+                          variante: ManiButtonVariante.secundario,
+                          expandir: true,
+                          onPressed: state.publicando ? null : cubit.anterior,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 16),
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(
-                        minWidth: 160,
-                        maxWidth: 260,
+                    Flexible(
+                      flex: 3,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 260),
+                        child: esRevision
+                            ? ManiButton(
+                                key: const ValueKey('btn-publicar'),
+                                etiqueta: state.publicando
+                                    ? 'Publicando…'
+                                    : 'Publicar solicitud',
+                                icono: Icons.campaign_rounded,
+                                expandir: true,
+                                cargando: state.publicando,
+                                onPressed: state.puedeAvanzar
+                                    ? cubit.publicar
+                                    : null,
+                              )
+                            : ManiButton(
+                                key: const ValueKey('btn-continuar'),
+                                etiqueta: 'Continuar',
+                                icono: Icons.arrow_forward_rounded,
+                                expandir: true,
+                                onPressed: state.puedeAvanzar
+                                    ? cubit.siguiente
+                                    : null,
+                              ),
                       ),
-                      child: esRevision
-                          ? ManiButton(
-                              key: const ValueKey('btn-publicar'),
-                              etiqueta: state.publicando
-                                  ? 'Publicando…'
-                                  : 'Publicar solicitud',
-                              icono: Icons.campaign_rounded,
-                              expandir: true,
-                              cargando: state.publicando,
-                              onPressed: state.puedeAvanzar
-                                  ? cubit.publicar
-                                  : null,
-                            )
-                          : ManiButton(
-                              key: const ValueKey('btn-continuar'),
-                              etiqueta: 'Continuar',
-                              icono: Icons.arrow_forward_rounded,
-                              expandir: true,
-                              onPressed: state.puedeAvanzar
-                                  ? cubit.siguiente
-                                  : null,
-                            ),
                     ),
                   ],
                 ),

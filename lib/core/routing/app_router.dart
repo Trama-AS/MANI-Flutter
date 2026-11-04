@@ -31,6 +31,7 @@ import 'package:mani/features/auth/presentation/pages/restablecer_contrasena_pag
 import 'package:mani/features/messaging/presentation/chat_cubit.dart';
 import 'package:mani/features/messaging/presentation/chat_page.dart';
 import 'package:mani/core/platform/guardador_archivo.dart';
+import 'package:mani/core/platform/selector_foto_perfil.dart';
 import 'package:mani/features/payments/data/cobros_datasource.dart';
 import 'package:mani/features/payments/presentation/cobros_aliado_page.dart';
 import 'package:mani/features/payments/presentation/pago_cubit.dart';
@@ -39,6 +40,8 @@ import 'package:mani/features/auth/presentation/pages/registro_aliado_page.dart'
 import 'package:mani/features/auth/presentation/pages/registro_aliado_empresa_page.dart';
 import 'package:mani/features/availability/presentation/pages/disponibilidad_page.dart';
 import 'package:mani/features/profile_categories/presentation/pages/categories_page.dart';
+import 'package:mani/features/catalog/map/presentation/bloc/mapa_cubit.dart';
+import 'package:mani/features/catalog/map/presentation/pages/mapa_zonas_page.dart';
 import 'package:mani/features/profiles/coverage/presentation/pages/declarar_cobertura_page.dart';
 import 'package:mani/features/profiles/verification/presentation/bloc/bandeja_verificacion_cubit.dart';
 import 'package:mani/features/profiles/verification/presentation/pages/bandeja_verificacion_page.dart';
@@ -290,6 +293,7 @@ Widget _pantallaServicio(
 ///   cotización, ejecución y bitácora (US-04.2.1 a US-04.3.3)
 /// - `/admin/verificacion-aliados`: Bandeja de verificación del admin del tenant (US-02.1.3)
 /// - `/admin/categorias`: Catálogo de categorías de servicio del tenant (US-03.1.1)
+/// - `/catalogo/mapa`: Mapa de zonas y barrios del catálogo, sin GPS en vivo (HU-M04-07)
 ///
 /// El `redirect` protege cualquier ruta que no esté en `_publicPaths`: sin
 /// sesión activa en Supabase el usuario va a `/login`, y con sesión una ruta
@@ -459,7 +463,10 @@ final appRouter = GoRouter(
         GoRoute(
           path: '/perfil/editar',
           name: 'editar-perfil',
-          builder: (context, state) => EditarPerfilPage(dataSource: sl()),
+          builder: (context, state) => EditarPerfilPage(
+            dataSource: sl(),
+            selectorImagen: seleccionarFotoPerfil,
+          ),
         ),
         // Gestión de múltiples sedes del cliente empresa (US-02.2.2 /
         // SCRUM-852, SCRUM-1387). Core resuelve el cliente por el token.
@@ -754,6 +761,14 @@ final appRouter = GoRouter(
         ),
         // Catálogo de categorías de servicio (US-03.1.1). Las RPC exigen rol
         // ADMIN_TENANT; el tenant sale de la sesión, nunca de la app.
+        GoRoute(
+          path: '/catalogo/mapa',
+          name: 'catalogo-mapa',
+          builder: (context, state) => BlocProvider(
+            create: (_) => sl<MapaCubit>()..cargar(),
+            child: const MapaZonasPage(),
+          ),
+        ),
         GoRoute(
           path: '/admin/categorias',
           name: 'categorias',

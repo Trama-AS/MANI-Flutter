@@ -340,6 +340,13 @@ void main() {
         final cardSesion = find.byKey(const Key('inicio-card-sesion'));
         await tester.scrollUntilVisible(cardSesion, 200);
         expect(cardSesion, findsOneWidget);
+        // La pantalla pinta una tarjeta por entrada del menú del rol, así que
+        // al crecer el menú el botón queda por debajo del pliegue y un toque
+        // a ciegas no aterriza. Se asegura la visibilidad antes de tocar.
+        await tester.ensureVisible(
+          find.byKey(const Key('inicio-cerrar-sesion')),
+        );
+        await tester.pumpAndSettle();
         await tester.tap(find.byKey(const Key('inicio-cerrar-sesion')));
         await tester.pumpAndSettle();
         expect(cerro, isTrue);
