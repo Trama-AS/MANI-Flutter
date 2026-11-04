@@ -53,6 +53,12 @@ List<EntradaMenu> entradasMenuPara(RolUsuario rol) {
           icono: Icons.list_alt_outlined,
           ruta: '/cliente/solicitudes',
         ),
+        // Historial de servicios (SCRUM-879).
+        EntradaMenu(
+          etiqueta: 'Historial',
+          icono: Icons.history,
+          ruta: '/cliente/historial',
+        ),
         EntradaMenu(
           etiqueta: 'Mis sedes',
           icono: Icons.apartment_outlined,
@@ -68,6 +74,12 @@ List<EntradaMenu> entradasMenuPara(RolUsuario rol) {
           etiqueta: 'Solicitudes',
           icono: Icons.inbox_outlined,
           ruta: '/aliado/solicitudes',
+        ),
+        // Historial de trabajos (SCRUM-880).
+        EntradaMenu(
+          etiqueta: 'Historial',
+          icono: Icons.history,
+          ruta: '/aliado/historial',
         ),
         EntradaMenu(
           etiqueta: 'Cobertura',
@@ -104,6 +116,12 @@ List<EntradaMenu> entradasMenuPara(RolUsuario rol) {
           etiqueta: 'Categorías',
           icono: Icons.category_outlined,
           ruta: '/admin/categorias',
+        ),
+        // Política de cancelación tardía (SCRUM-878).
+        EntradaMenu(
+          etiqueta: 'Cancelaciones',
+          icono: Icons.event_busy_outlined,
+          ruta: '/admin/politica-cancelacion',
         ),
         // Tarifario y cotizaciones fuera de rango (M-10: SCRUM-885 y 887).
         EntradaMenu(
