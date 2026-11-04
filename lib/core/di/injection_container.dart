@@ -1,6 +1,9 @@
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:get_it/get_it.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:mani/features/audit/data/auditoria_datasource.dart';
+import 'package:mani/features/conversation_review/data/conversacion_queja_datasource.dart';
+import 'package:mani/features/notifications/data/avisos_datasource.dart';
 import 'package:mani/core/network/gateway_client.dart';
 import 'package:mani/core/session/sesion_expirada.dart';
 import 'package:mani/core/shell/datos_sesion.dart';
@@ -284,6 +287,13 @@ Future<void> init() async {
   // Mensajería cliente-aliado (HU-M09-02 / SCRUM-881), por el Gateway a Core. El
   // Cubit se crea por solicitud en la ruta y consulta cada pocos segundos.
   sl.registerLazySingleton<FuenteMensajes>(() => GatewayFuenteMensajes(sl()));
+  // SCRUM-882/884 (bandeja de avisos), SCRUM-889 (auditoría) y SCRUM-883
+  // (conversación de una queja): lecturas por el Gateway; el rol lo decide Core.
+  sl.registerLazySingleton<FuenteAvisos>(() => GatewayFuenteAvisos(sl()));
+  sl.registerLazySingleton<FuenteAuditoria>(() => GatewayFuenteAuditoria(sl()));
+  sl.registerLazySingleton<FuenteConversacionQueja>(
+    () => GatewayFuenteConversacionQueja(sl()),
+  );
   // Ejecución del servicio (US-04.3.1 / SCRUM-868), en la misma pantalla.
   sl.registerLazySingleton<FuenteEjecucion>(() => GatewayFuenteEjecucion(sl()));
   // Adiciones por imprevisto (US-04.3.5 / SCRUM-872), en la misma pantalla.
