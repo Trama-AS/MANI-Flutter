@@ -26,6 +26,13 @@ const _rolesPorPrefijo = <String, Set<RolUsuario>>{
   '/aliado/': {RolUsuario.aliado},
   '/categories': {RolUsuario.aliado},
   '/cliente/': {RolUsuario.cliente},
+  // Consulta del catálogo geográfico (HU-M04-07), para los tres roles, con un
+  // motivo distinto cada uno: el admin administra las zonas del catálogo, el
+  // cliente ubica sus propias sedes y el aliado ve resaltada la cobertura que
+  // ya declaró. **Ninguno declara cobertura desde aquí:** este mapa solo
+  // muestra, y declarar es de `/aliado/cobertura`, por lista y hasta localidad
+  // (decisión del 04-nov-2026).
+  '/catalogo/': _todosLosRoles,
   // El cliente configura las reglas de su sitio y el aliado las consulta
   // antes de programar (US-02.2.3).
   '/sitios/': {RolUsuario.cliente, RolUsuario.aliado, RolUsuario.adminTenant},
