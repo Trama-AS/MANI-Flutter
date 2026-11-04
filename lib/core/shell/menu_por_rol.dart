@@ -58,6 +58,12 @@ List<EntradaMenu> entradasMenuPara(RolUsuario rol) {
           icono: Icons.apartment_outlined,
           ruta: '/cliente/sedes',
         ),
+        // Quejas del cliente (SCRUM-895).
+        EntradaMenu(
+          etiqueta: 'Mis quejas',
+          icono: Icons.feedback_outlined,
+          ruta: '/cliente/quejas',
+        ),
         _avisos,
         _miPerfil,
       ];
@@ -133,6 +139,23 @@ List<EntradaMenu> entradasMenuPara(RolUsuario rol) {
           icono: Icons.forum_outlined,
           ruta: '/admin/conversaciones',
         ),
+        // M-01 (SCRUM-1366).
+        EntradaMenu(
+          etiqueta: 'Reglas',
+          icono: Icons.rule_outlined,
+          ruta: '/admin/reglas',
+        ),
+        // M-12 (SCRUM-896 y 900).
+        EntradaMenu(
+          etiqueta: 'Quejas',
+          icono: Icons.support_agent_outlined,
+          ruta: '/admin/quejas',
+        ),
+        EntradaMenu(
+          etiqueta: 'Métricas',
+          icono: Icons.insights_outlined,
+          ruta: '/admin/metricas',
+        ),
         // Acceso completo de pruebas para el administrador (Cliente y Aliado)
         EntradaMenu(
           etiqueta: 'Nueva solicitud (Cliente)',
@@ -177,6 +200,16 @@ List<EntradaMenu> entradasMenuPara(RolUsuario rol) {
         _avisos,
         _miPerfil,
       ];
+    case RolUsuario.adminPlataforma:
+      return const [
+        _inicio,
+        EntradaMenu(
+          etiqueta: 'Tenants',
+          icono: Icons.domain_outlined,
+          ruta: '/plataforma/tenants',
+        ),
+        _miPerfil,
+      ];
     case RolUsuario.desconocido:
       return const [_inicio, _miPerfil];
   }
@@ -191,6 +224,8 @@ String etiquetaRol(RolUsuario rol) {
       return 'Aliado';
     case RolUsuario.adminTenant:
       return 'Administrador';
+    case RolUsuario.adminPlataforma:
+      return 'Administración de plataforma';
     case RolUsuario.desconocido:
       return 'Sin rol';
   }

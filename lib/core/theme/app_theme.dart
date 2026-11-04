@@ -59,6 +59,11 @@ class AppTheme {
 
     return ThemeData(
       useMaterial3: true,
+      // Familia de toda la app, no solo de `textTheme`: así `primaryTextTheme`,
+      // tooltips y cualquier texto sin estilo propio usan Plus Jakarta Sans y
+      // no caen en Roboto.
+      fontFamily: GoogleFonts.plusJakartaSans().fontFamily,
+      primaryTextTheme: GoogleFonts.plusJakartaSansTextTheme(),
       scaffoldBackgroundColor: background,
       colorScheme: const ColorScheme.light(
         primary: primary,
