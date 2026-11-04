@@ -20,6 +20,13 @@ const _inicio = EntradaMenu(
   ruta: '/inicio',
 );
 
+/// Bandeja de avisos (SCRUM-882 y 884): la ven todos los roles.
+const _avisos = EntradaMenu(
+  etiqueta: 'Avisos',
+  icono: Icons.notifications_none,
+  ruta: '/perfil/avisos',
+);
+
 const _miPerfil = EntradaMenu(
   etiqueta: 'Mi perfil',
   icono: Icons.person_outline,
@@ -51,6 +58,7 @@ List<EntradaMenu> entradasMenuPara(RolUsuario rol) {
           icono: Icons.apartment_outlined,
           ruta: '/cliente/sedes',
         ),
+        _avisos,
         _miPerfil,
       ];
     case RolUsuario.aliado:
@@ -81,11 +89,7 @@ List<EntradaMenu> entradasMenuPara(RolUsuario rol) {
           icono: Icons.event_busy_outlined,
           ruta: '/aliado/disponibilidad',
         ),
-        EntradaMenu(
-          etiqueta: 'Empleados',
-          icono: Icons.badge_outlined,
-          ruta: '/aliado/empleados/nuevo',
-        ),
+        _avisos,
         _miPerfil,
       ];
     case RolUsuario.adminTenant:
@@ -112,6 +116,24 @@ List<EntradaMenu> entradasMenuPara(RolUsuario rol) {
           icono: Icons.report_outlined,
           ruta: '/admin/reportes/cotizaciones-fuera-de-rango',
         ),
+        // Empleados directos (SCRUM-1376): los registra el administrador, como exige Core.
+        EntradaMenu(
+          etiqueta: 'Empleados',
+          icono: Icons.badge_outlined,
+          ruta: '/admin/empleados/nuevo',
+        ),
+        // Auditoría de transacciones (SCRUM-889) y conversación de una queja (SCRUM-883).
+        EntradaMenu(
+          etiqueta: 'Auditoría',
+          icono: Icons.fact_check_outlined,
+          ruta: '/admin/auditoria-transacciones',
+        ),
+        EntradaMenu(
+          etiqueta: 'Conversaciones',
+          icono: Icons.forum_outlined,
+          ruta: '/admin/conversaciones',
+        ),
+        _avisos,
         _miPerfil,
       ];
     case RolUsuario.desconocido:

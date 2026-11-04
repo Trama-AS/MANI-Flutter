@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:mani/core/network/gateway_client.dart';
+import 'package:mani/core/session/guardas_ruta.dart';
 import 'package:mani/core/session/rol_usuario.dart';
 import 'package:mani/core/shell/app_shell.dart';
 import 'package:mani/core/shell/datos_sesion.dart';
@@ -147,6 +148,71 @@ void main() {
       );
       expect(r.any((x) => x.startsWith('/aliado')), isFalse);
     });
+
+    test(
+      'SCRUM-1376: el registro de empleados está en el menú del admin, que es quien lo hace en Core, y no en el del aliado',
+      () {
+        expect(
+          rutas(RolUsuario.adminTenant),
+          contains('/admin/empleados/nuevo'),
+        );
+        expect(
+          rutas(RolUsuario.aliado),
+          isNot(contains('/aliado/empleados/nuevo')),
+        );
+        expect(
+          rutas(RolUsuario.aliado).any((x) => x.contains('empleados')),
+          isFalse,
+        );
+      },
+    );
+
+    test(
+      'SCRUM-889 y 883: el admin ve la auditoría y las conversaciones; nadie más',
+      () {
+        expect(
+          rutas(RolUsuario.adminTenant),
+          containsAll([
+            '/admin/auditoria-transacciones',
+            '/admin/conversaciones',
+          ]),
+        );
+        for (final rol in [RolUsuario.cliente, RolUsuario.aliado]) {
+          expect(
+            rutas(rol).any((x) => x.startsWith('/admin')),
+            isFalse,
+            reason: rol.name,
+          );
+          expect(rolPuedeAbrir(rol, '/admin/auditoria-transacciones'), isFalse);
+          expect(rolPuedeAbrir(rol, '/admin/conversaciones'), isFalse);
+        }
+        expect(
+          rolPuedeAbrir(
+            RolUsuario.adminTenant,
+            '/admin/auditoria-transacciones',
+          ),
+          isTrue,
+        );
+      },
+    );
+
+    test(
+      'SCRUM-882 y 884: todos los roles ven los avisos y pueden abrirlos',
+      () {
+        for (final rol in [
+          RolUsuario.cliente,
+          RolUsuario.aliado,
+          RolUsuario.adminTenant,
+        ]) {
+          expect(rutas(rol), contains('/perfil/avisos'), reason: rol.name);
+          expect(
+            rolPuedeAbrir(rol, '/perfil/avisos'),
+            isTrue,
+            reason: rol.name,
+          );
+        }
+      },
+    );
 
     test('todos los roles tienen inicio primero y acceso a su perfil', () {
       for (final rol in RolUsuario.values) {
