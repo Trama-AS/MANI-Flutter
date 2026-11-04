@@ -84,6 +84,9 @@ import 'package:mani/features/services/events/data/cola_eventos.dart';
 import 'package:mani/features/services/events/data/eventos_datasource.dart';
 import 'package:mani/core/session/tenant_sesion.dart';
 import 'package:mani/features/tariffs/data/tarifas_datasource.dart';
+import 'package:mani/features/complaints/data/quejas_datasource.dart';
+import 'package:mani/features/metrics/data/metricas_datasource.dart';
+import 'package:mani/features/platform/data/tenants_datasource.dart';
 
 final sl = GetIt.instance; // sl = service locator
 
@@ -279,6 +282,11 @@ Future<void> init() async {
   sl.registerLazySingleton<FuentePagos>(() => GatewayFuentePagos(sl()));
   // Tarifario de referencia (M-10: SCRUM-885, 886 y 887), por el Gateway a Core.
   sl.registerLazySingleton<FuenteTarifas>(() => GatewayFuenteTarifas(sl()));
+  // Quejas, métricas y tenants (M-12: SCRUM-895, 896, 900 y 901), por el
+  // Gateway a Core. Los Cubits se crean en cada ruta.
+  sl.registerLazySingleton<FuenteQuejas>(() => GatewayFuenteQuejas(sl()));
+  sl.registerLazySingleton<FuenteMetricas>(() => GatewayFuenteMetricas(sl()));
+  sl.registerLazySingleton<FuenteTenants>(() => GatewayFuenteTenants(sl()));
   sl.registerLazySingleton<FuenteCobros>(() => GatewayFuenteCobros(sl()));
   sl.registerLazySingleton<GuardadorArchivo>(
     () => const FilePickerGuardadorArchivo(),

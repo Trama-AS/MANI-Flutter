@@ -41,6 +41,7 @@ class GatewayResumenInicio implements FuenteResumenInicio {
         return _aliado();
       case RolUsuario.adminTenant:
         return _admin();
+      case RolUsuario.adminPlataforma:
       case RolUsuario.desconocido:
         return Future.value(const []);
     }
