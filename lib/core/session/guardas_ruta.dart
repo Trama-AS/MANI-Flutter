@@ -26,11 +26,12 @@ const _rolesPorPrefijo = <String, Set<RolUsuario>>{
   '/aliado/': {RolUsuario.aliado},
   '/categories': {RolUsuario.aliado},
   '/cliente/': {RolUsuario.cliente},
-  // Consulta del catálogo geográfico (HU-M04-07). Queda en el menú del admin
-  // del tenant, que es quien administra categorías y zonas; si más adelante el
-  // cliente debe ver su sitio en el mapa, eso es otra entrada de menú y otra
-  // prueba, no un ensanche de este prefijo.
-  '/catalogo/': {RolUsuario.adminTenant},
+  // Consulta del catálogo geográfico (HU-M04-07). El admin del tenant lo ve
+  // porque administra categorías y zonas; el cliente, porque el mapa ubica sus
+  // propias sedes. El aliado no entra: su relación con las zonas es la
+  // declaración de cobertura, que vive en `/aliado/cobertura` y es por lista.
+  // Ninguno de los dos declara cobertura desde aquí: este mapa solo muestra.
+  '/catalogo/': {RolUsuario.adminTenant, RolUsuario.cliente},
   // El cliente configura las reglas de su sitio y el aliado las consulta
   // antes de programar (US-02.2.3).
   '/sitios/': {RolUsuario.cliente, RolUsuario.aliado, RolUsuario.adminTenant},

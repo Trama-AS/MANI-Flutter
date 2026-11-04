@@ -14,7 +14,7 @@ class MapaZonasPage extends StatelessWidget {
 
   /// Centro de respaldo mientras no hay límites: el centro de Bogotá. Solo
   /// encuadra la vista; no se dibuja nada en esa posición.
-  static const _centroBogota = LatLng(4.6533, -74.0836);
+  static const centroBogota = LatLng(4.6533, -74.0836);
 
   @override
   Widget build(BuildContext context) {
@@ -37,7 +37,9 @@ class MapaZonasPage extends StatelessWidget {
             children: [
               if (state.localidades.length > 1) _SelectorLocalidad(state: state),
               Expanded(
-                child: state.geometrias.isEmpty
+                // Hay algo que dibujar si existe un límite o una sede ubicada:
+                // con solo sedes el mapa sigue teniendo sentido.
+                child: state.geometrias.isEmpty && state.sitios.isEmpty
                     ? const _Aviso(
                         icono: Icons.map_outlined,
                         titulo: 'Sin límites para mostrar',
@@ -53,6 +55,16 @@ class MapaZonasPage extends StatelessWidget {
                   child: Text(
                     '${state.sinGeometria.length} zona(s) sin límite cargado: no se dibujan.',
                     key: const Key('mapa_sin_geometria'),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
+              if (state.sitiosSinUbicacion > 0)
+                Padding(
+                  padding: const EdgeInsets.only(left: 12, right: 12, bottom: 12),
+                  child: Text(
+                    '${state.sitiosSinUbicacion} sede(s) sin ubicación capturada: '
+                    'no se marcan en el mapa.',
+                    key: const Key('mapa_sitios_sin_ubicacion'),
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ),
@@ -118,14 +130,29 @@ class _Mapa extends StatelessWidget {
       }
     }
 
-    final puntos = state.geometrias.expand((g) => g.anillos).expand((a) => a).toList();
-    final bounds = puntos.isEmpty ? null : LatLngBounds.fromPoints(puntos);
+    // El encuadre considera los límites y las sedes, para que una sede que
+    // cae fuera del polígono no quede fuera de la vista.
+    final puntos = [
+      ...state.geometrias.expand((g) => g.anillos).expand((a) => a),
+      ...state.sitios.map((s) => LatLng(s.latitud!, s.longitud!)),
+    ];
+
+    // Un solo punto, o varios en la misma posición, dan un rectángulo de área
+    // cero y `CameraFit.bounds` falla con «Camera zoom must be finite». Es el
+    // caso real de un cliente con una sola sede ubicada y sin límites
+    // cargados, así que se encuadra centrando en el punto.
+    final distintos = <String>{for (final p in puntos) '${p.latitude},${p.longitude}'};
+    final encuadrable = distintos.length > 1;
+    final bounds = encuadrable ? LatLngBounds.fromPoints(puntos) : null;
+    final centro = puntos.isEmpty ? MapaZonasPage.centroBogota : puntos.first;
 
     return FlutterMap(
       key: const Key('mapa_zonas'),
       options: MapOptions(
-        initialCenter: MapaZonasPage._centroBogota,
-        initialZoom: 12,
+        initialCenter: centro,
+        // Con un solo punto se acerca lo suficiente para ubicarlo en su
+        // manzana; con varios, el encuadre lo decide `CameraFit`.
+        initialZoom: puntos.isEmpty ? 12 : 15,
         initialCameraFit: bounds == null
             ? null
             : CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(24)),
@@ -136,6 +163,23 @@ class _Mapa extends StatelessWidget {
           userAgentPackageName: 'co.mani.app',
         ),
         PolygonLayer(polygons: poligonos),
+        // Sedes propias con punto capturado. Las que no lo tienen no se
+        // dibujan en el centroide de su zona: se cuentan aparte (C2).
+        MarkerLayer(
+          markers: [
+            for (final s in state.sitios)
+              Marker(
+                point: LatLng(s.latitud!, s.longitud!),
+                width: 40,
+                height: 40,
+                alignment: Alignment.topCenter,
+                child: Tooltip(
+                  message: s.nombre,
+                  child: const Icon(Icons.place, size: 34, color: Color(0xFF166534)),
+                ),
+              ),
+          ],
+        ),
         // La licencia de la fuente obliga a acreditarla donde se muestren los
         // límites, así que la atribución no es decorativa.
         RichAttributionWidget(

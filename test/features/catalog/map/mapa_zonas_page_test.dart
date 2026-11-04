@@ -38,8 +38,6 @@ class _CubitFalso extends Cubit<MapaState> implements MapaCubit {
 
   String? seleccionada;
 
-  @override
-  MapaRemoteDataSource get _datos => throw UnimplementedError();
 }
 
 Widget _app(MapaState estado, {_CubitFalso? cubit}) {
@@ -120,6 +118,64 @@ void main() {
 
     expect(find.byKey(const Key('mapa_sin_geometria')), findsOneWidget);
     expect(find.textContaining('1 zona(s) sin límite cargado'), findsOneWidget);
+  });
+
+  testWidgets('marca la sede ubicada y avisa de las que no tienen punto', (tester) async {
+    await tester.pumpWidget(
+      _app(
+        MapaState(
+          estado: MapaEstado.listo,
+          geometrias: [
+            GeometriaZona(
+              zonaId: _chico,
+              nombre: 'Chicó Norte',
+              nivel: 'BARRIO',
+              anillos: _anillo,
+              atribucion: 'UAECD',
+            ),
+          ],
+          sitios: const [
+            SitioUbicado(
+              id: 's1', nombre: 'Sede Norte', zonaId: _chico,
+              latitud: 4.68, longitud: -74.048,
+            ),
+          ],
+          sitiosSinUbicacion: 2,
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final capa = tester.widget<MarkerLayer>(find.byType(MarkerLayer));
+    expect(capa.markers, hasLength(1));
+    // El punto llega como (latitud, longitud): invertirlo lo saca de Bogotá.
+    expect(capa.markers.first.point.latitude, closeTo(4.68, 0.0001));
+    expect(capa.markers.first.point.longitude, closeTo(-74.048, 0.0001));
+
+    // C2: las sedes sin punto se cuentan, no se ubican en el centroide.
+    expect(find.byKey(const Key('mapa_sitios_sin_ubicacion')), findsOneWidget);
+    expect(find.textContaining('2 sede(s) sin ubicación capturada'), findsOneWidget);
+  });
+
+  testWidgets('una sede ubicada basta para dibujar el mapa sin ningún límite', (tester) async {
+    await tester.pumpWidget(
+      _app(
+        const MapaState(
+          estado: MapaEstado.listo,
+          sitios: [
+            SitioUbicado(
+              id: 's1', nombre: 'Sede Norte', zonaId: _chapinero,
+              latitud: 4.65, longitud: -74.06,
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byType(FlutterMap), findsOneWidget);
+    expect(tester.widget<PolygonLayer>(find.byType(PolygonLayer)).polygons, isEmpty);
+    expect(tester.widget<MarkerLayer>(find.byType(MarkerLayer)).markers, hasLength(1));
   });
 
   testWidgets('el error ofrece reintentar', (tester) async {
