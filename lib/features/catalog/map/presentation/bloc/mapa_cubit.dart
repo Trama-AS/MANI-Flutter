@@ -140,18 +140,26 @@ class MapaCubit extends Cubit<MapaState> {
           .toList();
       final pedidas = <String>[localidadId, ...barrios];
       final res = await _datos.obtenerGeometrias(pedidas);
-      final dibujables = res.geometrias.where((g) => g.tienePuntos).toList(growable: false);
+      final dibujables = res.geometrias
+          .where((g) => g.tienePuntos)
+          .toList(growable: false);
 
       // Sedes de la localidad elegida y de sus barrios.
-      final deLaZona = _misSitios.where((s) => pedidas.contains(s.zonaId)).toList(growable: false);
-      final ubicadas = deLaZona.where((s) => s.tieneCoordenadas).toList(growable: false);
+      final deLaZona = _misSitios
+          .where((s) => pedidas.contains(s.zonaId))
+          .toList(growable: false);
+      final ubicadas = deLaZona
+          .where((s) => s.tieneCoordenadas)
+          .toList(growable: false);
 
       emit(
         state.copyWith(
           // El mapa tiene contenido si hay un límite que dibujar o una sede
           // que ubicar. Sin ninguna de las dos cosas queda vacío, y eso se
           // dice: no se rellena con una forma aproximada (C2).
-          estado: dibujables.isEmpty && ubicadas.isEmpty ? MapaEstado.vacio : MapaEstado.listo,
+          estado: dibujables.isEmpty && ubicadas.isEmpty
+              ? MapaEstado.vacio
+              : MapaEstado.listo,
           geometrias: dibujables,
           sinGeometria: res.sinGeometria,
           atribuciones: res.atribuciones,

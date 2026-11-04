@@ -44,7 +44,10 @@ class GeometriaZona extends Equatable {
       return _anillosDePoligono(coords);
     }
     if (tipo == 'MultiPolygon') {
-      return coords.whereType<List>().expand(_anillosDePoligono).toList(growable: false);
+      return coords
+          .whereType<List>()
+          .expand(_anillosDePoligono)
+          .toList(growable: false);
     }
     return const [];
   }
