@@ -14,6 +14,8 @@ import 'package:mani/features/services/execution/data/ejecucion_datasource.dart'
 import 'package:mani/features/services/quotes/data/cotizaciones_datasource.dart';
 import 'package:mani/features/services/quotes/domain/cotizacion.dart';
 import 'package:mani/features/services/requests/domain/entities/foto_adjunta.dart';
+import 'package:mani/features/services/ratings/data/calificacion_cierre_datasource.dart';
+import 'package:mani/features/services/ratings/domain/calificacion_cierre_modelos.dart';
 import 'package:mani/features/tariffs/data/tarifas_datasource.dart';
 import 'package:mani/features/tariffs/domain/tarifa.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -76,6 +78,34 @@ class _Tarifas implements FuenteTarifas {
           'version': 2,
         },
       });
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => throw UnimplementedError();
+}
+
+// Calificación y cierre (SCRUM-874, 875 y 1418): el estado de la solicitud lo
+// fija cada prueba; por omisión, en ejecución (aún no se califica).
+class _ModuloM08 implements FuenteModuloM08 {
+  String estado = 'EN_EJECUCION';
+  int consultas = 0;
+
+  @override
+  Future<ResumenCalificacionesSolicitud> obtenerCalificaciones(
+    String solicitudId,
+  ) async {
+    consultas++;
+    return ResumenCalificacionesSolicitud(
+      solicitudId: solicitudId,
+      estado: estado,
+      cierre: EstadoCierreSolicitud(
+        cerrada: estado == 'CERRADA',
+        estadoSolicitud: estado,
+        tieneCalificacionCliente: false,
+        tieneCalificacionAliado: false,
+        pendientes: const ['CLIENTE', 'ALIADO'],
+      ),
+    );
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => throw UnimplementedError();
@@ -205,6 +235,7 @@ void main() {
   late _Ejecucion ejecucion;
   late _Eventos eventos;
   late _Adiciones adiciones;
+  final moduloM08 = _ModuloM08();
 
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
@@ -222,6 +253,7 @@ void main() {
     eventos = _Eventos();
     adiciones = _Adiciones();
     sl.registerSingleton<FuenteCotizaciones>(_Cotizaciones());
+    sl.registerSingleton<FuenteModuloM08>(moduloM08);
     sl.registerSingleton<FuenteTarifas>(_Tarifas());
     sl.registerSingleton<FuenteEjecucion>(ejecucion);
     sl.registerSingleton<FuenteAdiciones>(adiciones);
@@ -317,6 +349,44 @@ void main() {
       }
     });
   });
+  // SCRUM-874, 875 y 1418: la calificación vive en la pantalla del servicio y
+  // solo aparece con el servicio finalizado o cerrado.
+  for (final (ruta, esAliado) in [
+    ('cotizacion-cliente', false),
+    ('cotizacion-aliado', true),
+  ]) {
+    testWidgets('$ruta: en ejecución no se ofrece calificar', (tester) async {
+      moduloM08.estado = 'EN_EJECUCION';
+      await montar(tester, ruta);
+      expect(
+        find.byKey(const Key('m08-calificacion-cierre-card')),
+        findsNothing,
+      );
+      expect(find.byKey(const Key('m08-calificacion-oculta')), findsOneWidget);
+    });
+
+    testWidgets('$ruta: con el servicio FINALIZADA aparece la calificación', (
+      tester,
+    ) async {
+      moduloM08.estado = 'FINALIZADA';
+      await montar(tester, ruta);
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('m08-calificacion-cierre-card')),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(
+        find.text(
+          esAliado
+              ? 'Calificar al cliente y estado de cierre'
+              : 'Calificar al aliado y estado de cierre',
+        ),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('m08-estrella-5')), findsOneWidget);
+      moduloM08.estado = 'EN_EJECUCION';
+    });
+  }
 
   testWidgets('el aliado ve cotización, ejecución y bitácora con formulario '
       'mientras el servicio está en ejecución', (tester) async {

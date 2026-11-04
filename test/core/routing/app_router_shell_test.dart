@@ -154,6 +154,10 @@ const _rutasConSesion = {
   '/admin/quejas',
   '/admin/metricas',
   '/plataforma/tenants',
+  // M-08 (SCRUM-878, 879 y 880).
+  '/cliente/historial',
+  '/aliado/historial',
+  '/admin/politica-cancelacion',
 };
 
 class _GuardadorFalso implements GuardadorArchivo {

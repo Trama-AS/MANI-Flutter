@@ -1,11 +1,13 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:mani/core/session/contexto_plataforma.dart';
 import 'package:mani/core/session/rol_usuario.dart';
 import 'package:mani/core/shell/datos_sesion.dart';
 import 'package:mani/core/shell/menu_por_rol.dart';
 import 'package:mani/core/shell/selector_contexto_plataforma.dart';
 import 'package:mani/core/theme/app_theme.dart';
+import 'package:mani/core/widgets/mani_layout.dart';
 import 'package:mani/features/platform/data/tenants_datasource.dart';
 
 /// Ancho a partir del cual las entradas se muestran como barra; por debajo
@@ -14,8 +16,11 @@ const anchoMenuExpandido = 600.0;
 
 /// Armazón neo-brutalista de las pantallas con sesión (US-11.2.1 / SCRUM-1444).
 ///
-/// Pinta el menú superior centrado en escritorio con las entradas del [rol],
-/// el usuario y el tenant de la sesión, y la acción de cerrar sesión.
+/// Pinta el menú superior con las entradas del [rol], el usuario y el tenant
+/// de la sesión, y la acción de cerrar sesión en todas las pantallas. Usa la
+/// barra superior de las pantallas de registro (logo, borde negro) y centra el
+/// contenido con el mismo ancho máximo. La pantalla de cada ruta llega como
+/// [child] y conserva su propio título.
 class AppShell extends StatefulWidget {
   const AppShell({
     super.key,
@@ -83,7 +88,6 @@ class _AppShellState extends State<AppShell> {
       curve: Curves.easeOutCubic,
     );
   }
-
   bool _coincide(EntradaMenu e) =>
       widget.ubicacion == e.ruta || widget.ubicacion.startsWith('${e.ruta}/');
 
@@ -104,7 +108,6 @@ class _AppShellState extends State<AppShell> {
           actuandoComo: widget.contextoPlataforma!.rolEfectivo,
         )
       : entradasMenuPara(widget.rol);
-
   Future<void> _cerrarSesion() async {
     await widget.onCerrarSesion();
   }
@@ -156,6 +159,7 @@ class _AppShellState extends State<AppShell> {
             backgroundColor: AppTheme.surface,
             surfaceTintColor: Colors.transparent,
             elevation: 0,
+            scrolledUnderElevation: 0,
             toolbarHeight: 68,
             shape: const Border(
               bottom: BorderSide(color: AppTheme.dark, width: 2),
@@ -243,7 +247,7 @@ class _AppShellState extends State<AppShell> {
                 ),
               ),
             ],
-            bottom: expandido ? _barraEntradas(context, entradas) : null,
+            bottom: expandido ? _barraEntradas(entradas) : null,
           ),
           body: cuerpo,
         );
@@ -286,12 +290,12 @@ class _AppShellState extends State<AppShell> {
           key: Key('menu-compacto-cerrar-sesion'),
           value: '__logout__',
           child: ListTile(
-            leading: Icon(Icons.logout, color: Colors.redAccent),
+            leading: Icon(Icons.logout, color: AppTheme.error),
             title: Text(
               'Cerrar sesión',
               style: TextStyle(
-                color: Colors.redAccent,
-                fontWeight: FontWeight.w700,
+                color: AppTheme.error,
+                fontWeight: FontWeight.w800,
               ),
             ),
             contentPadding: EdgeInsets.zero,
@@ -449,13 +453,64 @@ class _AppShellState extends State<AppShell> {
   }
 }
 
-/// Usuario, rol y tenant de la sesión. Mientras carga muestra solo el rol, y
-/// si Core no responde muestra el rol sin nombre: el menú sigue usable.
+/// Entrada del menú: pastilla amarilla con borde y sombra dura si está
+/// activa, texto plano si no; mismo lenguaje que los botones del registro.
+class _EntradaBarra extends StatelessWidget {
+  const _EntradaBarra({
+    required this.entrada,
+    required this.activa,
+    required this.onTap,
+  });
+
+  final EntradaMenu entrada;
+  final bool activa;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppTheme.radiusXl),
+        boxShadow: [if (activa) AppTheme.hardShadowSm],
+      ),
+      child: TextButton.icon(
+        key: Key('menu-entrada-${entrada.ruta}'),
+        onPressed: onTap,
+        icon: Icon(entrada.icono, size: 18),
+        label: Text(entrada.etiqueta),
+        style: TextButton.styleFrom(
+          foregroundColor: AppTheme.dark,
+          backgroundColor: activa ? AppTheme.primary : null,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusXl),
+            side: BorderSide(
+              color: activa ? AppTheme.dark : Colors.transparent,
+              width: 2,
+            ),
+          ),
+          textStyle: GoogleFonts.plusJakartaSans(
+            fontSize: 13,
+            fontWeight: activa ? FontWeight.w900 : FontWeight.w700,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Logo, usuario, rol y tenant de la sesión. Mientras carga muestra solo el
+/// rol, y si Core no responde muestra el rol sin nombre: el menú sigue usable.
 class _CabeceraSesion extends StatelessWidget {
-  const _CabeceraSesion({required this.datos, required this.rol});
+  const _CabeceraSesion({
+    required this.datos,
+    required this.rol,
+    this.conLogo = true,
+  });
 
   final Future<DatosSesion> datos;
   final RolUsuario rol;
+  final bool conLogo;
 
   @override
   Widget build(BuildContext context) {
@@ -468,9 +523,7 @@ class _CabeceraSesion extends StatelessWidget {
           etiquetaRol(rol),
           if (d?.nombreTenant != null) d!.nombreTenant!,
         ].join(' · ');
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
+        return Row(
           children: [
             Text(
               usuario ?? 'MANI',

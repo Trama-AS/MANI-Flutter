@@ -88,6 +88,8 @@ import 'package:mani/features/services/events/data/cola_eventos.dart';
 import 'package:mani/features/services/events/data/eventos_datasource.dart';
 import 'package:mani/features/services/ratings/data/calificacion_cierre_datasource.dart';
 import 'package:mani/core/session/tenant_sesion.dart';
+import 'package:mani/features/services/ratings/data/calificacion_cierre_datasource.dart';
+import 'package:mani/features/services/ratings/data/politica_cancelacion_datasource.dart';
 import 'package:mani/features/tariffs/data/tarifas_datasource.dart';
 import 'package:mani/features/complaints/data/quejas_datasource.dart';
 import 'package:mani/features/metrics/data/metricas_datasource.dart';
@@ -292,6 +294,13 @@ Future<void> init() async {
   // Pago en el sandbox (HU-M11-01 / SCRUM-1432), por el Gateway a Core. El Cubit
   // se crea por cotización en la ruta.
   sl.registerLazySingleton<FuentePagos>(() => GatewayFuentePagos(sl()));
+  // Módulo M-08: calificación bidireccional, cierre, historial y penalización
+  // por cancelación tardía (SCRUM-874, 875, 878, 879, 880 y 1418), por el
+  // Gateway a Core.
+  sl.registerLazySingleton<FuenteModuloM08>(() => GatewayFuenteModuloM08(sl()));
+  sl.registerLazySingleton<FuentePoliticaCancelacion>(
+    () => GatewayFuentePoliticaCancelacion(sl()),
+  );
   // Tarifario de referencia (M-10: SCRUM-885, 886 y 887), por el Gateway a Core.
   sl.registerLazySingleton<FuenteTarifas>(() => GatewayFuenteTarifas(sl()));
   // Quejas, métricas y tenants (M-12: SCRUM-895, 896, 900 y 901), por el

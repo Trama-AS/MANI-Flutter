@@ -8,6 +8,9 @@ import 'package:mani/features/services/ratings/domain/calificacion_cierre_modelo
 import 'package:mani/features/services/ratings/presentation/calificacion_cierre_cubit.dart';
 import 'package:mani/features/services/ratings/presentation/calificacion_cierre_widgets.dart';
 
+import 'package:mani/features/services/ratings/domain/calificacion_cierre_modelos.dart';
+import 'package:mani/features/services/ratings/presentation/calificacion_cierre_widgets.dart';
+
 import '../domain/solicitud_seguimiento.dart';
 import 'mis_solicitudes_cubit.dart';
 
@@ -21,6 +24,7 @@ class MisSolicitudesPage extends StatelessWidget {
     this.onVerCotizacion,
     this.onVerAliados,
     this.onPresentarQueja,
+    this.previsualizarCancelacion,
   });
 
   final VoidCallback? onNuevaSolicitud;
@@ -28,6 +32,11 @@ class MisSolicitudesPage extends StatelessWidget {
   /// Presenta una queja sobre el servicio (HU-M12-01 / SCRUM-895). Solo se
   /// ofrece cuando la solicitud ya tuvo aliado; Core vuelve a validarlo.
   final void Function(String solicitudId)? onPresentarQueja;
+
+  /// Consulta a Core la penalización que tendría cancelar (SCRUM-878) para
+  /// mostrarla antes de confirmar. Sin ella el diálogo no muestra el resumen.
+  final Future<VistaPreviaPenalizacion> Function(String solicitudId)?
+  previsualizarCancelacion;
 
   /// Abre la cotización de la solicitud (SCRUM-867).
   final void Function(String solicitudId)? onVerCotizacion;
@@ -91,7 +100,12 @@ class MisSolicitudesPage extends StatelessWidget {
                         onCancelar:
                             !s.puedeCancelar || state.cancelandoId != null
                             ? null
-                            : () => _confirmarCancelacion(context, cubit, s),
+                            : () => _confirmarCancelacion(
+                                context,
+                                cubit,
+                                s,
+                                previsualizarCancelacion,
+                              ),
                       ),
                       const SizedBox(height: 14),
                     ],
@@ -111,10 +125,14 @@ Future<void> _confirmarCancelacion(
   BuildContext context,
   MisSolicitudesCubit cubit,
   SolicitudSeguimiento solicitud,
+  Future<VistaPreviaPenalizacion> Function(String)? previsualizar,
 ) async {
   final motivo = await showDialog<String>(
     context: context,
-    builder: (_) => _DialogoCancelar(solicitud: solicitud),
+    builder: (_) => _DialogoCancelar(
+      solicitud: solicitud,
+      vistaPrevia: previsualizar?.call(solicitud.id),
+    ),
   );
   if (motivo == null) return;
   final ok = await cubit.cancelar(solicitud.id, motivo: motivo);
@@ -129,9 +147,12 @@ Future<void> _confirmarCancelacion(
 }
 
 class _DialogoCancelar extends StatefulWidget {
-  const _DialogoCancelar({required this.solicitud});
+  const _DialogoCancelar({required this.solicitud, this.vistaPrevia});
 
   final SolicitudSeguimiento solicitud;
+
+  /// Penalización que tendría cancelar ahora (SCRUM-878), calculada por Core.
+  final Future<VistaPreviaPenalizacion>? vistaPrevia;
 
   @override
   State<_DialogoCancelar> createState() => _DialogoCancelarState();
@@ -172,19 +193,29 @@ class _DialogoCancelarState extends State<_DialogoCancelar> {
             'Esta acción no se puede deshacer.'
             '${asignada ? ' Le avisaremos al aliado asignado.' : ''}',
           ),
-          if (_vistaPreviaFuture != null)
+          if (widget.vistaPrevia != null) ...[
+            const SizedBox(height: 12),
             FutureBuilder<VistaPreviaPenalizacion>(
-              future: _vistaPreviaFuture,
+              future: widget.vistaPrevia,
               builder: (context, snap) {
-                if (snap.data == null) return const SizedBox.shrink();
-                return Padding(
-                  padding: const EdgeInsets.only(top: 12),
-                  child: ResumenPenalizacionCancelacionBanner(
-                    preview: snap.data!,
-                  ),
+                if (snap.connectionState != ConnectionState.done) {
+                  return const LinearProgressIndicator(
+                    key: Key('cancelar-penalizacion-cargando'),
+                  );
+                }
+                if (snap.hasError || snap.data == null) {
+                  return const Text(
+                    'No pudimos calcular la penalización. Si cancelas, '
+                    'se aplicará la política vigente de tu empresa.',
+                    key: Key('cancelar-penalizacion-error'),
+                  );
+                }
+                return ResumenPenalizacionCancelacionBanner(
+                  preview: snap.data!,
                 );
               },
             ),
+          ],
           const SizedBox(height: 12),
           TextField(
             key: const Key('cancelar-motivo'),

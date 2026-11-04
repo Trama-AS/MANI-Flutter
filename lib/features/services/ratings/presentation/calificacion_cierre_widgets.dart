@@ -6,8 +6,35 @@ import 'package:mani/core/widgets/mani_card.dart';
 import '../domain/calificacion_cierre_modelos.dart';
 import 'calificacion_cierre_cubit.dart';
 
-/// Sección neo-brutalista de calificación bidireccional (SCRUM-874 y SCRUM-875)
-/// y cierre condicionado (SCRUM-1418).
+/// Estados en los que el servicio ya se puede calificar (Core responde
+/// MANI-CAL-409E en los demás).
+const estadosCalificables = {'FINALIZADA', 'CERRADA'};
+
+/// Calificación y cierre en la pantalla del servicio (SCRUM-874, 875 y 1418):
+/// solo aparece cuando la solicitud está FINALIZADA o CERRADA. Antes de eso no
+/// ocupa espacio; el estado lo trae Core con las calificaciones.
+class CalificacionServicioFinalizado extends StatelessWidget {
+  const CalificacionServicioFinalizado({super.key, required this.esAliado});
+
+  final bool esAliado;
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<CalificacionCierreCubit, CalificacionCierreState>(
+      buildWhen: (a, b) => a.resumen?.estado != b.resumen?.estado,
+      builder: (context, state) {
+        final estado = state.resumen?.estado.trim().toUpperCase();
+        if (estado == null || !estadosCalificables.contains(estado)) {
+          return const SizedBox.shrink(key: Key('m08-calificacion-oculta'));
+        }
+        return CalificacionCierreSeccion(esAliado: esAliado);
+      },
+    );
+  }
+}
+
+/// Sección de calificación bidireccional (SCRUM-874 y SCRUM-875) y cierre
+/// condicionado (SCRUM-1418).
 class CalificacionCierreSeccion extends StatefulWidget {
   const CalificacionCierreSeccion({super.key, required this.esAliado});
 
@@ -298,7 +325,10 @@ class _CuerpoCalificacionPropia extends StatelessWidget {
 /// Pantalla de historial de servicios del cliente (SCRUM-879) o de trabajos
 /// del aliado (SCRUM-880).
 class HistorialServiciosPage extends StatelessWidget {
-  const HistorialServiciosPage({super.key});
+  const HistorialServiciosPage({super.key, this.onAbrirServicio});
+
+  /// Abre la pantalla del servicio (cotización, ejecución y calificación).
+  final void Function(String solicitudId)? onAbrirServicio;
 
   @override
   Widget build(BuildContext context) {
@@ -372,10 +402,14 @@ class HistorialServiciosPage extends StatelessWidget {
                     ),
                   )
                 else
-                  for (final item in state.registros) ...[
-                    _TarjetaHistorialItem(item: item, esAliado: cubit.esAliado),
-                    const SizedBox(height: 12),
-                  ],
+                  for (final item in state.registros)
+                    _TarjetaHistorialItem(
+                      item: item,
+                      esAliado: cubit.esAliado,
+                      onAbrir: onAbrirServicio == null
+                          ? null
+                          : () => onAbrirServicio!(item.id),
+                    ),
               ],
             ),
           ),
@@ -386,10 +420,15 @@ class HistorialServiciosPage extends StatelessWidget {
 }
 
 class _TarjetaHistorialItem extends StatelessWidget {
-  const _TarjetaHistorialItem({required this.item, required this.esAliado});
+  const _TarjetaHistorialItem({
+    required this.item,
+    required this.esAliado,
+    this.onAbrir,
+  });
 
   final RegistroHistorialServicio item;
   final bool esAliado;
+  final VoidCallback? onAbrir;
 
   @override
   Widget build(BuildContext context) {
@@ -441,18 +480,31 @@ class _TarjetaHistorialItem extends StatelessWidget {
                 color: AppTheme.error,
                 fontWeight: FontWeight.w800,
               ),
-            ),
-          if (item.calificacionEmitida != null)
-            Text(
-              'Calificación emitida: ★ ${item.calificacionEmitida!.puntaje}/5',
-              style: const TextStyle(fontWeight: FontWeight.w700),
-            ),
-          if (item.calificacionRecibida != null)
-            Text(
-              'Calificación recibida: ★ ${item.calificacionRecibida!.puntaje}/5',
-              style: const TextStyle(fontWeight: FontWeight.w700),
-            ),
-        ],
+            if (item.calificacionEmitida != null)
+              Text(
+                'Calificación emitida: ★ ${item.calificacionEmitida!.puntaje}/5',
+              ),
+            if (item.calificacionRecibida != null)
+              Text(
+                'Calificación recibida: ★ ${item.calificacionRecibida!.puntaje}/5',
+              ),
+            if (onAbrir != null)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  key: Key('m08-historial-abrir-${item.id}'),
+                  icon: const Icon(Icons.open_in_new),
+                  label: Text(
+                    estadosCalificables.contains(item.estado.toUpperCase()) &&
+                            item.calificacionEmitida == null
+                        ? 'Calificar servicio'
+                        : 'Ver servicio',
+                  ),
+                  onPressed: onAbrir,
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
