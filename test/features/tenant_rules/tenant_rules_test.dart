@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mani/core/network/gateway_exception.dart';
 import 'package:mani/features/tenant_rules/data/tenant_rules_datasource.dart';
 import 'package:mani/features/tenant_rules/domain/regla_tenant.dart';
 import 'package:mani/features/tenant_rules/presentation/reglas_operativas_page.dart';
@@ -22,15 +23,20 @@ class MockFuenteReglasTenant implements FuenteReglasTenant {
 
   List<ReglaTenantHistorialItem> historial = [];
   bool debeFallar = false;
+  bool fallarHistorial = false;
+  Exception? excepcionActualizar;
+  Exception? excepcionCargar;
 
   @override
   Future<ReglaTenantVigente> getVigente() async {
+    if (excepcionCargar != null) throw excepcionCargar!;
     if (debeFallar) throw Exception('Fallo de red simulado');
     return vigente;
   }
 
   @override
   Future<List<ReglaTenantHistorialItem>> getHistorial() async {
+    if (fallarHistorial) throw Exception('Fallo de historial');
     if (debeFallar) throw Exception('Fallo de red simulado');
     return historial;
   }
@@ -40,6 +46,7 @@ class MockFuenteReglasTenant implements FuenteReglasTenant {
     required int expectedVersion,
     required ReglasOperativas reglas,
   }) async {
+    if (excepcionActualizar != null) throw excepcionActualizar!;
     if (debeFallar) throw Exception('Error 409 o 503');
     vigente = ReglaTenantVigente(
       version: expectedVersion + 1,
@@ -95,6 +102,24 @@ void main() {
       expect(loaded.vigente.origen, 'POR_OMISION');
     });
 
+    test('TenantRulesCubit usa mensajeErrorGateway al fallar cargar', () async {
+      final fuente = MockFuenteReglasTenant()
+        ..excepcionCargar = const GatewayException(
+          statusCode: 503,
+          message: 'No disponible',
+          cuerpo: {'code': 'RULES_SERVICE_UNAVAILABLE'},
+        );
+      final cubit = TenantRulesCubit(fuente);
+
+      await cubit.cargar();
+      expect(cubit.state, isA<TenantRulesError>());
+      final errorState = cubit.state as TenantRulesError;
+      expect(
+        errorState.mensaje,
+        'El motor de reglas no está disponible en este momento. Inténtalo más tarde.',
+      );
+    });
+
     test('TenantRulesCubit guarda nueva versión y actualiza estado', () async {
       final fuente = MockFuenteReglasTenant();
       final cubit = TenantRulesCubit(fuente);
@@ -119,6 +144,76 @@ void main() {
       expect(loaded.vigente.reglas.criterioOrden, 'COBERTURA');
       expect(loaded.mensajeExito, contains('versión 1'));
     });
+
+    test(
+      'TenantRulesCubit reporta guardado exitoso aun si getHistorial falla',
+      () async {
+        final fuente = MockFuenteReglasTenant();
+        final cubit = TenantRulesCubit(fuente);
+        await cubit.cargar();
+
+        fuente.fallarHistorial = true;
+        const nuevasReglas = ReglasOperativas(
+          criterioOrden: 'COBERTURA',
+          toleranciaTarifa: 20.0,
+          comisionPorcentaje: 10.0,
+          ventanaCancelacionHoras: 4.0,
+          penalizacionCancelacion: 15.0,
+          minutosParaAceptarOferta: 30,
+        );
+
+        final ok = await cubit.guardar(nuevasReglas);
+        expect(ok, isTrue);
+        final loaded = cubit.state as TenantRulesLoaded;
+        expect(loaded.vigente.version, 1);
+        expect(loaded.mensajeExito, contains('versión 1'));
+        expect(loaded.mensajeError, isNull);
+      },
+    );
+
+    test(
+      'TenantRulesCubit recarga versión vigente tras un 409 y limpia mensaje crudo',
+      () async {
+        final fuente = MockFuenteReglasTenant();
+        final cubit = TenantRulesCubit(fuente);
+        await cubit.cargar();
+
+        // Simulamos que en el backend ya existe una versión 2
+        fuente.vigente = const ReglaTenantVigente(
+          version: 2,
+          origen: 'PROPIO',
+          reglas: ReglasOperativas(
+            criterioOrden: 'COBERTURA',
+            toleranciaTarifa: 15.0,
+            comisionPorcentaje: 15.0,
+            ventanaCancelacionHoras: 2.0,
+            penalizacionCancelacion: 20.0,
+            minutosParaAceptarOferta: 15,
+          ),
+        );
+
+        fuente.excepcionActualizar = const GatewayException(
+          statusCode: 409,
+          message: 'Conflicto',
+          cuerpo: {'error': 'MANI-TEN-409: La versión no coincide.'},
+        );
+
+        const nuevasReglas = ReglasOperativas(
+          criterioOrden: 'COBERTURA',
+          toleranciaTarifa: 20.0,
+          comisionPorcentaje: 10.0,
+          ventanaCancelacionHoras: 4.0,
+          penalizacionCancelacion: 15.0,
+          minutosParaAceptarOferta: 30,
+        );
+
+        final ok = await cubit.guardar(nuevasReglas);
+        expect(ok, isFalse);
+        final loaded = cubit.state as TenantRulesLoaded;
+        expect(loaded.vigente.version, 2);
+        expect(loaded.mensajeError, 'La versión no coincide.');
+      },
+    );
   });
 
   group('ReglasOperativasPage UI Widget test', () {

@@ -17,6 +17,7 @@ import 'package:mani/features/services/requests/domain/entities/foto_adjunta.dar
 import 'package:mani/features/services/ratings/data/calificacion_cierre_datasource.dart';
 import 'package:mani/features/services/ratings/domain/calificacion_cierre_modelos.dart';
 import 'package:mani/features/tariffs/data/tarifas_datasource.dart';
+import 'package:mani/features/tariffs/domain/evaluacion_tarifa.dart';
 import 'package:mani/features/tariffs/domain/tarifa.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -76,6 +77,22 @@ class _Tarifas implements FuenteTarifas {
           'moneda': 'COP',
           'vigenciaDesde': '2026-01-01',
           'version': 2,
+        },
+      });
+
+  // SCRUM-866: la cotización vigente (total 100) queda por debajo del mínimo.
+  @override
+  Future<EvaluacionTarifa> evaluacion(String cotizacionId) async =>
+      EvaluacionTarifa.fromJson({
+        'cotizacionId': cotizacionId,
+        'resultado': 'POR_DEBAJO',
+        'total': 100,
+        'desviacionPorcentaje': 99.9,
+        'tarifa': {
+          'valorMin': 80000,
+          'valorTipico': 120000,
+          'valorMax': 180000,
+          'moneda': 'COP',
         },
       });
 
@@ -362,6 +379,7 @@ void main() {
         find.byKey(const Key('m08-calificacion-cierre-card')),
         findsNothing,
       );
+      await _verHasta(tester, const Key('m08-calificacion-oculta'));
       expect(find.byKey(const Key('m08-calificacion-oculta')), findsOneWidget);
     });
 
@@ -396,6 +414,9 @@ void main() {
     expect(find.byKey(const Key('referencia-disponible')), findsOneWidget);
     expect(find.text('\$ 80.000,00 – \$ 180.000,00 COP'), findsOneWidget);
     expect(find.byKey(const Key('cotizacion-v1')), findsOneWidget);
+    // SCRUM-866: bajo la cotización vigente, la alerta de tarifa de Rules.
+    expect(find.byKey(const Key('alerta-tarifa-debajo')), findsOneWidget);
+    await _verHasta(tester, const Key('seccion-ejecucion'));
     expect(find.byKey(const Key('seccion-ejecucion')), findsOneWidget);
     await tester.scrollUntilVisible(
       find.byKey(const Key('seccion-adiciones')),
@@ -494,8 +515,7 @@ void main() {
     await tester.pumpWidget(MaterialApp.router(routerConfig: router));
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.byKey(const Key('btn-pagar-cotizacion')));
-    await tester.pumpAndSettle();
+    await _verHasta(tester, const Key('btn-pagar-cotizacion'));
     await tester.tap(find.byKey(const Key('btn-pagar-cotizacion')));
     await tester.pumpAndSettle();
 
@@ -534,6 +554,7 @@ void main() {
       await tester.pumpWidget(MaterialApp.router(routerConfig: router));
       await tester.pumpAndSettle();
 
+      await _verHasta(tester, const Key('btn-abrir-chat'));
       expect(find.text(etiqueta), findsOneWidget);
       await tester.tap(find.byKey(const Key('btn-abrir-chat')));
       await tester.pumpAndSettle();
@@ -560,4 +581,15 @@ void main() {
       expect(find.byKey(const Key('chat-vacio')), findsOneWidget);
     });
   }
+}
+
+/// La lista solo construye lo que cabe en pantalla; la alerta de tarifa
+/// (SCRUM-866) baja las secciones siguientes, así que se desplaza hasta ellas.
+Future<void> _verHasta(WidgetTester tester, Key key) async {
+  await tester.scrollUntilVisible(
+    find.byKey(key),
+    300,
+    scrollable: find.byType(Scrollable).first,
+  );
+  await tester.pumpAndSettle();
 }

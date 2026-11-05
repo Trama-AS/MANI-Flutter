@@ -44,6 +44,7 @@ class CotizacionPage extends StatelessWidget {
     this.pagosExtra,
     this.bitacora,
     this.calificacion,
+    this.alertaTarifa,
   });
 
   final bool esAliado;
@@ -73,6 +74,10 @@ class CotizacionPage extends StatelessWidget {
 
   /// Columna de la calificación del servicio.
   final Widget? calificacion;
+
+  /// Sección bajo la cotización vigente (p. ej. la alerta de tarifa,
+  /// SCRUM-866). Recibe el id de la versión vigente.
+  final Widget Function(String cotizacionId)? alertaTarifa;
 
   /// Ancho desde el que las columnas van lado a lado.
   static const anchoTresColumnas = 1000.0;
@@ -109,8 +114,13 @@ class CotizacionPage extends StatelessWidget {
             else if (state.error != null)
               _Error(mensaje: state.error!, onReintentar: cubit.cargar)
             else ...[
-              if (state.vigente != null)
+              if (state.vigente != null) ...[
                 _TarjetaCotizacion(state.vigente!, vigente: true),
+                if (alertaTarifa != null) ...[
+                  const SizedBox(height: 8),
+                  alertaTarifa!(state.vigente!.id),
+                ],
+              ],
               if (esAliado)
                 _SeccionAliado(state: state)
               else
