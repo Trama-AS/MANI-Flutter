@@ -576,7 +576,7 @@ void main() {
     );
 
     test(
-      'C2/C3: el claim admin_plataforma abre solo /plataforma; ningún rol de tenant la abre',
+      'C2/C3: el claim admin_plataforma abre /plataforma (y el resto); ningún rol de tenant la abre',
       () {
         expect(rolDesdeClaim('admin_plataforma'), RolUsuario.adminPlataforma);
         expect(
@@ -595,9 +595,10 @@ void main() {
             reason: '$rol',
           );
         }
+        // El admin de plataforma tiene, además, todas las pantallas del tenant.
         expect(
           rolPuedeAbrir(RolUsuario.adminPlataforma, '/admin/quejas'),
-          isFalse,
+          isTrue,
         );
         expect(rolPuedeAbrir(RolUsuario.cliente, '/admin/tarifas'), isFalse);
         expect(rolPuedeAbrir(RolUsuario.cliente, '/cliente/quejas'), isTrue);

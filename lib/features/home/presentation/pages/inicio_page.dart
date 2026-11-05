@@ -1,17 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:mani/core/session/contexto_plataforma.dart';
 import 'package:mani/core/session/rol_usuario.dart';
 import 'package:mani/core/shell/datos_sesion.dart';
 import 'package:mani/core/shell/menu_por_rol.dart';
 import 'package:mani/core/theme/app_theme.dart';
 import 'package:mani/core/widgets/mani_card.dart';
-import 'package:mani/core/widgets/mani_layout.dart';
 import 'package:mani/features/home/data/resumen_inicio.dart';
 
-/// Pantalla de inicio por tipo de usuario (US-11.2.3 / SCRUM-1446).
+/// Pantalla de inicio neo-brutalista por tipo de usuario (US-11.2.3 / SCRUM-1446).
 ///
 /// Saluda con la sesión, muestra el resumen que cada rol necesita y repite
-/// sus accesos como tarjetas. Vive dentro del menú superior (SCRUM-1444).
+/// sus accesos como tarjetas centradas y estructuradas en escritorio.
 class InicioPage extends StatefulWidget {
   const InicioPage({
     super.key,
@@ -20,6 +19,7 @@ class InicioPage extends StatefulWidget {
     required this.fuenteResumen,
     required this.onNavegar,
     this.onCerrarSesion,
+    this.contextoPlataforma,
   });
 
   final RolUsuario rol;
@@ -27,6 +27,17 @@ class InicioPage extends StatefulWidget {
   final FuenteResumenInicio fuenteResumen;
   final ValueChanged<String> onNavegar;
   final Future<void> Function()? onCerrarSesion;
+
+  /// Contexto del administrador de plataforma (SCRUM-901): sus accesos y su
+  /// resumen son los del rol con el que actúa.
+  final ContextoPlataforma? contextoPlataforma;
+
+  /// Rol cuyas pantallas se muestran: el propio, o el del contexto para el
+  /// administrador de plataforma.
+  RolUsuario get _rolDePantallas =>
+      rol == RolUsuario.adminPlataforma && contextoPlataforma != null
+      ? contextoPlataforma!.rolEfectivo
+      : rol;
 
   @override
   State<InicioPage> createState() => _InicioPageState();
@@ -40,180 +51,241 @@ class _InicioPageState extends State<InicioPage> {
   void initState() {
     super.initState();
     _sesion = widget.fuenteSesion.cargar();
-    _resumen = widget.fuenteResumen.cargar(widget.rol);
+    _resumen = widget.fuenteResumen.cargar(widget._rolDePantallas);
   }
 
   @override
   Widget build(BuildContext context) {
     final accesos = entradasMenuPara(
       widget.rol,
+      actuandoComo: widget._rolDePantallas,
     ).where((e) => e.ruta != '/inicio').toList();
+
     return Scaffold(
-      body: LayoutBuilder(
-        builder: (context, c) => ListView(
-          key: const Key('inicio-contenido'),
-          padding: ManiContenido.margenes(c.maxWidth),
-          children: [
-            FutureBuilder<DatosSesion>(
-              future: _sesion,
-              builder: (context, snap) => ManiEncabezado(
-                icono: Icons.waving_hand_outlined,
-                titulo: snap.hasData
-                    ? 'Hola, ${snap.data!.nombreUsuario}'
-                    : 'Hola',
-                tituloKey: const Key('inicio-saludo'),
-                descripcion: _subtitulo(widget.rol),
-              ),
-            ),
-            if (widget.rol == RolUsuario.desconocido) ...[
-              const SizedBox(height: 24),
-              const ManiCard(
-                key: Key('inicio-sin-rol'),
-                color: ManiCard.colorSeleccion,
-                child: Row(
-                  children: [
-                    ManiIconoCaja(icono: Icons.info_outline, tamano: 18),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Tu cuenta no tiene un rol asignado',
-                            style: TextStyle(fontWeight: FontWeight.w800),
-                          ),
-                          Text(
-                            'Pide al administrador de tu empresa que revise tu cuenta.',
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-            FutureBuilder<List<IndicadorResumen>>(
-              future: _resumen,
-              builder: (context, snap) {
-                if (snap.connectionState != ConnectionState.done) {
-                  return const Padding(
-                    padding: EdgeInsets.all(24),
-                    child: Center(child: CircularProgressIndicator()),
-                  );
-                }
-                final indicadores = snap.data ?? const <IndicadorResumen>[];
-                if (indicadores.isEmpty) return const SizedBox.shrink();
-                return Padding(
-                  padding: const EdgeInsets.only(top: 28),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const ManiTituloSeccion(
-                        icono: Icons.insights_outlined,
-                        texto: 'Resumen',
-                      ),
-                      const SizedBox(height: 14),
-                      _Rejilla(
-                        anchoMinimo: 220,
-                        children: [
-                          for (final i in indicadores)
-                            _TarjetaIndicador(
-                              indicador: i,
-                              onTap: () => widget.onNavegar(i.ruta),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: 28),
-            const ManiTituloSeccion(
-              icono: Icons.apps_rounded,
-              texto: 'Accesos',
-            ),
-            const SizedBox(height: 14),
-            _Rejilla(
-              anchoMinimo: 300,
-              children: [
-                for (final e in accesos)
-                  ManiCard(
-                    onTap: () => widget.onNavegar(e.ruta),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 18,
-                      vertical: 16,
-                    ),
-                    child: Row(
-                      key: Key('inicio-acceso-${e.ruta}'),
-                      children: [
-                        ManiIconoCaja(icono: e.icono, tamano: 18),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Text(
-                            e.etiqueta,
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w800,
-                              color: AppTheme.dark,
-                            ),
-                          ),
-                        ),
-                        const Icon(Icons.arrow_forward, size: 18),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
-            if (widget.onCerrarSesion != null) ...[
-              const SizedBox(height: 28),
+      backgroundColor: AppTheme.background,
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1100),
+          child: ListView(
+            key: const Key('inicio-contenido'),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+            children: [
+              // ── Banner Hero Neo-Brutalista ──────────────────────────────
               ManiCard(
-                key: const Key('inicio-card-sesion'),
-                onTap: () async {
-                  await widget.onCerrarSesion!();
-                },
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 18,
-                  vertical: 16,
-                ),
+                padding: const EdgeInsets.all(24),
                 child: Row(
-                  key: const Key('inicio-cerrar-sesion'),
                   children: [
-                    const ManiIconoCaja(
-                      icono: Icons.logout,
-                      tamano: 18,
-                      color: Color(0xFFFEE2E2),
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primary,
+                        borderRadius: BorderRadius.circular(AppTheme.radiusXl),
+                        border: Border.all(color: AppTheme.dark, width: 2),
+                        boxShadow: const [AppTheme.hardShadowSm],
+                      ),
+                      child: const Icon(
+                        Icons.bolt_rounded,
+                        color: AppTheme.dark,
+                        size: 28,
+                      ),
                     ),
-                    const SizedBox(width: 14),
+                    const SizedBox(width: 18),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Cerrar sesión',
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w900,
-                              color: AppTheme.error,
+                          FutureBuilder<DatosSesion>(
+                            future: _sesion,
+                            builder: (context, snap) => Text(
+                              snap.hasData
+                                  ? 'Hola, ${snap.data!.nombreUsuario}'
+                                  : 'Hola',
+                              key: const Key('inicio-saludo'),
+                              style: const TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.w900,
+                                color: AppTheme.dark,
+                                letterSpacing: -0.5,
+                              ),
                             ),
                           ),
+                          const SizedBox(height: 6),
                           Text(
-                            'Finaliza la sesión actual en este dispositivo',
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 12,
+                            _subtitulo(widget.rol),
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
                               color: AppTheme.textSecondary,
                             ),
                           ),
                         ],
                       ),
                     ),
-                    const Icon(Icons.arrow_forward, color: AppTheme.error),
                   ],
                 ),
               ),
+
+              if (widget.rol == RolUsuario.desconocido) ...[
+                const SizedBox(height: 18),
+                const Card(
+                  key: Key('inicio-sin-rol'),
+                  color: Color(0xFFFEF9C3),
+                  child: ListTile(
+                    leading: Icon(Icons.info_outline, color: AppTheme.dark),
+                    title: Text(
+                      'Tu cuenta no tiene un rol asignado',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    subtitle: Text(
+                      'Pide al administrador de tu empresa que revise tu cuenta.',
+                    ),
+                  ),
+                ),
+              ],
+
+              const SizedBox(height: 24),
+              FutureBuilder<List<IndicadorResumen>>(
+                future: _resumen,
+                builder: (context, snap) {
+                  if (snap.connectionState != ConnectionState.done) {
+                    return const Padding(
+                      padding: EdgeInsets.all(24),
+                      child: Center(
+                        child: CircularProgressIndicator(color: AppTheme.dark),
+                      ),
+                    );
+                  }
+                  final indicadores = snap.data ?? const <IndicadorResumen>[];
+                  if (indicadores.isEmpty) return const SizedBox.shrink();
+                  return Wrap(
+                    spacing: 16,
+                    runSpacing: 16,
+                    children: [
+                      for (final i in indicadores)
+                        _TarjetaIndicador(
+                          indicador: i,
+                          onTap: () => widget.onNavegar(i.ruta),
+                        ),
+                    ],
+                  );
+                },
+              ),
+              const SizedBox(height: 28),
+              Row(
+                children: [
+                  Container(
+                    width: 10,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary,
+                      borderRadius: BorderRadius.circular(3),
+                      border: Border.all(color: AppTheme.dark, width: 1.5),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  const Text(
+                    'Accesos Rápidos',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                      color: AppTheme.dark,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              // Accesos en columnas: tres en escritorio, dos en tableta y una
+              // en móvil. Cada tarjeta conserva el borde negro, la caja del
+              // ícono y la flecha enmarcada (contraste alto sobre blanco).
+              _RejillaAccesos(
+                children: [
+                  for (final e in accesos)
+                    ManiCard(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 6,
+                      ),
+                      sombra: AppTheme.hardShadowSm,
+                      child: ListTile(
+                        key: Key('inicio-acceso-${e.ruta}'),
+                        contentPadding: EdgeInsets.zero,
+                        leading: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: AppTheme.primary,
+                            borderRadius: BorderRadius.circular(
+                              AppTheme.radiusMd,
+                            ),
+                            border: Border.all(color: AppTheme.dark, width: 2),
+                          ),
+                          child: Icon(e.icono, color: AppTheme.dark, size: 20),
+                        ),
+                        title: Text(
+                          e.etiqueta,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            color: AppTheme.dark,
+                          ),
+                        ),
+                        trailing: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: AppTheme.background,
+                            borderRadius: BorderRadius.circular(
+                              AppTheme.radiusMd,
+                            ),
+                            border: Border.all(
+                              color: AppTheme.dark,
+                              width: 1.5,
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.arrow_forward_rounded,
+                            color: AppTheme.dark,
+                            size: 18,
+                          ),
+                        ),
+                        onTap: () => widget.onNavegar(e.ruta),
+                      ),
+                    ),
+                ],
+              ),
+              if (widget.onCerrarSesion != null) ...[
+                const SizedBox(height: 20),
+                ManiCard(
+                  key: const Key('inicio-card-sesion'),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 6,
+                  ),
+                  sombra: AppTheme.hardShadowSm,
+                  child: ListTile(
+                    key: const Key('inicio-cerrar-sesion'),
+                    leading: const Icon(Icons.logout, color: _rojoSesion),
+                    title: const Text(
+                      'Cerrar sesión',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        color: _rojoSesion,
+                      ),
+                    ),
+                    subtitle: const Text(
+                      'Finaliza la sesión actual en este dispositivo',
+                    ),
+                    trailing: const Icon(
+                      Icons.chevron_right,
+                      color: _rojoSesion,
+                    ),
+                    onTap: () async {
+                      await widget.onCerrarSesion!();
+                    },
+                  ),
+                ),
+              ],
             ],
-            const SizedBox(height: 24),
-          ],
+          ),
         ),
       ),
     );
@@ -228,28 +300,35 @@ class _InicioPageState extends State<InicioPage> {
       case RolUsuario.adminTenant:
         return 'Verifica aliados y administra el catálogo de tu empresa.';
       case RolUsuario.adminPlataforma:
-        return 'Habilita o suspende los tenants de la plataforma.';
+        return 'Administra los tenants y accede a todas las funciones de la plataforma.';
       case RolUsuario.desconocido:
         return 'Solo puedes consultar tu perfil por ahora.';
     }
   }
 }
 
-/// Reparte las tarjetas en columnas iguales según el ancho disponible: tres en
-/// escritorio, dos en tableta y una en móvil.
-class _Rejilla extends StatelessWidget {
-  const _Rejilla({required this.anchoMinimo, required this.children});
+/// Rojo de "Cerrar sesión": #B91C1C da 6.5:1 sobre blanco (WCAG AA), a
+/// diferencia de `Colors.redAccent`, que no llega a 4.5:1 para texto.
+const _rojoSesion = Color(0xFFB91C1C);
 
-  final double anchoMinimo;
+/// Reparte las tarjetas de acceso en columnas de igual ancho según el espacio:
+/// tres desde 900 px, dos desde 560 px y una en móvil.
+class _RejillaAccesos extends StatelessWidget {
+  const _RejillaAccesos({required this.children});
+
   final List<Widget> children;
 
-  static const _espacio = 20.0;
+  static const _espacio = 16.0;
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, c) {
-        final columnas = (c.maxWidth / anchoMinimo).floor().clamp(1, 4);
+        final columnas = c.maxWidth >= 900
+            ? 3
+            : c.maxWidth >= 560
+            ? 2
+            : 1;
         final ancho = (c.maxWidth - _espacio * (columnas - 1)) / columnas;
         return Wrap(
           spacing: _espacio,
@@ -271,33 +350,52 @@ class _TarjetaIndicador extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ManiCard(
-      onTap: onTap,
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        key: Key('inicio-indicador-${indicador.etiqueta}'),
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            indicador.valor ?? '—',
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 30,
-              fontWeight: FontWeight.w900,
-              color: AppTheme.dark,
-              letterSpacing: -0.5,
+    return SizedBox(
+      width: 240,
+      child: ManiCard(
+        padding: EdgeInsets.zero,
+        sombra: AppTheme.hardShadowSm,
+        child: InkWell(
+          key: Key('inicio-indicador-${indicador.etiqueta}'),
+          borderRadius: BorderRadius.circular(AppTheme.radius2xl),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                    border: Border.all(color: AppTheme.dark, width: 1.5),
+                  ),
+                  child: Text(
+                    indicador.valor ?? '—',
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                      color: AppTheme.dark,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  indicador.etiqueta,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.dark,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            indicador.etiqueta,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 13,
-              fontWeight: FontWeight.w800,
-              color: AppTheme.textSecondary,
-              letterSpacing: 0.5,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

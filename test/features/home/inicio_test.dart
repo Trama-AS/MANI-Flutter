@@ -256,6 +256,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.byKey(const Key('inicio-acceso-/inicio')), findsNothing);
+      // El administrador del tenant no tiene pantallas de cliente ni aliado.
       expect(
         find.byKey(const Key('inicio-acceso-/aliado/solicitudes')),
         findsNothing,
@@ -336,7 +337,9 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(find.byKey(const Key('inicio-card-sesion')), findsOneWidget);
+        final cardSesion = find.byKey(const Key('inicio-card-sesion'));
+        await tester.scrollUntilVisible(cardSesion, 200);
+        expect(cardSesion, findsOneWidget);
         // La pantalla pinta una tarjeta por entrada del menú del rol, así que
         // al crecer el menú el botón queda por debajo del pliegue y un toque
         // a ciegas no aterriza. Se asegura la visibilidad antes de tocar.

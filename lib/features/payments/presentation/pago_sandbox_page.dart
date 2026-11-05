@@ -42,69 +42,81 @@ class PagoSandboxPage extends StatelessWidget {
       body: BlocBuilder<PagoCubit, PagoState>(
         builder: (context, state) {
           final cubit = context.read<PagoCubit>();
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              const _AvisoSandbox(),
-              const SizedBox(height: 16),
-              if (total != null)
-                Text(
-                  'Total de tu cotización: ${formatearPesos(total!)}',
-                  key: const Key('total-cotizacion'),
-                  style: Theme.of(context).textTheme.titleMedium,
+          return Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 640),
+              child: ListView(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 24,
                 ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<EscenarioPago>(
-                key: const Key('escenario-pago'),
-                initialValue: state.escenario,
-                decoration: const InputDecoration(
-                  labelText: 'Resultado que quieres simular',
-                  border: OutlineInputBorder(),
-                ),
-                items: [
-                  for (final e in EscenarioPago.values)
-                    DropdownMenuItem(value: e, child: Text(e.etiqueta)),
-                ],
-                onChanged: state.pagando
-                    ? null
-                    : (e) {
-                        if (e != null) cubit.elegirEscenario(e);
-                      },
-              ),
-              const SizedBox(height: 16),
-              ManiButton(
-                key: const Key('btn-pagar-sandbox'),
-                etiqueta: 'Pagar (simulado)',
-                icono: Icons.payments_outlined,
-                expandir: true,
-                cargando: state.pagando,
-                onPressed: state.pagando ? null : cubit.pagar,
-              ),
-              if (state.error != null) ...[
-                const SizedBox(height: 16),
-                _ErrorPago(error: state.error!),
-              ],
-              if (state.pago != null) ...[
-                const SizedBox(height: 16),
-                _ResultadoPago(pago: state.pago!),
-                if (state.comprobante != null)
-                  _Comprobante(
-                    comprobante: state.comprobante!,
-                    guardador: guardador,
-                  ),
-                if (cobros != null && state.pago!.aprobado)
-                  RetencionPagoCard(fuente: cobros!, pagoId: state.pago!.id),
-                if (state.falloComprobante)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 8),
-                    child: Text(
-                      'El pago se aprobó, pero no pudimos traer el comprobante. '
-                      'Vuelve a abrir esta pantalla en unos minutos.',
-                      key: Key('sin-comprobante'),
+                children: [
+                  const _AvisoSandbox(),
+                  const SizedBox(height: 16),
+                  if (total != null)
+                    Text(
+                      'Total de tu cotización: ${formatearPesos(total!)}',
+                      key: const Key('total-cotizacion'),
+                      style: Theme.of(context).textTheme.titleMedium,
                     ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<EscenarioPago>(
+                    key: const Key('escenario-pago'),
+                    isExpanded: true,
+                    initialValue: state.escenario,
+                    decoration: const InputDecoration(
+                      labelText: 'Resultado que quieres simular',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: [
+                      for (final e in EscenarioPago.values)
+                        DropdownMenuItem(value: e, child: Text(e.etiqueta)),
+                    ],
+                    onChanged: state.pagando
+                        ? null
+                        : (e) {
+                            if (e != null) cubit.elegirEscenario(e);
+                          },
                   ),
-              ],
-            ],
+                  const SizedBox(height: 16),
+                  ManiButton(
+                    key: const Key('btn-pagar-sandbox'),
+                    etiqueta: 'Pagar (simulado)',
+                    icono: Icons.payments_outlined,
+                    expandir: true,
+                    cargando: state.pagando,
+                    onPressed: state.pagando ? null : cubit.pagar,
+                  ),
+                  if (state.error != null) ...[
+                    const SizedBox(height: 16),
+                    _ErrorPago(error: state.error!),
+                  ],
+                  if (state.pago != null) ...[
+                    const SizedBox(height: 16),
+                    _ResultadoPago(pago: state.pago!),
+                    if (state.comprobante != null)
+                      _Comprobante(
+                        comprobante: state.comprobante!,
+                        guardador: guardador,
+                      ),
+                    if (cobros != null && state.pago!.aprobado)
+                      RetencionPagoCard(
+                        fuente: cobros!,
+                        pagoId: state.pago!.id,
+                      ),
+                    if (state.falloComprobante)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 8),
+                        child: Text(
+                          'El pago se aprobó, pero no pudimos traer el comprobante. '
+                          'Vuelve a abrir esta pantalla en unos minutos.',
+                          key: Key('sin-comprobante'),
+                        ),
+                      ),
+                  ],
+                ],
+              ),
+            ),
           );
         },
       ),

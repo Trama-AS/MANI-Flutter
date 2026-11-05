@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:mani/core/theme/app_theme.dart';
 import 'package:mani/core/widgets/mani_button.dart';
+import 'package:mani/core/widgets/mani_card.dart';
 import 'package:mani/features/services/tracking/presentation/mis_solicitudes_page.dart'
     show formatearFecha;
 
@@ -35,38 +37,57 @@ class EjecucionSeccion extends StatelessWidget {
       },
       builder: (context, state) {
         final e = state.ejecucion;
-        return Card(
+        return ManiCard(
           key: const Key('seccion-ejecucion'),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Ejecución',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 8),
-                if (state.cargando && e == null)
-                  const LinearProgressIndicator()
-                else if (state.error != null && e == null)
-                  Row(
-                    children: [
-                      Expanded(child: Text(state.error!)),
-                      TextButton(
-                        onPressed: context.read<EjecucionCubit>().cargar,
-                        child: const Text('Reintentar'),
-                      ),
-                    ],
-                  )
-                else if (e != null) ...[
-                  _Marca('Inicio', e.inicio, key: const Key('marca-inicio')),
-                  _Marca('Fin', e.fin, key: const Key('marca-fin')),
-                  if (esAliado)
-                    _Acciones(ejecucion: e, enviando: state.enviando),
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary,
+                      borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                      border: Border.all(color: AppTheme.dark, width: 1.5),
+                    ),
+                    child: const Icon(
+                      Icons.play_circle_outline,
+                      size: 18,
+                      color: AppTheme.dark,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    'Ejecución',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: AppTheme.dark,
+                    ),
+                  ),
                 ],
+              ),
+              const SizedBox(height: 12),
+              if (state.cargando && e == null)
+                const LinearProgressIndicator(color: AppTheme.dark)
+              else if (state.error != null && e == null)
+                Row(
+                  children: [
+                    Expanded(child: Text(state.error!)),
+                    TextButton(
+                      onPressed: context.read<EjecucionCubit>().cargar,
+                      child: const Text('Reintentar'),
+                    ),
+                  ],
+                )
+              else if (e != null) ...[
+                _Marca('Inicio', e.inicio, key: const Key('marca-inicio')),
+                _Marca('Fin', e.fin, key: const Key('marca-fin')),
+                if (esAliado) _Acciones(ejecucion: e, enviando: state.enviando),
               ],
-            ),
+            ],
           ),
         );
       },
@@ -120,18 +141,24 @@ class _Acciones extends StatelessWidget {
       );
     }
     return Padding(
-      padding: const EdgeInsets.only(top: 12),
-      child: ManiButton(
-        key: Key('btn-${hito.ruta}-servicio'),
-        etiqueta: hito == HitoEjecucion.inicio
-            ? 'Iniciar servicio'
-            : 'Finalizar servicio',
-        icono: hito == HitoEjecucion.inicio
-            ? Icons.play_arrow_rounded
-            : Icons.flag_rounded,
-        expandir: true,
-        cargando: enviando,
-        onPressed: enviando ? null : () => cubit.marcar(hito),
+      padding: const EdgeInsets.only(top: 14),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 180, maxWidth: 260),
+          child: ManiButton(
+            key: Key('btn-${hito.ruta}-servicio'),
+            etiqueta: hito == HitoEjecucion.inicio
+                ? 'Iniciar servicio'
+                : 'Finalizar servicio',
+            icono: hito == HitoEjecucion.inicio
+                ? Icons.play_arrow_rounded
+                : Icons.flag_rounded,
+            expandir: true,
+            cargando: enviando,
+            onPressed: enviando ? null : () => cubit.marcar(hito),
+          ),
+        ),
       ),
     );
   }

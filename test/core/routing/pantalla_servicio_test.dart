@@ -314,6 +314,58 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  group('pantalla del servicio en columnas', () {
+    const columnas = [
+      Key('servicio-columna-pagos'),
+      Key('servicio-columna-bitacora'),
+      Key('servicio-columna-calificacion'),
+    ];
+
+    // La de calificación solo aparece si la fuente de M-08 está registrada.
+    List<Offset> posiciones(WidgetTester tester) {
+      final presentes = [
+        for (final k in columnas)
+          if (find.byKey(k).evaluate().isNotEmpty) k,
+      ];
+      expect(presentes.length, greaterThanOrEqualTo(2));
+      expect(presentes.take(2), columnas.take(2));
+      return [for (final k in presentes) tester.getTopLeft(find.byKey(k))];
+    }
+
+    void conTamano(WidgetTester tester, Size tamano) {
+      tester.view.physicalSize = tamano;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+    }
+
+    for (final nombre in ['cotizacion-cliente', 'cotizacion-aliado']) {
+      testWidgets('$nombre: en escritorio pagos, ejecución y bitácora, y '
+          'calificación van lado a lado', (tester) async {
+        conTamano(tester, const Size(1400, 1000));
+        await montar(tester, nombre);
+
+        final pos = posiciones(tester);
+        for (var k = 1; k < pos.length; k++) {
+          expect(pos[k - 1].dx < pos[k].dx, isTrue, reason: '$pos');
+        }
+        expect(pos.map((p) => p.dy).toSet(), hasLength(1));
+        expect(find.byKey(const Key('btn-abrir-chat')), findsOneWidget);
+      });
+    }
+
+    testWidgets('en móvil las columnas se apilan en el mismo orden', (
+      tester,
+    ) async {
+      conTamano(tester, const Size(420, 900));
+      await montar(tester, 'cotizacion-cliente');
+
+      final pos = posiciones(tester);
+      expect(pos.map((p) => p.dx).toSet(), hasLength(1));
+      for (var k = 1; k < pos.length; k++) {
+        expect(pos[k - 1].dy < pos[k].dy, isTrue, reason: '$pos');
+      }
+    });
+  });
   // SCRUM-874, 875 y 1418: la calificación vive en la pantalla del servicio y
   // solo aparece con el servicio finalizado o cerrado.
   for (final (ruta, esAliado) in [
@@ -398,14 +450,30 @@ void main() {
       -300,
       scrollable: find.byType(Scrollable).first,
     );
-    await tester.drag(find.byType(ListView).first, const Offset(0, 300));
+    await tester.drag(
+      find.byType(SingleChildScrollView).first,
+      const Offset(0, 300),
+    );
+    await tester.pumpAndSettle();
+    // El gesto de recargar solo se arma desde el borde superior.
+    tester
+        .state<ScrollableState>(
+          find
+              .descendant(
+                of: find.byType(SingleChildScrollView).first,
+                matching: find.byType(Scrollable),
+              )
+              .first,
+        )
+        .position
+        .jumpTo(0);
     await tester.pumpAndSettle();
 
     final antesEjecucion = ejecucion.consultas;
     final antesEventos = eventos.consultas;
     final antesAdiciones = adiciones.consultas;
     await tester.fling(
-      find.byType(ListView).first,
+      find.byType(SingleChildScrollView).first,
       const Offset(0, 2000),
       2000,
     );

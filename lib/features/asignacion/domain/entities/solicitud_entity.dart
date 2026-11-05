@@ -39,6 +39,7 @@ class SolicitudEntity extends Equatable {
     this.reglasSitio = const [],
     this.descripcion,
     this.cantidadFotos = 0,
+    this.fotosRutas = const [],
     this.direccion,
     this.fechaAsignacion,
   });
@@ -67,6 +68,9 @@ class SolicitudEntity extends Equatable {
 
   /// Fotos que adjuntó el cliente.
   final int cantidadFotos;
+
+  /// Rutas de Storage de las fotos adjuntas.
+  final List<String> fotosRutas;
 
   /// Dirección exacta: el servidor solo la envía cuando la solicitud es mía.
   final String? direccion;
@@ -102,6 +106,7 @@ class SolicitudEntity extends Equatable {
     reglasSitio,
     descripcion,
     cantidadFotos,
+    fotosRutas,
     direccion,
     fechaCreacion,
     fechaAsignacion,

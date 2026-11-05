@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:mani/core/theme/app_theme.dart';
+import 'package:mani/core/widgets/mani_card.dart';
 
 import '../domain/calificacion_cierre_modelos.dart';
 import 'calificacion_cierre_cubit.dart';
@@ -68,53 +70,79 @@ class _CalificacionCierreSeccionState extends State<CalificacionCierreSeccion> {
             ? resumen?.clienteAAliado
             : resumen?.aliadoACliente;
 
-        return Card(
+        return ManiCard(
           key: const Key('m08-calificacion-cierre-card'),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.esAliado
-                      ? 'Calificar al cliente y estado de cierre'
-                      : 'Calificar al aliado y estado de cierre',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 8),
-                if (resumen != null)
-                  _BannerEstadoCierre(cierre: resumen.cierre),
-                _MensajesFeedback(
-                  error: state.error,
-                  mensajeExito: state.mensajeExito,
-                ),
-                const SizedBox(height: 12),
-                _CuerpoCalificacionPropia(
-                  miCalificacion: miCalificacion,
-                  puntajeSeleccionado: _puntaje,
-                  comentarioCtrl: _comentarioCtrl,
-                  enviando: state.enviando,
-                  onSeleccionarPuntaje: (v) => setState(() => _puntaje = v),
-                  onEnviar: () => cubit.calificar(
-                    puntaje: _puntaje,
-                    comentario: _comentarioCtrl.text,
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary,
+                      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                      border: Border.all(color: AppTheme.dark, width: 2),
+                      boxShadow: const [AppTheme.hardShadowSm],
+                    ),
+                    child: const Icon(
+                      Icons.star_rounded,
+                      color: AppTheme.dark,
+                      size: 20,
+                    ),
                   ),
-                ),
-                if (otraCalificacion != null) ...[
-                  const Divider(height: 24),
-                  Text(
-                    'Calificación recibida: ★ ${otraCalificacion.puntaje}/5',
-                    key: const Key('m08-otra-calificacion-registrada'),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      widget.esAliado
+                          ? 'Calificar al cliente y estado de cierre'
+                          : 'Calificar al aliado y estado de cierre',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        color: AppTheme.dark,
+                      ),
+                    ),
                   ),
                 ],
-                const SizedBox(height: 8),
-                OutlinedButton(
-                  key: const Key('m08-cerrar-solicitud-btn'),
-                  onPressed: state.enviando ? null : cubit.cerrarSolicitud,
-                  child: const Text('Verificar cierre definitivo'),
+              ),
+              const SizedBox(height: 12),
+              if (resumen != null) _BannerEstadoCierre(cierre: resumen.cierre),
+              _MensajesFeedback(
+                error: state.error,
+                mensajeExito: state.mensajeExito,
+              ),
+              const SizedBox(height: 14),
+              _CuerpoCalificacionPropia(
+                miCalificacion: miCalificacion,
+                puntajeSeleccionado: _puntaje,
+                comentarioCtrl: _comentarioCtrl,
+                enviando: state.enviando,
+                onSeleccionarPuntaje: (v) => setState(() => _puntaje = v),
+                onEnviar: () => cubit.calificar(
+                  puntaje: _puntaje,
+                  comentario: _comentarioCtrl.text,
+                ),
+              ),
+              if (otraCalificacion != null) ...[
+                const Divider(height: 24),
+                Text(
+                  'Calificación recibida: ★ ${otraCalificacion.puntaje}/5',
+                  key: const Key('m08-otra-calificacion-registrada'),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.dark,
+                  ),
                 ),
               ],
-            ),
+              const SizedBox(height: 12),
+              OutlinedButton(
+                key: const Key('m08-cerrar-solicitud-btn'),
+                onPressed: state.enviando ? null : cubit.cerrarSolicitud,
+                child: const Text('Verificar cierre definitivo'),
+              ),
+            ],
           ),
         );
       },
@@ -132,12 +160,11 @@ class _BannerEstadoCierre extends StatelessWidget {
     final completo = cierre.cierreCompleto;
     return Container(
       key: const Key('m08-estado-cierre-banner'),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: completo
-            ? Colors.green.withValues(alpha: 0.12)
-            : Colors.amber.withValues(alpha: 0.16),
-        borderRadius: BorderRadius.circular(8),
+        color: completo ? const Color(0xFFDCFCE7) : const Color(0xFFFEF9C3),
+        borderRadius: BorderRadius.circular(AppTheme.radiusXl),
+        border: Border.all(color: AppTheme.dark, width: 2),
       ),
       child: Row(
         children: [
@@ -145,12 +172,17 @@ class _BannerEstadoCierre extends StatelessWidget {
             completo
                 ? Icons.verified_outlined
                 : Icons.hourglass_bottom_outlined,
+            color: AppTheme.dark,
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
               cierre.etiquetaEstadoCierre,
               key: const Key('m08-estado-cierre-texto'),
+              style: const TextStyle(
+                fontWeight: FontWeight.w800,
+                color: AppTheme.dark,
+              ),
             ),
           ),
         ],
@@ -175,12 +207,22 @@ class _MensajesFeedback extends StatelessWidget {
           Text(
             error!,
             key: const Key('m08-calificacion-error'),
-            style: TextStyle(color: Theme.of(context).colorScheme.error),
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.error,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ],
         if (mensajeExito != null) ...[
           const SizedBox(height: 8),
-          Text(mensajeExito!, key: const Key('m08-calificacion-exito')),
+          Text(
+            mensajeExito!,
+            key: const Key('m08-calificacion-exito'),
+            style: const TextStyle(
+              color: AppTheme.dark,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
         ],
       ],
     );
@@ -209,22 +251,41 @@ class _CuerpoCalificacionPropia extends StatelessWidget {
     final calif = miCalificacion;
     if (calif != null) {
       final comentario = calif.comentario ?? '';
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Tu calificación enviada: ★ ${calif.puntaje}/5',
-            key: const Key('m08-mi-calificacion-registrada'),
-          ),
-          if (comentario.isNotEmpty) Text('Comentario: $comentario'),
-        ],
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppTheme.background,
+          borderRadius: BorderRadius.circular(AppTheme.radiusXl),
+          border: Border.all(color: AppTheme.dark, width: 1.5),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Tu calificación enviada: ★ ${calif.puntaje}/5',
+              key: const Key('m08-mi-calificacion-registrada'),
+              style: const TextStyle(
+                fontWeight: FontWeight.w900,
+                color: AppTheme.dark,
+              ),
+            ),
+            if (comentario.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text('Comentario: $comentario'),
+            ],
+          ],
+        ),
       );
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Selecciona un puntaje de 1 a 5 estrellas:'),
+        const Text(
+          'Selecciona un puntaje de 1 a 5 estrellas:',
+          style: TextStyle(fontWeight: FontWeight.w700, color: AppTheme.dark),
+        ),
+        const SizedBox(height: 6),
         Row(
           children: [
             for (var i = 1; i <= 5; i++)
@@ -232,12 +293,14 @@ class _CuerpoCalificacionPropia extends StatelessWidget {
                 key: Key('m08-estrella-$i'),
                 icon: Icon(
                   i <= puntajeSeleccionado ? Icons.star : Icons.star_border,
-                  color: Colors.amber.shade700,
+                  color: AppTheme.dark,
+                  size: 28,
                 ),
                 onPressed: enviando ? null : () => onSeleccionarPuntaje(i),
               ),
           ],
         ),
+        const SizedBox(height: 8),
         TextField(
           key: const Key('m08-comentario-input'),
           controller: comentarioCtrl,
@@ -283,24 +346,52 @@ class HistorialServiciosPage extends StatelessWidget {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 720),
             child: ListView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(20),
               children: [
-                Text(
-                  titulo,
-                  key: const Key('m08-historial-titulo'),
-                  style: Theme.of(context).textTheme.titleLarge,
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primary,
+                        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                        border: Border.all(color: AppTheme.dark, width: 2),
+                        boxShadow: const [AppTheme.hardShadowSm],
+                      ),
+                      child: const Icon(
+                        Icons.history_rounded,
+                        color: AppTheme.dark,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        titulo,
+                        key: const Key('m08-historial-titulo'),
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                          color: AppTheme.dark,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 if (state.error != null)
                   Text(
                     state.error!,
                     key: const Key('m08-historial-error'),
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.error,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 if (state.cargando && state.registros.isEmpty)
-                  const Center(child: CircularProgressIndicator())
+                  const Center(
+                    child: CircularProgressIndicator(color: AppTheme.dark),
+                  )
                 else if (state.registros.isEmpty)
                   Padding(
                     padding: const EdgeInsets.all(24),
@@ -405,7 +496,6 @@ class _TarjetaHistorialItem extends StatelessWidget {
   }
 }
 
-/// Widget de vista previa de penalización por cancelación tardía (SCRUM-878).
 class ResumenPenalizacionCancelacionBanner extends StatelessWidget {
   const ResumenPenalizacionCancelacionBanner({
     super.key,
@@ -418,16 +508,22 @@ class ResumenPenalizacionCancelacionBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       key: const Key('m08-penalizacion-preview-banner'),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: preview.aplicaPenalizacion
-            ? Colors.orange.withValues(alpha: 0.16)
-            : Colors.blueGrey.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
+            ? const Color(0xFFFEF9C3)
+            : AppTheme.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radiusXl),
+        border: Border.all(color: AppTheme.dark, width: 2),
+        boxShadow: const [AppTheme.hardShadowSm],
       ),
       child: Text(
         preview.resumenUsuario,
         key: const Key('m08-penalizacion-preview-texto'),
+        style: const TextStyle(
+          fontWeight: FontWeight.w800,
+          color: AppTheme.dark,
+        ),
       ),
     );
   }

@@ -1,16 +1,18 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:mani/core/session/contexto_plataforma.dart';
 import 'package:mani/core/session/rol_usuario.dart';
 import 'package:mani/core/shell/datos_sesion.dart';
 import 'package:mani/core/shell/menu_por_rol.dart';
+import 'package:mani/core/shell/selector_contexto_plataforma.dart';
 import 'package:mani/core/theme/app_theme.dart';
-import 'package:mani/core/widgets/mani_layout.dart';
+import 'package:mani/features/platform/data/tenants_datasource.dart';
 
 /// Ancho a partir del cual las entradas se muestran como barra; por debajo
 /// se agrupan en un menú desplegable para que quepan en móvil (RNF-08).
 const anchoMenuExpandido = 600.0;
 
-/// Armazón de las pantallas con sesión (US-11.2.1 / SCRUM-1444).
+/// Armazón neo-brutalista de las pantallas con sesión (US-11.2.1 / SCRUM-1444).
 ///
 /// Pinta el menú superior con las entradas del [rol], el usuario y el tenant
 /// de la sesión, y la acción de cerrar sesión en todas las pantallas. Usa la
@@ -26,6 +28,9 @@ class AppShell extends StatefulWidget {
     required this.fuenteDatos,
     required this.onNavegar,
     required this.onCerrarSesion,
+    this.contextoPlataforma,
+    this.fuenteTenants,
+    this.fuenteUsuarios,
   });
 
   final Widget child;
@@ -37,12 +42,25 @@ class AppShell extends StatefulWidget {
   final ValueChanged<String> onNavegar;
   final Future<void> Function() onCerrarSesion;
 
+  /// Contexto del administrador de plataforma (SCRUM-901): tenant elegido y
+  /// usuario con el que actúa. Solo se usa con [RolUsuario.adminPlataforma].
+  final ContextoPlataforma? contextoPlataforma;
+  final FuenteTenants? fuenteTenants;
+  final FuenteUsuariosTenant? fuenteUsuarios;
+
+  bool get _conContexto =>
+      rol == RolUsuario.adminPlataforma &&
+      contextoPlataforma != null &&
+      fuenteTenants != null &&
+      fuenteUsuarios != null;
+
   @override
   State<AppShell> createState() => _AppShellState();
 }
 
 class _AppShellState extends State<AppShell> {
   late Future<DatosSesion> _datos;
+  final ScrollController _menuScrollController = ScrollController();
 
   @override
   void initState() {
@@ -50,26 +68,84 @@ class _AppShellState extends State<AppShell> {
     _datos = widget.fuenteDatos.cargar();
   }
 
+  @override
+  void dispose() {
+    _menuScrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollBarra(double delta) {
+    if (!_menuScrollController.hasClients) return;
+    final target = (_menuScrollController.offset + delta).clamp(
+      0.0,
+      _menuScrollController.position.maxScrollExtent,
+    );
+    _menuScrollController.animateTo(
+      target,
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
   bool _coincide(EntradaMenu e) =>
       widget.ubicacion == e.ruta || widget.ubicacion.startsWith('${e.ruta}/');
 
   /// Solo la entrada más específica queda activa: en
   /// `/cliente/solicitudes/nueva` se resalta "Nueva solicitud" y no también
-  /// "Mis solicitudes".
+  /// "Mis solicitudes", cuya ruta es prefijo de la actual.
   bool _esActiva(EntradaMenu e) {
     if (!_coincide(e)) return false;
-    return !entradasMenuPara(
-      widget.rol,
-    ).any((o) => o.ruta.length > e.ruta.length && _coincide(o));
+    return !_entradas().any(
+      (o) => o.ruta.length > e.ruta.length && _coincide(o),
+    );
   }
 
+  /// Entradas del rol; el admin de plataforma ve las del rol con el que actúa.
+  List<EntradaMenu> _entradas() => widget._conContexto
+      ? entradasMenuPara(
+          widget.rol,
+          actuandoComo: widget.contextoPlataforma!.rolEfectivo,
+        )
+      : entradasMenuPara(widget.rol);
   Future<void> _cerrarSesion() async {
     await widget.onCerrarSesion();
   }
 
   @override
   Widget build(BuildContext context) {
-    final entradas = entradasMenuPara(widget.rol);
+    final contexto = widget.contextoPlataforma;
+    if (!widget._conContexto || contexto == null) return _armazon(context);
+    // Con cada cambio de contexto se repinta el menú y se recarga la pantalla.
+    return ListenableBuilder(
+      listenable: contexto,
+      builder: (context, _) => _armazon(context),
+    );
+  }
+
+  Widget _armazon(BuildContext context) {
+    final entradas = _entradas();
+    final contexto = widget._conContexto ? widget.contextoPlataforma : null;
+    final cuerpo = contexto == null
+        ? widget.child
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SelectorContextoPlataforma(
+                contexto: contexto,
+                fuenteTenants: widget.fuenteTenants!,
+                fuenteUsuarios: widget.fuenteUsuarios!,
+                alCambiar: () => widget.onNavegar('/inicio'),
+              ),
+              Expanded(
+                // Pantallas nuevas con el contexto nuevo: sus cubits vuelven a
+                // consultar con las cabeceras actualizadas.
+                child: KeyedSubtree(
+                  key: ValueKey('contexto-${contexto.version}'),
+                  child: widget.child,
+                ),
+              ),
+            ],
+          );
     return LayoutBuilder(
       builder: (context, constraints) {
         final expandido = constraints.maxWidth >= anchoMenuExpandido;
@@ -89,32 +165,90 @@ class _AppShellState extends State<AppShell> {
             ),
             leading: expandido ? null : _menuCompacto(entradas),
             titleSpacing: expandido ? 32 : 0,
-            title: _CabeceraSesion(
-              datos: _datos,
-              rol: widget.rol,
-              conLogo: expandido,
+            title: Align(
+              alignment: Alignment.centerLeft,
+              child: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary,
+                      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                      border: Border.all(color: AppTheme.dark, width: 2),
+                      boxShadow: const [AppTheme.hardShadowSm],
+                    ),
+                    child: const Text(
+                      'M',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
+                        color: AppTheme.dark,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _CabeceraSesion(datos: _datos, rol: widget.rol),
+                  ),
+                ],
+              ),
             ),
             actions: [
               Padding(
-                padding: EdgeInsets.only(right: expandido ? 32 : 8),
-                child: expandido
-                    ? OutlinedButton.icon(
-                        key: const Key('menu-cerrar-sesion'),
-                        onPressed: _cerrarSesion,
-                        icon: const Icon(Icons.logout, size: 18),
-                        label: const Text('Cerrar sesión'),
-                      )
-                    : IconButton(
-                        key: const Key('menu-cerrar-sesion'),
-                        tooltip: 'Cerrar sesión',
-                        icon: const Icon(Icons.logout),
-                        onPressed: _cerrarSesion,
-                      ),
+                padding: EdgeInsets.only(right: expandido ? 32 : 16),
+                child: Center(
+                  child: expandido
+                      ? OutlinedButton.icon(
+                          key: const Key('menu-cerrar-sesion'),
+                          onPressed: _cerrarSesion,
+                          icon: const Icon(Icons.logout_rounded, size: 18),
+                          label: const Text('Cerrar sesión'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.dark,
+                            backgroundColor: AppTheme.surface,
+                            side: const BorderSide(
+                              color: AppTheme.dark,
+                              width: 2,
+                            ),
+                            textStyle: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(
+                                AppTheme.radiusXl,
+                              ),
+                            ),
+                          ),
+                        )
+                      : Container(
+                          decoration: BoxDecoration(
+                            color: AppTheme.surface,
+                            borderRadius: BorderRadius.circular(
+                              AppTheme.radiusMd,
+                            ),
+                            border: Border.all(color: AppTheme.dark, width: 2),
+                            boxShadow: const [AppTheme.hardShadowSm],
+                          ),
+                          child: IconButton(
+                            key: const Key('menu-cerrar-sesion'),
+                            tooltip: 'Cerrar sesión',
+                            icon: const Icon(
+                              Icons.logout_rounded,
+                              color: AppTheme.dark,
+                              size: 20,
+                            ),
+                            onPressed: _cerrarSesion,
+                          ),
+                        ),
+                ),
               ),
             ],
-            bottom: expandido ? _barraEntradas(entradas) : null,
+            bottom: expandido ? _barraEntradas(context, entradas) : null,
           ),
-          body: ManiContenido(child: widget.child),
+          body: cuerpo,
         );
       },
     );
@@ -124,7 +258,7 @@ class _AppShellState extends State<AppShell> {
     return PopupMenuButton<String>(
       key: const Key('menu-compacto'),
       tooltip: 'Menú',
-      icon: const Icon(Icons.menu),
+      icon: const Icon(Icons.menu_rounded, color: AppTheme.dark),
       onSelected: (val) {
         if (val == '__logout__') {
           _cerrarSesion();
@@ -138,8 +272,14 @@ class _AppShellState extends State<AppShell> {
             key: Key('menu-entrada-${e.ruta}'),
             value: e.ruta,
             child: ListTile(
-              leading: Icon(e.icono),
-              title: Text(e.etiqueta),
+              leading: Icon(e.icono, color: AppTheme.dark),
+              title: Text(
+                e.etiqueta,
+                style: TextStyle(
+                  fontWeight: _esActiva(e) ? FontWeight.w900 : FontWeight.w600,
+                  color: AppTheme.dark,
+                ),
+              ),
               selected: _esActiva(e),
               contentPadding: EdgeInsets.zero,
             ),
@@ -164,76 +304,148 @@ class _AppShellState extends State<AppShell> {
     );
   }
 
-  PreferredSizeWidget _barraEntradas(List<EntradaMenu> entradas) {
+  PreferredSizeWidget _barraEntradas(
+    BuildContext context,
+    List<EntradaMenu> entradas,
+  ) {
     return PreferredSize(
       preferredSize: const Size.fromHeight(62),
       child: Container(
+        width: double.infinity,
         decoration: const BoxDecoration(
-          border: Border(top: BorderSide(color: AppTheme.borderLight)),
+          color: AppTheme.background,
+          border: Border(top: BorderSide(color: AppTheme.dark, width: 1.5)),
         ),
-        alignment: Alignment.centerLeft,
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.fromLTRB(28, 10, 28, 12),
-          child: Row(
-            children: [
-              for (final e in entradas)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: _EntradaBarra(
-                    entrada: e,
-                    activa: _esActiva(e),
-                    onTap: () => widget.onNavegar(e.ruta),
+        child: Row(
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(left: 6),
+              child: IconButton(
+                key: const Key('menu-scroll-izq'),
+                icon: const Icon(
+                  Icons.chevron_left_rounded,
+                  color: AppTheme.dark,
+                ),
+                tooltip: 'Desplazar a la izquierda',
+                onPressed: () => _scrollBarra(-280),
+              ),
+            ),
+            Expanded(
+              child: Listener(
+                onPointerSignal: (pointerSignal) {
+                  if (pointerSignal is PointerScrollEvent &&
+                      _menuScrollController.hasClients) {
+                    final delta = pointerSignal.scrollDelta.dy != 0
+                        ? pointerSignal.scrollDelta.dy
+                        : pointerSignal.scrollDelta.dx;
+                    final target = (_menuScrollController.offset + delta).clamp(
+                      0.0,
+                      _menuScrollController.position.maxScrollExtent,
+                    );
+                    _menuScrollController.jumpTo(target);
+                  }
+                },
+                child: ScrollConfiguration(
+                  behavior: ScrollConfiguration.of(context).copyWith(
+                    dragDevices: {
+                      PointerDeviceKind.touch,
+                      PointerDeviceKind.mouse,
+                      PointerDeviceKind.trackpad,
+                    },
+                  ),
+                  child: RawScrollbar(
+                    controller: _menuScrollController,
+                    thumbVisibility: true,
+                    thickness: 4,
+                    radius: const Radius.circular(2),
+                    thumbColor: AppTheme.dark.withValues(alpha: 0.35),
+                    padding: const EdgeInsets.only(bottom: 2),
+                    child: SingleChildScrollView(
+                      controller: _menuScrollController,
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 8,
+                      ),
+                      child: Row(
+                        children: [
+                          for (final e in entradas)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 5,
+                              ),
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  color: _esActiva(e)
+                                      ? AppTheme.primary
+                                      : AppTheme.surface,
+                                  borderRadius: BorderRadius.circular(
+                                    AppTheme.radiusXl,
+                                  ),
+                                  border: Border.all(
+                                    color: AppTheme.dark,
+                                    width: 2,
+                                  ),
+                                  boxShadow: _esActiva(e)
+                                      ? const [AppTheme.hardShadowSm]
+                                      : const [],
+                                ),
+                                child: TextButton.icon(
+                                  key: Key('menu-entrada-${e.ruta}'),
+                                  onPressed: () => widget.onNavegar(e.ruta),
+                                  icon: Icon(
+                                    e.icono,
+                                    size: 18,
+                                    color: AppTheme.dark,
+                                  ),
+                                  label: Text(
+                                    e.etiqueta,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: _esActiva(e)
+                                          ? FontWeight.w900
+                                          : FontWeight.w700,
+                                      color: AppTheme.dark,
+                                    ),
+                                  ),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: AppTheme.dark,
+                                    backgroundColor: _esActiva(e)
+                                        ? AppTheme.primary
+                                        : null,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 10,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(
+                                        AppTheme.radiusXl,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Entrada del menú: pastilla amarilla con borde y sombra dura si está
-/// activa, texto plano si no; mismo lenguaje que los botones del registro.
-class _EntradaBarra extends StatelessWidget {
-  const _EntradaBarra({
-    required this.entrada,
-    required this.activa,
-    required this.onTap,
-  });
-
-  final EntradaMenu entrada;
-  final bool activa;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(AppTheme.radiusXl),
-        boxShadow: [if (activa) AppTheme.hardShadowSm],
-      ),
-      child: TextButton.icon(
-        key: Key('menu-entrada-${entrada.ruta}'),
-        onPressed: onTap,
-        icon: Icon(entrada.icono, size: 18),
-        label: Text(entrada.etiqueta),
-        style: TextButton.styleFrom(
-          foregroundColor: AppTheme.dark,
-          backgroundColor: activa ? AppTheme.primary : null,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppTheme.radiusXl),
-            side: BorderSide(
-              color: activa ? AppTheme.dark : Colors.transparent,
-              width: 2,
+              ),
             ),
-          ),
-          textStyle: GoogleFonts.plusJakartaSans(
-            fontSize: 13,
-            fontWeight: activa ? FontWeight.w900 : FontWeight.w700,
-          ),
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: IconButton(
+                key: const Key('menu-scroll-der'),
+                icon: const Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppTheme.dark,
+                ),
+                tooltip: 'Desplazar a la derecha',
+                onPressed: () => _scrollBarra(280),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -243,15 +455,10 @@ class _EntradaBarra extends StatelessWidget {
 /// Logo, usuario, rol y tenant de la sesión. Mientras carga muestra solo el
 /// rol, y si Core no responde muestra el rol sin nombre: el menú sigue usable.
 class _CabeceraSesion extends StatelessWidget {
-  const _CabeceraSesion({
-    required this.datos,
-    required this.rol,
-    this.conLogo = true,
-  });
+  const _CabeceraSesion({required this.datos, required this.rol});
 
   final Future<DatosSesion> datos;
   final RolUsuario rol;
-  final bool conLogo;
 
   @override
   Widget build(BuildContext context) {
@@ -264,57 +471,31 @@ class _CabeceraSesion extends StatelessWidget {
           etiquetaRol(rol),
           if (d?.nombreTenant != null) d!.nombreTenant!,
         ].join(' · ');
-        return Row(
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            if (conLogo) ...[
-              Container(
-                width: 40,
-                height: 40,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: AppTheme.primary,
-                  borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-                  border: Border.all(color: AppTheme.dark, width: 2),
-                  boxShadow: const [AppTheme.hardShadowSm],
-                ),
-                child: Text(
-                  'M',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
-                    color: AppTheme.dark,
-                  ),
-                ),
+            Text(
+              usuario ?? 'MANI',
+              key: const Key('menu-usuario'),
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+                color: AppTheme.dark,
+                letterSpacing: -0.3,
               ),
-              const SizedBox(width: 12),
-            ],
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    usuario ?? 'MANI',
-                    key: const Key('menu-usuario'),
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w900,
-                      color: AppTheme.dark,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  Text(
-                    linea2,
-                    key: const Key('menu-tenant'),
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.textSecondary,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 2),
+            Text(
+              linea2,
+              key: const Key('menu-tenant'),
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.textSecondary,
               ),
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         );

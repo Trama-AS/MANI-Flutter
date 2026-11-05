@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mani/core/platform/selector_fotos.dart';
 import 'package:mani/core/platform/url_opener.dart';
+import 'package:mani/core/theme/app_theme.dart';
 import 'package:mani/core/widgets/mani_button.dart';
+import 'package:mani/core/widgets/mani_card.dart';
 import 'package:mani/features/services/requests/domain/entities/foto_adjunta.dart';
 import 'package:mani/features/services/requests/domain/failures/solicitud_failure.dart';
 import 'package:mani/features/services/tracking/presentation/mis_solicitudes_page.dart'
@@ -55,43 +57,64 @@ class EventosSeccion extends StatelessWidget {
           );
       },
       builder: (context, state) {
-        return Card(
+        return ManiCard(
           key: const Key('seccion-eventos'),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Bitácora del servicio',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 8),
-                if (puedeRegistrar && selectorFotos != null)
-                  _FormularioEvento(
-                    enviando: state.enviando,
-                    selectorFotos: selectorFotos!,
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary,
+                      borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                      border: Border.all(color: AppTheme.dark, width: 1.5),
+                    ),
+                    child: const Icon(
+                      Icons.history_rounded,
+                      size: 18,
+                      color: AppTheme.dark,
+                    ),
                   ),
-                if (state.pendientes.isNotEmpty) _Pendientes(state.pendientes),
-                if (state.cargando && state.eventos.isEmpty)
-                  const LinearProgressIndicator()
-                else if (state.error != null && state.eventos.isEmpty)
-                  Row(
-                    children: [
-                      Expanded(child: Text(state.error!)),
-                      TextButton(
-                        onPressed: context.read<EventosCubit>().cargar,
-                        child: const Text('Reintentar'),
+                  const SizedBox(width: 10),
+                  Flexible(
+                    child: Text(
+                      'Bitácora del servicio',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.dark,
                       ),
-                    ],
-                  )
-                else if (state.eventos.isEmpty)
-                  const Text('Aún no hay eventos registrados.')
-                else
-                  for (final e in state.eventos)
-                    _Evento(e, urlOpener: urlOpener),
-              ],
-            ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              if (puedeRegistrar && selectorFotos != null)
+                _FormularioEvento(
+                  enviando: state.enviando,
+                  selectorFotos: selectorFotos!,
+                ),
+              if (state.pendientes.isNotEmpty) _Pendientes(state.pendientes),
+              if (state.cargando && state.eventos.isEmpty)
+                const LinearProgressIndicator(color: AppTheme.dark)
+              else if (state.error != null && state.eventos.isEmpty)
+                Row(
+                  children: [
+                    Expanded(child: Text(state.error!)),
+                    TextButton(
+                      onPressed: context.read<EventosCubit>().cargar,
+                      child: const Text('Reintentar'),
+                    ),
+                  ],
+                )
+              else if (state.eventos.isEmpty)
+                const Text('Aún no hay eventos registrados.')
+              else
+                for (final e in state.eventos) _Evento(e, urlOpener: urlOpener),
+            ],
           ),
         );
       },
@@ -314,13 +337,20 @@ class _FormularioEventoState extends State<_FormularioEvento> {
               ),
           ],
         ),
-        ManiButton(
-          key: const Key('btn-registrar-evento'),
-          etiqueta: widget.enviando ? 'Registrando…' : 'Registrar evento',
-          icono: Icons.note_add_outlined,
-          expandir: true,
-          cargando: widget.enviando,
-          onPressed: widget.enviando || !valido ? null : _enviar,
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 180, maxWidth: 260),
+            child: ManiButton(
+              key: const Key('btn-registrar-evento'),
+              etiqueta: widget.enviando ? 'Registrando…' : 'Registrar evento',
+              icono: Icons.note_add_outlined,
+              expandir: true,
+              cargando: widget.enviando,
+              onPressed: widget.enviando || !valido ? null : _enviar,
+            ),
+          ),
         ),
         const SizedBox(height: 12),
       ],

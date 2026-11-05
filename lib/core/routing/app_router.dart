@@ -5,10 +5,12 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:mani/features/platform/data/tenants_datasource.dart';
 import 'package:mani/features/audit/presentation/auditoria_page.dart';
 import 'package:mani/features/conversation_review/presentation/conversacion_queja_page.dart';
 import 'package:mani/features/notifications/domain/aviso.dart';
 import 'package:mani/features/notifications/presentation/avisos_page.dart';
+import 'package:mani/core/session/contexto_plataforma.dart';
 import 'package:mani/core/di/injection_container.dart';
 import 'package:mani/core/session/guardas_ruta.dart';
 import 'package:mani/core/session/rol_usuario.dart';
@@ -60,6 +62,9 @@ import 'package:mani/features/services/execution/presentation/ejecucion_seccion.
 import 'package:mani/features/services/events/data/cola_eventos.dart';
 import 'package:mani/features/services/events/presentation/eventos_cubit.dart';
 import 'package:mani/features/services/events/presentation/eventos_seccion.dart';
+import 'package:mani/features/services/ratings/data/calificacion_cierre_datasource.dart';
+import 'package:mani/features/services/ratings/presentation/calificacion_cierre_cubit.dart';
+import 'package:mani/features/services/ratings/presentation/calificacion_cierre_widgets.dart';
 import 'package:mani/features/profiles/site_rules/presentation/bloc/reglas_sitio_cubit.dart';
 import 'package:mani/features/profiles/site_rules/presentation/pages/reglas_sitio_page.dart';
 import 'package:mani/features/profiles/company_sites/presentation/bloc/sedes_empresa_cubit.dart';
@@ -67,9 +72,6 @@ import 'package:mani/features/profiles/company_sites/presentation/pages/gestion_
 import 'package:mani/features/profiles/direct_employees/presentation/bloc/empleado_directo_cubit.dart';
 import 'package:mani/features/profiles/direct_employees/presentation/pages/registrar_empleado_directo_page.dart';
 import 'package:mani/features/profiles/own_profile/presentation/pages/editar_perfil_page.dart';
-import 'package:mani/features/services/ratings/data/calificacion_cierre_datasource.dart';
-import 'package:mani/features/services/ratings/presentation/calificacion_cierre_cubit.dart';
-import 'package:mani/features/services/ratings/presentation/calificacion_cierre_widgets.dart';
 import 'package:mani/features/services/ratings/presentation/politica_cancelacion_page.dart';
 import 'package:mani/features/tariffs/data/tarifas_datasource.dart';
 import 'package:mani/features/tariffs/presentation/referencia_tarifa_seccion.dart';
@@ -174,6 +176,11 @@ Widget _pantallaServicio(
         usuarioActual: () => sl<SupabaseClient>().auth.currentUser?.id,
       )..cargar(),
     ),
+    if (sl.isRegistered<FuenteModuloM08>())
+      BlocProvider(
+        create: (_) =>
+            CalificacionCierreCubit(sl(), solicitudId: solicitudId)..cargar(),
+      ),
   ],
   child: Builder(
     builder: (context) => CotizacionPage(
@@ -206,38 +213,40 @@ Widget _pantallaServicio(
                       ?.totalVigente ??
                   total,
             ),
-      pie: Column(
+      // Chat del servicio (HU-M09-02 / SCRUM-881): solo participan el cliente
+      // y el aliado asignado; lo valida Core.
+      accionEncabezado: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 270),
+        child: ManiButton(
+          key: const Key('btn-abrir-chat'),
+          etiqueta: esAliado
+              ? 'Mensajes con el cliente'
+              : 'Mensajes con el aliado',
+          icono: Icons.chat_bubble_outline,
+          variante: ManiButtonVariante.secundario,
+          onPressed: () => context.push(
+            '/${esAliado ? 'aliado' : 'cliente'}/solicitudes/$solicitudId/chat',
+          ),
+        ),
+      ),
+      // Adiciones por imprevisto (SCRUM-872): cambian el total a pagar, por eso
+      // van con los pagos. El aliado las pide con el servicio en ejecución; el
+      // cliente decide. Core aplica el tope.
+      pagosExtra: BlocBuilder<EjecucionCubit, EjecucionState>(
+        buildWhen: (a, b) =>
+            a.ejecucion?.enEjecucion != b.ejecucion?.enEjecucion,
+        builder: (context, state) => AdicionesSeccion(
+          esAliado: esAliado,
+          puedePedir: esAliado && (state.ejecucion?.enEjecucion ?? false),
+        ),
+      ),
+      // Ejecución (SCRUM-868) y bitácora. El aliado registra eventos solo con
+      // el servicio en ejecución (la regla definitiva la aplica Core,
+      // MANI-EVT-409E); el cliente la consulta en solo lectura (SCRUM-870).
+      bitacora: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Chat del servicio (HU-M09-02 / SCRUM-881): solo participan el cliente
-          // y el aliado asignado; lo valida Core.
-          ManiButton(
-            key: const Key('btn-abrir-chat'),
-            etiqueta: esAliado
-                ? 'Mensajes con el cliente'
-                : 'Mensajes con el aliado',
-            icono: Icons.chat_bubble_outline,
-            variante: ManiButtonVariante.secundario,
-            expandir: true,
-            onPressed: () => context.push(
-              '/${esAliado ? 'aliado' : 'cliente'}/solicitudes/$solicitudId/chat',
-            ),
-          ),
-          const SizedBox(height: 12),
           EjecucionSeccion(esAliado: esAliado),
-          // Adiciones por imprevisto (SCRUM-872): el aliado las pide con el
-          // servicio en ejecución; el cliente decide. Core aplica el tope.
-          BlocBuilder<EjecucionCubit, EjecucionState>(
-            buildWhen: (a, b) =>
-                a.ejecucion?.enEjecucion != b.ejecucion?.enEjecucion,
-            builder: (context, state) => AdicionesSeccion(
-              esAliado: esAliado,
-              puedePedir: esAliado && (state.ejecucion?.enEjecucion ?? false),
-            ),
-          ),
-          // El aliado registra eventos solo con el servicio en ejecución (la regla
-          // definitiva la aplica Core, MANI-EVT-409E); el cliente consulta la
-          // bitácora en solo lectura (SCRUM-870).
           BlocBuilder<EjecucionCubit, EjecucionState>(
             buildWhen: (a, b) =>
                 a.ejecucion?.enEjecucion != b.ejecucion?.enEjecucion,
@@ -248,25 +257,26 @@ Widget _pantallaServicio(
               selectorFotos: esAliado ? sl() : null,
             ),
           ),
-          // Calificación y cierre (SCRUM-874, 875 y 1418): aparece cuando el
-          // servicio queda FINALIZADA. Al finalizar la ejecución en esta misma
-          // pantalla se vuelve a consultar el estado para mostrarla.
-          BlocListener<EjecucionCubit, EjecucionState>(
-            listenWhen: (a, b) =>
-                a.ejecucion?.finalizada != b.ejecucion?.finalizada &&
-                (b.ejecucion?.finalizada ?? false),
-            listener: (context, _) =>
-                context.read<CalificacionCierreCubit>().cargar(),
-            child: CalificacionServicioFinalizado(esAliado: esAliado),
-          ),
         ],
       ),
+      // Calificación y cierre (SCRUM-874, 875 y 1418).
+      calificacion: sl.isRegistered<FuenteModuloM08>()
+          ? BlocListener<EjecucionCubit, EjecucionState>(
+              listenWhen: (a, b) =>
+                  a.ejecucion?.finalizada != b.ejecucion?.finalizada &&
+                  (b.ejecucion?.finalizada ?? false),
+              listener: (context, _) =>
+                  context.read<CalificacionCierreCubit>().cargar(),
+              child: CalificacionServicioFinalizado(esAliado: esAliado),
+            )
+          : null,
       alRefrescar: () async {
         await Future.wait([
           context.read<EjecucionCubit>().cargar(),
           context.read<AdicionesCubit>().cargar(),
           context.read<EventosCubit>().cargar(),
-          context.read<CalificacionCierreCubit>().cargar(),
+          if (sl.isRegistered<FuenteModuloM08>())
+            context.read<CalificacionCierreCubit>().cargar(),
         ]);
       },
     ),
@@ -391,7 +401,23 @@ final appRouter = GoRouter(
         ubicacion: state.matchedLocation,
         fuenteDatos: sl<FuenteDatosSesion>(),
         onNavegar: (ruta) => context.go(ruta),
-        onCerrarSesion: () => sl<IAuthRepository>().signOut(),
+        onCerrarSesion: () async {
+          // El contexto del admin de plataforma no pasa a la siguiente sesión.
+          if (sl.isRegistered<ContextoPlataforma>()) {
+            sl<ContextoPlataforma>().limpiar();
+          }
+          await sl<IAuthRepository>().signOut();
+        },
+        // Tenant elegido y «Actuar como» del admin de plataforma (SCRUM-901).
+        contextoPlataforma: sl.isRegistered<ContextoPlataforma>()
+            ? sl<ContextoPlataforma>()
+            : null,
+        fuenteTenants: sl.isRegistered<FuenteTenants>()
+            ? sl<FuenteTenants>()
+            : null,
+        fuenteUsuarios: sl.isRegistered<FuenteUsuariosTenant>()
+            ? sl<FuenteUsuariosTenant>()
+            : null,
         child: child,
       ),
       routes: [
@@ -405,6 +431,9 @@ final appRouter = GoRouter(
             ),
             fuenteSesion: sl<FuenteDatosSesion>(),
             fuenteResumen: sl<FuenteResumenInicio>(),
+            contextoPlataforma: sl.isRegistered<ContextoPlataforma>()
+                ? sl<ContextoPlataforma>()
+                : null,
             onNavegar: (ruta) => context.go(ruta),
             onCerrarSesion: () async {
               await sl<IAuthRepository>().signOut();

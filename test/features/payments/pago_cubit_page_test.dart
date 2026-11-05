@@ -461,12 +461,16 @@ void main() {
   });
 
   group('Guarda de rol de la ruta de pago', () {
-    test('/cliente/pagos/... solo lo abre el cliente', () {
+    test('/cliente/pagos/... lo abren el cliente y el admin de plataforma', () {
       expect(rolPuedeAbrir(RolUsuario.cliente, '/cliente/pagos/cot-1'), isTrue);
       expect(rolPuedeAbrir(RolUsuario.aliado, '/cliente/pagos/cot-1'), isFalse);
       expect(
         rolPuedeAbrir(RolUsuario.adminTenant, '/cliente/pagos/cot-1'),
         isFalse,
+      );
+      expect(
+        rolPuedeAbrir(RolUsuario.adminPlataforma, '/cliente/pagos/cot-1'),
+        isTrue,
       );
     });
   });

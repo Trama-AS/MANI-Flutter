@@ -140,13 +140,33 @@ void main() {
       },
     );
 
-    test('admin del tenant ve verificación y catálogo de categorías', () {
+    test('admin del tenant ve solo la administración de su empresa', () {
       final r = rutas(RolUsuario.adminTenant);
       expect(
         r,
         containsAll(['/admin/verificacion-aliados', '/admin/categorias']),
       );
-      expect(r.any((x) => x.startsWith('/aliado')), isFalse);
+      expect(
+        r.where(
+          (x) =>
+              x.startsWith('/aliado/') ||
+              x.startsWith('/cliente/') ||
+              x.startsWith('/plataforma/') ||
+              x == '/categories',
+        ),
+        isEmpty,
+      );
+    });
+
+    test('admin de plataforma ve tenants y la administración por omisión', () {
+      final r = rutas(RolUsuario.adminPlataforma);
+      expect(
+        r,
+        containsAll({'/plataforma/tenants', ...rutas(RolUsuario.adminTenant)}),
+      );
+      // Las de cliente y aliado aparecen al actuar como uno
+      // (contexto_plataforma_test.dart).
+      expect(r.where((x) => x.startsWith('/cliente/')), isEmpty);
     });
 
     test(
@@ -311,6 +331,20 @@ void main() {
       expect(find.text('contenido de la pantalla'), findsOneWidget);
     });
 
+    testWidgets(
+      'en escritorio la barra es desplazable con botones de navegación',
+      (tester) async {
+        await _montar(tester, ancho: 1024, rol: RolUsuario.adminTenant);
+        expect(find.byKey(const Key('menu-scroll-izq')), findsOneWidget);
+        expect(find.byKey(const Key('menu-scroll-der')), findsOneWidget);
+
+        await tester.tap(find.byKey(const Key('menu-scroll-der')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('menu-scroll-izq')));
+        await tester.pumpAndSettle();
+      },
+    );
+
     testWidgets('tocar una entrada navega a su ruta', (tester) async {
       String? destino;
       await _montar(
@@ -424,6 +458,26 @@ void main() {
       );
       expect(activa.style?.backgroundColor?.resolve({}), isNotNull);
       expect(inactiva.style?.backgroundColor?.resolve({}), isNull);
+    });
+
+    testWidgets('en una subruta solo resalta la entrada más específica', (
+      tester,
+    ) async {
+      await _montar(
+        tester,
+        ancho: 1024,
+        rol: RolUsuario.cliente,
+        ubicacion: '/cliente/solicitudes/nueva',
+      );
+
+      Color? fondo(String ruta) => tester
+          .widget<TextButton>(find.byKey(Key('menu-entrada-$ruta')))
+          .style
+          ?.backgroundColor
+          ?.resolve({});
+      expect(fondo('/cliente/solicitudes/nueva'), isNotNull);
+      // "Mis solicitudes" es prefijo de la ruta pero no debe resaltarse.
+      expect(fondo('/cliente/solicitudes'), isNull);
     });
   });
 }

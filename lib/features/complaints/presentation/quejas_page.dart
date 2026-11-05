@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mani/core/network/mensaje_error_gateway.dart';
+import 'package:mani/core/theme/app_theme.dart';
 import 'package:mani/core/widgets/mani_button.dart';
+import 'package:mani/core/widgets/mani_card.dart';
+import 'package:mani/core/widgets/mani_pagina.dart';
 
 import '../domain/queja.dart';
 import 'quejas_cubit.dart';
@@ -38,87 +41,133 @@ class QuejasPage extends StatelessWidget {
       },
       builder: (context, state) {
         final cubit = context.read<QuejasCubit>();
-        final tema = Theme.of(context).textTheme;
-        return Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 820),
-            child: RefreshIndicator(
-              onRefresh: cubit.cargar,
-              child: ListView(
-                padding: const EdgeInsets.all(16),
+        return ManiPagina(
+          alRefrescar: cubit.cargar,
+          children: [
+            ManiEncabezadoPagina(
+              icono: cubit.esAdmin
+                  ? Icons.support_agent_outlined
+                  : Icons.feedback_outlined,
+              titulo: cubit.esAdmin ? 'Quejas del tenant' : 'Mis quejas',
+              descripcion: cubit.esAdmin
+                  ? 'Atiende las quejas de los clientes y cambia su estado. '
+                        'Cada cambio queda registrado con tu usuario.'
+                  : 'Quejas que presentaste sobre tus servicios. Para '
+                        'presentar una nueva, ve a Mis solicitudes.',
+            ),
+            const SizedBox(height: 24),
+            if (cubit.esAdmin) ...[
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
                 children: [
-                  Text(
-                    cubit.esAdmin ? 'Quejas del tenant' : 'Mis quejas',
-                    style: tema.headlineSmall,
+                  _Filtro(
+                    clave: const Key('filtro-todas'),
+                    etiqueta: 'Todas',
+                    activo: state.filtro == null,
+                    onTap: () => cubit.filtrar(null),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    cubit.esAdmin
-                        ? 'Atiende las quejas de los clientes y cambia su estado. '
-                              'Cada cambio queda registrado con tu usuario.'
-                        : 'Quejas que presentaste sobre tus servicios. Para '
-                              'presentar una nueva, ve a Mis solicitudes.',
-                  ),
-                  if (cubit.esAdmin) ...[
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      children: [
-                        ChoiceChip(
-                          key: const Key('filtro-todas'),
-                          label: const Text('Todas'),
-                          selected: state.filtro == null,
-                          onSelected: (_) => cubit.filtrar(null),
-                        ),
-                        for (final e in EstadoQueja.values)
-                          ChoiceChip(
-                            key: Key('filtro-${e.valor}'),
-                            label: Text(e.etiqueta),
-                            selected: state.filtro == e,
-                            onSelected: (_) => cubit.filtrar(e),
-                          ),
-                      ],
+                  for (final e in EstadoQueja.values)
+                    _Filtro(
+                      clave: Key('filtro-${e.valor}'),
+                      etiqueta: e.etiqueta,
+                      activo: state.filtro == e,
+                      onTap: () => cubit.filtrar(e),
                     ),
-                  ],
-                  const SizedBox(height: 12),
-                  if (state.cargando && state.quejas.isEmpty)
-                    const Center(child: CircularProgressIndicator())
-                  else if (state.error != null)
-                    Card(
-                      key: const Key('quejas-error'),
-                      child: ListTile(
-                        leading: const Icon(Icons.error_outline),
-                        title: Text(state.error!),
-                        trailing: TextButton(
-                          onPressed: cubit.cargar,
-                          child: const Text('Reintentar'),
-                        ),
-                      ),
-                    )
-                  else if (state.quejas.isEmpty)
-                    const Card(
-                      key: Key('quejas-vacio'),
-                      child: ListTile(
-                        leading: Icon(Icons.inbox_outlined),
-                        title: Text('No hay quejas'),
-                      ),
-                    )
-                  else
-                    for (final q in state.quejas)
-                      _TarjetaQueja(
-                        queja: q,
-                        esAdmin: cubit.esAdmin,
-                        actualizando: state.actualizandoId == q.id,
-                      ),
                 ],
               ),
-            ),
-          ),
+              const SizedBox(height: 20),
+            ],
+            if (state.cargando && state.quejas.isEmpty)
+              const Center(
+                child: CircularProgressIndicator(color: AppTheme.dark),
+              )
+            else if (state.error != null)
+              ManiAvisoTarjeta(
+                key: const Key('quejas-error'),
+                icono: Icons.error_outline,
+                texto: state.error!,
+                esError: true,
+                accion: ManiBotonPildora(
+                  etiqueta: 'Reintentar',
+                  icono: Icons.refresh,
+                  onPressed: cubit.cargar,
+                ),
+              )
+            else if (state.quejas.isEmpty)
+              const ManiAvisoTarjeta(
+                key: Key('quejas-vacio'),
+                icono: Icons.inbox_outlined,
+                texto: 'No hay quejas',
+              )
+            else
+              ManiRejilla(
+                anchoMinimo: 460,
+                maxColumnas: 2,
+                espacio: 20,
+                children: [
+                  for (final q in state.quejas)
+                    _TarjetaQueja(
+                      queja: q,
+                      esAdmin: cubit.esAdmin,
+                      actualizando: state.actualizandoId == q.id,
+                    ),
+                ],
+              ),
+          ],
         );
       },
     );
   }
 }
+
+/// Filtro por estado en píldora: amarillo con sombra el activo.
+class _Filtro extends StatelessWidget {
+  const _Filtro({
+    required this.clave,
+    required this.etiqueta,
+    required this.activo,
+    required this.onTap,
+  });
+
+  final Key clave;
+  final String etiqueta;
+  final bool activo;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: activo ? AppTheme.primary : AppTheme.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radiusXl),
+        border: Border.all(color: AppTheme.dark, width: 2),
+        boxShadow: activo ? const [AppTheme.hardShadowSm] : const [],
+      ),
+      child: TextButton(
+        key: clave,
+        onPressed: onTap,
+        style: TextButton.styleFrom(
+          foregroundColor: AppTheme.dark,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          textStyle: TextStyle(
+            fontSize: 13,
+            fontWeight: activo ? FontWeight.w900 : FontWeight.w700,
+          ),
+        ),
+        child: Text(etiqueta),
+      ),
+    );
+  }
+}
+
+/// Fondo del estado de una queja; el texto va en negro (contraste AA).
+Color _colorEstado(EstadoQueja e) => switch (e) {
+  EstadoQueja.abierta => AppTheme.primary,
+  EstadoQueja.enRevision => const Color(0xFFBFDBFE),
+  EstadoQueja.resuelta => const Color(0xFFBBF7D0),
+  EstadoQueja.rechazada => const Color(0xFFFECACA),
+};
 
 class _TarjetaQueja extends StatelessWidget {
   const _TarjetaQueja({
@@ -133,82 +182,132 @@ class _TarjetaQueja extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tema = Theme.of(context).textTheme;
     final cubit = context.read<QuejasCubit>();
-    return Card(
+    return ManiCard(
       key: Key('queja-${queja.id}'),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '${queja.etiquetaMotivo} · ${queja.categoria}',
-                    style: tema.titleMedium,
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  '${queja.etiquetaMotivo} · ${queja.categoria}',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                    color: AppTheme.dark,
                   ),
                 ),
-                Chip(
-                  key: Key('queja-estado-${queja.id}'),
-                  label: Text(queja.estado.etiqueta),
+              ),
+              const SizedBox(width: 12),
+              Container(
+                key: Key('queja-estado-${queja.id}'),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
                 ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(queja.descripcion),
-            const SizedBox(height: 4),
-            Text(
-              [
-                'Presentada ${_fecha(queja.creadaEn)}',
-                if (esAdmin && queja.clienteEmail != null) queja.clienteEmail!,
-              ].join(' · '),
-              style: tema.bodySmall,
-            ),
-            if (queja.respuesta != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                'Respuesta: ${queja.respuesta}',
-                key: Key('queja-respuesta-${queja.id}'),
+                decoration: BoxDecoration(
+                  color: _colorEstado(queja.estado),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                  border: Border.all(color: AppTheme.dark, width: 1.5),
+                ),
+                child: Text(
+                  queja.estado.etiqueta,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.dark,
+                  ),
+                ),
               ),
             ],
-            Wrap(
-              alignment: WrapAlignment.end,
-              spacing: 8,
-              children: [
-                TextButton.icon(
-                  key: Key('queja-historial-${queja.id}'),
-                  icon: const Icon(Icons.history),
-                  label: const Text('Historial'),
-                  onPressed: () => _verHistorial(context, cubit, queja),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            queja.descripcion,
+            style: const TextStyle(fontSize: 14, color: AppTheme.dark),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            [
+              'Presentada ${_fecha(queja.creadaEn)}',
+              if (esAdmin && queja.clienteEmail != null) queja.clienteEmail!,
+            ].join(' · '),
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.textSecondary,
+            ),
+          ),
+          if (queja.respuesta != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppTheme.background,
+                borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                border: Border.all(color: AppTheme.dark, width: 1.5),
+              ),
+              child: Text(
+                'Respuesta: ${queja.respuesta}',
+                key: Key('queja-respuesta-${queja.id}'),
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.dark,
                 ),
-                if (esAdmin && actualizando)
-                  const Padding(
-                    padding: EdgeInsets.all(12),
-                    child: SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  )
-                else if (esAdmin)
-                  for (final siguiente in queja.estado.siguientes)
-                    TextButton(
-                      key: Key('queja-${siguiente.valor}-${queja.id}'),
-                      onPressed: () =>
-                          _cambiarEstado(context, cubit, queja, siguiente),
-                      child: Text(switch (siguiente) {
-                        EstadoQueja.enRevision => 'Pasar a revisión',
-                        EstadoQueja.resuelta => 'Resolver',
-                        EstadoQueja.rechazada => 'Rechazar',
-                        EstadoQueja.abierta => 'Reabrir',
-                      }),
-                    ),
-              ],
+              ),
             ),
           ],
-        ),
+          const SizedBox(height: 16),
+          Wrap(
+            alignment: WrapAlignment.end,
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ManiBotonPildora(
+                key: Key('queja-historial-${queja.id}'),
+                etiqueta: 'Historial',
+                icono: Icons.history,
+                onPressed: () => _verHistorial(context, cubit, queja),
+              ),
+              if (esAdmin && actualizando)
+                const Padding(
+                  padding: EdgeInsets.all(12),
+                  child: SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppTheme.dark,
+                    ),
+                  ),
+                )
+              else if (esAdmin)
+                for (final siguiente in queja.estado.siguientes)
+                  ManiBotonPildora(
+                    key: Key('queja-${siguiente.valor}-${queja.id}'),
+                    // Avanzar la queja es la acción principal; rechazar o
+                    // reabrir quedan como secundarias.
+                    principal:
+                        siguiente == EstadoQueja.resuelta ||
+                        siguiente == EstadoQueja.enRevision,
+                    etiqueta: switch (siguiente) {
+                      EstadoQueja.enRevision => 'Pasar a revisión',
+                      EstadoQueja.resuelta => 'Resolver',
+                      EstadoQueja.rechazada => 'Rechazar',
+                      EstadoQueja.abierta => 'Reabrir',
+                    },
+                    onPressed: () =>
+                        _cambiarEstado(context, cubit, queja, siguiente),
+                  ),
+            ],
+          ),
+        ],
       ),
     );
   }

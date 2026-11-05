@@ -2,7 +2,10 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mani/core/network/mensaje_error_gateway.dart';
+import 'package:mani/core/theme/app_theme.dart';
 import 'package:mani/core/widgets/mani_button.dart';
+import 'package:mani/core/widgets/mani_card.dart';
+import 'package:mani/core/widgets/mani_pagina.dart';
 
 import '../data/tenants_datasource.dart';
 
@@ -112,94 +115,220 @@ class TenantsPage extends StatelessWidget {
       },
       builder: (context, state) {
         final cubit = context.read<TenantsCubit>();
-        final tema = Theme.of(context).textTheme;
-        return Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 820),
-            child: RefreshIndicator(
-              onRefresh: cubit.cargar,
-              child: ListView(
-                padding: const EdgeInsets.all(16),
+        return ManiPagina(
+          alRefrescar: cubit.cargar,
+          children: [
+            const ManiEncabezadoPagina(
+              icono: Icons.domain_outlined,
+              titulo: 'Tenants de la plataforma',
+              descripcion:
+                  'Habilita, suspende o inactiva un tenant. Cada cambio pide '
+                  'un motivo y queda registrado con tu usuario.',
+            ),
+            const SizedBox(height: 24),
+            if (state.cargando && state.tenants.isEmpty)
+              const Center(
+                child: CircularProgressIndicator(color: AppTheme.dark),
+              )
+            else if (state.error != null)
+              ManiAvisoTarjeta(
+                key: const Key('tenants-error'),
+                icono: Icons.error_outline,
+                texto: state.error!,
+                esError: true,
+                accion: ManiBotonPildora(
+                  etiqueta: 'Reintentar',
+                  icono: Icons.refresh,
+                  onPressed: cubit.cargar,
+                ),
+              )
+            else
+              ManiRejilla(
+                anchoMinimo: 380,
+                maxColumnas: 3,
+                espacio: 20,
                 children: [
-                  Text('Tenants de la plataforma', style: tema.headlineSmall),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Habilita, suspende o inactiva un tenant. Cada cambio pide '
-                    'un motivo y queda registrado con tu usuario.',
-                  ),
-                  const SizedBox(height: 12),
-                  if (state.cargando && state.tenants.isEmpty)
-                    const Center(child: CircularProgressIndicator())
-                  else if (state.error != null)
-                    Card(
-                      key: const Key('tenants-error'),
-                      child: ListTile(
-                        leading: const Icon(Icons.error_outline),
-                        title: Text(state.error!),
-                        trailing: TextButton(
-                          onPressed: cubit.cargar,
-                          child: const Text('Reintentar'),
-                        ),
-                      ),
-                    )
-                  else
-                    for (final t in state.tenants)
-                      Card(
-                        key: Key('tenant-${t.id}'),
-                        child: ListTile(
-                          title: Text(t.nombre),
-                          subtitle: Text(t.slug),
-                          leading: Chip(
-                            key: Key('tenant-estado-${t.id}'),
-                            label: Text(t.estado.etiqueta),
-                          ),
-                          trailing: state.actualizandoId == t.id
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : PopupMenuButton<String>(
-                                  key: Key('tenant-acciones-${t.id}'),
-                                  onSelected: (accion) => accion == 'historial'
-                                      ? _verHistorial(context, cubit, t)
-                                      : _cambiar(
-                                          context,
-                                          cubit,
-                                          t,
-                                          EstadoTenant.desde(accion),
-                                        ),
-                                  itemBuilder: (_) => [
-                                    for (final e in EstadoTenant.values)
-                                      if (e != t.estado)
-                                        PopupMenuItem(
-                                          key: Key('tenant-${e.valor}-${t.id}'),
-                                          value: e.valor,
-                                          child: Text(switch (e) {
-                                            EstadoTenant.activo => 'Habilitar',
-                                            EstadoTenant.suspendido =>
-                                              'Suspender',
-                                            EstadoTenant.inactivo =>
-                                              'Inactivar',
-                                          }),
-                                        ),
-                                    PopupMenuItem(
-                                      key: Key('tenant-historial-${t.id}'),
-                                      value: 'historial',
-                                      child: const Text('Historial'),
-                                    ),
-                                  ],
-                                ),
-                        ),
-                      ),
+                  for (final t in state.tenants)
+                    _TarjetaTenant(
+                      tenant: t,
+                      actualizando: state.actualizandoId == t.id,
+                    ),
                 ],
               ),
-            ),
-          ),
+          ],
         );
       },
+    );
+  }
+}
+
+/// Fondo del estado del tenant; el texto va en negro (contraste AA).
+Color _colorEstado(EstadoTenant e) => switch (e) {
+  EstadoTenant.activo => const Color(0xFFBBF7D0),
+  EstadoTenant.suspendido => AppTheme.primary,
+  EstadoTenant.inactivo => const Color(0xFFE5E7EB),
+};
+
+class _TarjetaTenant extends StatelessWidget {
+  const _TarjetaTenant({required this.tenant, required this.actualizando});
+
+  final TenantPlataforma tenant;
+  final bool actualizando;
+
+  @override
+  Widget build(BuildContext context) {
+    final cubit = context.read<TenantsCubit>();
+    final t = tenant;
+    return ManiCard(
+      key: Key('tenant-${t.id}'),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppTheme.primary,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                  border: Border.all(color: AppTheme.dark, width: 2),
+                ),
+                child: const Icon(
+                  Icons.apartment_outlined,
+                  size: 20,
+                  color: AppTheme.dark,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      t.nombre,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        color: AppTheme.dark,
+                      ),
+                    ),
+                    Text(
+                      t.slug,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                key: Key('tenant-estado-${t.id}'),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: _colorEstado(t.estado),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                  border: Border.all(color: AppTheme.dark, width: 1.5),
+                ),
+                child: Text(
+                  t.estado.etiqueta,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.dark,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Align(
+            alignment: Alignment.centerRight,
+            child: actualizando
+                ? const Padding(
+                    padding: EdgeInsets.all(10),
+                    child: SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppTheme.dark,
+                      ),
+                    ),
+                  )
+                : PopupMenuButton<String>(
+                    key: Key('tenant-acciones-${t.id}'),
+                    tooltip: 'Acciones del tenant',
+                    onSelected: (accion) => accion == 'historial'
+                        ? _verHistorial(context, cubit, t)
+                        : _cambiar(
+                            context,
+                            cubit,
+                            t,
+                            EstadoTenant.desde(accion),
+                          ),
+                    itemBuilder: (_) => [
+                      for (final e in EstadoTenant.values)
+                        if (e != t.estado)
+                          PopupMenuItem(
+                            key: Key('tenant-${e.valor}-${t.id}'),
+                            value: e.valor,
+                            child: Text(switch (e) {
+                              EstadoTenant.activo => 'Habilitar',
+                              EstadoTenant.suspendido => 'Suspender',
+                              EstadoTenant.inactivo => 'Inactivar',
+                            }),
+                          ),
+                      PopupMenuItem(
+                        key: Key('tenant-historial-${t.id}'),
+                        value: 'historial',
+                        child: const Text('Historial'),
+                      ),
+                    ],
+                    // Mismo aspecto que los botones en píldora de la app.
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 9,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppTheme.surface,
+                        borderRadius: BorderRadius.circular(AppTheme.radiusXl),
+                        border: Border.all(color: AppTheme.dark, width: 2),
+                        boxShadow: const [AppTheme.hardShadowSm],
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.tune, size: 18, color: AppTheme.dark),
+                          SizedBox(width: 8),
+                          Text(
+                            'Cambiar estado',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              color: AppTheme.dark,
+                            ),
+                          ),
+                          SizedBox(width: 4),
+                          Icon(
+                            Icons.expand_more,
+                            size: 18,
+                            color: AppTheme.dark,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:mani/features/audit/data/auditoria_datasource.dart';
 import 'package:mani/features/conversation_review/data/conversacion_queja_datasource.dart';
 import 'package:mani/features/notifications/data/avisos_datasource.dart';
+import 'package:mani/core/session/contexto_plataforma.dart';
 import 'package:mani/core/network/gateway_client.dart';
 import 'package:mani/core/session/sesion_expirada.dart';
 import 'package:mani/core/shell/datos_sesion.dart';
@@ -87,8 +88,8 @@ import 'package:mani/features/services/execution/data/ejecucion_datasource.dart'
 import 'package:mani/features/services/events/data/almacen_cola_eventos.dart';
 import 'package:mani/features/services/events/data/cola_eventos.dart';
 import 'package:mani/features/services/events/data/eventos_datasource.dart';
-import 'package:mani/core/session/tenant_sesion.dart';
 import 'package:mani/features/services/ratings/data/calificacion_cierre_datasource.dart';
+import 'package:mani/core/session/tenant_sesion.dart';
 import 'package:mani/features/services/ratings/data/politica_cancelacion_datasource.dart';
 import 'package:mani/features/tariffs/data/tarifas_datasource.dart';
 import 'package:mani/features/complaints/data/quejas_datasource.dart';
@@ -114,7 +115,14 @@ Future<void> init() async {
       // (US-11.2.2 / SCRUM-1445): no se deja al usuario en una pantalla que
       // ya no puede cargar nada.
       onTokenExpired: () => refrescarOCerrarSesion(sl<SupabaseClient>().auth),
+      // Tenant elegido y usuario con el que actúa el admin de plataforma
+      // (SCRUM-901). Vacío para los demás roles.
+      cabecerasExtra: () => sl<ContextoPlataforma>().cabeceras,
     ),
+  );
+  sl.registerLazySingleton<ContextoPlataforma>(ContextoPlataforma.new);
+  sl.registerLazySingleton<FuenteUsuariosTenant>(
+    () => GatewayFuenteUsuariosTenant(sl()),
   );
   sl.registerLazySingleton<UrlOpener>(() => const UrlLauncherOpener());
   sl.registerLazySingleton<SelectorFotos>(
@@ -327,6 +335,9 @@ Future<void> init() async {
   sl.registerLazySingleton<FuenteAdiciones>(() => GatewayFuenteAdiciones(sl()));
   // Bitácora del servicio (US-04.3.2 / SCRUM-869), en la misma pantalla.
   sl.registerLazySingleton<FuenteEventos>(() => GatewayFuenteEventos(sl()));
+  // Calificación bidireccional, cierre condicionado, penalización e historial
+  // (Módulo C / M-08: SCRUM-1418, 874, 875, 876, 878, 879, 880).
+  sl.registerLazySingleton<FuenteModuloM08>(() => GatewayFuenteModuloM08(sl()));
   // Cola de eventos sin conexión (US-04.3.6 / SCRUM-873), solo en el móvil.
   // Es del usuario de la sesión: se borra al cerrarla, también cuando la
   // cierra el vencimiento del token (decisión del PO).
