@@ -620,7 +620,7 @@ void main() {
   group('mapa de las sedes (HU-M04-07 / SCRUM-1396)', () {
     /// Cubit con el catálogo y una sede, que es lo que la pantalla necesita
     /// para pintarse; el mapa llega por su propio cubit.
-    SedesEmpresaCubit _cubitBasico() => _cubit(
+    SedesEmpresaCubit cubitBasico() => _cubit(
       _gateway({
         'GET $_rutaSedes': (_) => _json({
           'totalSitios': 1,
@@ -656,7 +656,7 @@ void main() {
     testWidgets('dibuja el mapa y explica para qué sirve', (tester) async {
       await abrirConMapa(
         tester,
-        _cubitBasico(),
+        cubitBasico(),
         mapa: MapaState(
           estado: MapaEstado.listo,
           geometrias: [
@@ -684,7 +684,7 @@ void main() {
       // de su zona; se cuenta aparte.
       await abrirConMapa(
         tester,
-        _cubitBasico(),
+        cubitBasico(),
         mapa: MapaState(
           estado: MapaEstado.listo,
           geometrias: [
@@ -708,7 +708,7 @@ void main() {
     });
 
     testWidgets('sin la bandera la pantalla no monta el mapa', (tester) async {
-      await _abrir(tester, _cubitBasico());
+      await _abrir(tester, cubitBasico());
 
       expect(find.byKey(const Key('sedes_mapa')), findsNothing);
     });

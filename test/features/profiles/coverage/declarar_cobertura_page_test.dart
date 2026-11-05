@@ -79,7 +79,7 @@ void main() {
   group('mapa dentro de la pantalla (HU-M04-07 / SCRUM-1396)', () {
     /// La pantalla con mapa necesita un `MapaCubit` en el contexto; se le da
     /// uno falso con una localidad dibujable que corresponde al catálogo.
-    Widget _conMapa(CoberturaController c, {required Size tamano}) =>
+    Widget conMapa(CoberturaController c, {required Size tamano}) =>
         MaterialApp(
           home: MediaQuery(
             data: MediaQueryData(size: tamano),
@@ -113,7 +113,7 @@ void main() {
       addTearDown(t.view.reset);
 
       await t.pumpWidget(
-        _conMapa(
+        conMapa(
           CoberturaController(FakeCoberturaRepository()),
           tamano: const Size(1400, 900),
         ),
@@ -132,7 +132,7 @@ void main() {
       addTearDown(t.view.reset);
 
       await t.pumpWidget(
-        _conMapa(
+        conMapa(
           CoberturaController(FakeCoberturaRepository()),
           tamano: const Size(420, 900),
         ),
@@ -150,7 +150,7 @@ void main() {
       addTearDown(t.view.reset);
 
       final c = CoberturaController(FakeCoberturaRepository());
-      await t.pumpWidget(_conMapa(c, tamano: const Size(1400, 900)));
+      await t.pumpWidget(conMapa(c, tamano: const Size(1400, 900)));
       await t.pumpAndSettle();
 
       expect(c.seleccion.ids, isEmpty);
@@ -169,7 +169,7 @@ void main() {
       addTearDown(t.view.reset);
 
       final c = CoberturaController(FakeCoberturaRepository());
-      await t.pumpWidget(_conMapa(c, tamano: const Size(1400, 900)));
+      await t.pumpWidget(conMapa(c, tamano: const Size(1400, 900)));
       await t.pumpAndSettle();
 
       await t.tap(find.byKey(const Key('mapa_marca_Chapinero')));
@@ -185,7 +185,7 @@ void main() {
     ) async {
       final repo = FakeCoberturaRepository()..esperaHijas = Completer<void>();
       await t.pumpWidget(
-        _conMapa(CoberturaController(repo), tamano: const Size(1400, 900)),
+        conMapa(CoberturaController(repo), tamano: const Size(1400, 900)),
       );
       await t.pump();
 
@@ -203,7 +203,7 @@ void main() {
       final repo = FakeCoberturaRepository();
       repo.catalogo['bog'] = const [];
       await t.pumpWidget(
-        _conMapa(CoberturaController(repo), tamano: const Size(1400, 900)),
+        conMapa(CoberturaController(repo), tamano: const Size(1400, 900)),
       );
       await t.pumpAndSettle();
 

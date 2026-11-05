@@ -448,7 +448,7 @@ void main() {
   );
 
   group('modo selector: el mapa marca cobertura (SCRUM-1396)', () {
-    Widget _selector({
+    Widget selector({
       required Set<String> elegidas,
       required void Function(String) onTocar,
     }) => MaterialApp(
@@ -478,7 +478,7 @@ void main() {
     );
 
     testWidgets('cada zona lleva su nombre encima', (tester) async {
-      await tester.pumpWidget(_selector(elegidas: const {}, onTocar: (_) {}));
+      await tester.pumpWidget(selector(elegidas: const {}, onTocar: (_) {}));
       await tester.pumpAndSettle();
 
       expect(find.text('Chicó Norte'), findsOneWidget);
@@ -488,7 +488,7 @@ void main() {
     testWidgets('tocar la zona avisa con su id', (tester) async {
       final tocadas = <String>[];
       await tester.pumpWidget(
-        _selector(elegidas: const {}, onTocar: tocadas.add),
+        selector(elegidas: const {}, onTocar: tocadas.add),
       );
       await tester.pumpAndSettle();
 
@@ -499,13 +499,13 @@ void main() {
     });
 
     testWidgets('la marca distingue elegida de no elegida', (tester) async {
-      await tester.pumpWidget(_selector(elegidas: const {}, onTocar: (_) {}));
+      await tester.pumpWidget(selector(elegidas: const {}, onTocar: (_) {}));
       await tester.pumpAndSettle();
       expect(find.byIcon(Icons.add), findsOneWidget);
       expect(find.byIcon(Icons.check), findsNothing);
 
       await tester.pumpWidget(
-        _selector(elegidas: const {_chico}, onTocar: (_) {}),
+        selector(elegidas: const {_chico}, onTocar: (_) {}),
       );
       await tester.pumpAndSettle();
       expect(find.byIcon(Icons.check), findsOneWidget);
@@ -514,7 +514,7 @@ void main() {
 
     testWidgets('no ofrece el desplegable de localidad', (tester) async {
       // En panorámica están todas a la vez: elegir una sola sobra y confunde.
-      await tester.pumpWidget(_selector(elegidas: const {}, onTocar: (_) {}));
+      await tester.pumpWidget(selector(elegidas: const {}, onTocar: (_) {}));
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('mapa_selector_localidad')), findsNothing);
