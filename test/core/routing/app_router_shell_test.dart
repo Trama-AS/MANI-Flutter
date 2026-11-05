@@ -158,6 +158,8 @@ const _rutasConSesion = {
   '/admin/quejas',
   '/admin/metricas',
   '/plataforma/tenants',
+  // Mapa del catálogo geográfico (HU-M04-07).
+  '/catalogo/mapa',
 };
 
 class _GuardadorFalso implements GuardadorArchivo {

@@ -121,8 +121,9 @@ void main() {
           .dy;
       expect(yFuga, lessThan(yGrifo), reason: 'FIFO');
 
-      // CA-2 · QS-06: antes de aceptar ve TODAS las reglas del sitio, pero no
-      // la dirección exacta del cliente.
+      // CA-2: antes de aceptar ve los requisitos del sitio, pero no la
+      // dirección exacta del cliente (el contacto y las instrucciones de
+      // ingreso solo tras la asignación, SCRUM-1388).
       expect(find.text('Hay mascotas'), findsOneWidget);
       expect(find.text('Horario acceso: 8-17'), findsOneWidget);
       expect(find.byKey(const ValueKey('direccion-solicitud')), findsNothing);
