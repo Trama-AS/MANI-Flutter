@@ -416,7 +416,12 @@ final appRouter = GoRouter(
         GoRoute(
           path: '/aliado/cobertura',
           name: 'declarar-cobertura',
-          builder: (context, state) => DeclararCoberturaPage(controller: sl()),
+          // El mapa va dentro: el aliado marca por lista y ve pintado lo que
+          // lleva marcado, sin cambiar de pantalla (HU-M04-07 / SCRUM-1396).
+          builder: (context, state) => BlocProvider(
+            create: (_) => sl<MapaCubit>()..cargar(),
+            child: DeclararCoberturaPage(controller: sl(), conMapa: true),
+          ),
         ),
         // Configuración y consulta de reglas contextuales de un sitio (US-02.2.3 / SCRUM-853)
         GoRoute(
@@ -445,9 +450,14 @@ final appRouter = GoRouter(
         GoRoute(
           path: '/cliente/sedes',
           name: 'sedes-empresa',
-          builder: (context, state) => BlocProvider(
-            create: (_) => sl<SedesEmpresaCubit>(),
-            child: const GestionSedesEmpresaPage(),
+          // El mapa va dentro: el cliente lo mira para comprobar dónde caen
+          // sus sedes (HU-M04-07 / SCRUM-1396).
+          builder: (context, state) => MultiBlocProvider(
+            providers: [
+              BlocProvider(create: (_) => sl<SedesEmpresaCubit>()),
+              BlocProvider(create: (_) => sl<MapaCubit>()..cargar()),
+            ],
+            child: const GestionSedesEmpresaPage(conMapa: true),
           ),
         ),
         // Registro de empleado directo (US-02.1.5 / SCRUM-850, SCRUM-1376). Lo hace el

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:mani/features/catalog/map/presentation/widgets/mapa_zonas.dart';
 
 import '../../domain/entities/zona.dart';
 import '../controllers/cobertura_controller.dart';
@@ -9,18 +10,37 @@ import '../widgets/zona_tiles.dart';
 
 /// US-02.1.4 — Declarar zona de cobertura (SCRUM-849).
 ///
-/// Selector jerárquico ciudad → localidad → barrio (ADR-0011, QS-05). No hay
-/// mapa de polígonos: ADR-0011 descartó geometría propia (ver documento de la
-/// historia, hallazgo H-01).
+/// Selector jerárquico ciudad → localidad → barrio (ADR-0011, QS-05). **Se
+/// declara por lista, no dibujando sobre el mapa**: ADR-0011 descartó
+/// geometría propia, radio geográfico y geolocalización en vivo (hallazgo
+/// H-01), y eso no cambia.
+///
+/// El mapa que se muestra al lado es de solo lectura y pinta los límites que
+/// ya publica el catálogo, para ver dónde cae lo que se está marcando
+/// (HU-M04-07 / SCRUM-1396). No es una forma alterna de declarar cobertura.
+
+/// Ancho a partir del cual el mapa cabe al lado de la lista. Por debajo va
+/// plegado: un mapa fijo sobre una lista de zonas deja la lista sin sitio.
+const anchoMapaAlLado = 900.0;
+
 class DeclararCoberturaPage extends StatefulWidget {
   const DeclararCoberturaPage({
     super.key,
     required this.controller,
     this.debounce = const Duration(milliseconds: 300),
+    this.conMapa = false,
   });
 
   final CoberturaController controller;
   final Duration debounce;
+
+  /// Dibuja el mapa junto a la lista, resaltando **la selección en curso**.
+  /// Elegir zonas por lista y verlas pintadas en otra pantalla obligaba a
+  /// recordar lo de la otra (HU-M04-07).
+  ///
+  /// Exige un `MapaCubit` en el contexto, así que lo activa quien monta la
+  /// ruta; por omisión está apagado y la pantalla no depende de ese cubit.
+  final bool conMapa;
 
   @override
   State<DeclararCoberturaPage> createState() => _DeclararCoberturaPageState();
@@ -187,38 +207,76 @@ class _DeclararCoberturaPageState extends State<DeclararCoberturaPage> {
           _AvisoDesactivadas(controller: c),
         const Divider(height: 1),
         Expanded(
-          child: enBusqueda
-              ? _ListaBusqueda(controller: c)
-              : ListView(
-                  key: const PageStorageKey('lista-localidades'),
-                  children: [
-                    ZonaCheckTile(
-                      zona: ciudad,
-                      controller: c,
-                      titulo: 'Toda ${ciudad.nombre}',
-                      key: ValueKey('ciudad-completa-${ciudad.id}'),
-                    ),
-                    const Divider(height: 1),
-                    if (localidades == null)
-                      const Padding(
-                        padding: EdgeInsets.all(24),
-                        child: Center(
-                          child: CircularProgressIndicator.adaptive(),
+          child: LayoutBuilder(
+            builder: (context, restricciones) {
+              final lista = enBusqueda
+                  ? _ListaBusqueda(controller: c)
+                  : ListView(
+                      key: const PageStorageKey('lista-localidades'),
+                      children: [
+                        ZonaCheckTile(
+                          zona: ciudad,
+                          controller: c,
+                          titulo: 'Toda ${ciudad.nombre}',
+                          key: ValueKey('ciudad-completa-${ciudad.id}'),
                         ),
-                      )
-                    else if (localidades.isEmpty)
-                      // KI-08: si la ciudad no tiene localidades se degrada a ciudad completa.
-                      const _Vacio(
-                        texto:
-                            'Esta ciudad aún no tiene localidades en el catálogo. Selecciona la ciudad completa.',
-                      )
-                    else
-                      for (final l in localidades)
-                        l.tieneHijas
-                            ? ZonaGrupoTile(zona: l, controller: c)
-                            : ZonaCheckTile(zona: l, controller: c),
+                        const Divider(height: 1),
+                        if (localidades == null)
+                          const Padding(
+                            padding: EdgeInsets.all(24),
+                            child: Center(
+                              child: CircularProgressIndicator.adaptive(),
+                            ),
+                          )
+                        else if (localidades.isEmpty)
+                          // KI-08: si la ciudad no tiene localidades se degrada a ciudad completa.
+                          const _Vacio(
+                            texto:
+                                'Esta ciudad aún no tiene localidades en el catálogo. Selecciona la ciudad completa.',
+                          )
+                        else
+                          for (final l in localidades)
+                            l.tieneHijas
+                                ? ZonaGrupoTile(zona: l, controller: c)
+                                : ZonaCheckTile(zona: l, controller: c),
+                      ],
+                    );
+
+              if (!widget.conMapa) return lista;
+
+              // Lo marcado se pinta en verde mientras se marca: el mapa lee la
+              // selección en curso, no la ya guardada.
+              final mapa = MapaZonas(
+                key: const Key('cobertura_mapa'),
+                coberturaResaltada: c.seleccion.ids,
+                leyendaCobertura:
+                    'En verde, lo que llevas seleccionado. Se aplica al guardar.',
+              );
+
+              if (restricciones.maxWidth >= anchoMapaAlLado) {
+                return Row(
+                  children: [
+                    Expanded(child: lista),
+                    const VerticalDivider(width: 1),
+                    Expanded(child: mapa),
                   ],
-                ),
+                );
+              }
+
+              return Column(
+                children: [
+                  Expanded(child: lista),
+                  const Divider(height: 1),
+                  ExpansionTile(
+                    key: const Key('cobertura_mapa_plegable'),
+                    leading: const Icon(Icons.map_outlined),
+                    title: const Text('Ver en el mapa'),
+                    children: [SizedBox(height: 280, child: mapa)],
+                  ),
+                ],
+              );
+            },
+          ),
         ),
       ],
     );
