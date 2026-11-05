@@ -7,6 +7,7 @@ import 'package:mani/core/network/gateway_client.dart';
 import 'package:mani/core/network/gateway_exception.dart';
 import 'package:mani/core/network/mensaje_error_gateway.dart';
 import 'package:mani/features/tariffs/data/tarifas_datasource.dart';
+import 'package:mani/features/tariffs/domain/evaluacion_tarifa.dart';
 import 'package:mani/features/tariffs/domain/tarifa.dart';
 
 const _json = {'content-type': 'application/json; charset=utf-8'};
@@ -145,6 +146,56 @@ void main() {
         );
         expect(r.disponible, isFalse);
         expect(r.tarifa, isNull);
+      },
+    );
+
+    test(
+      '866: la evaluación de una cotización va por el Gateway, sin tenant ni rol, y lee la referencia',
+      () async {
+        responder = (_) => http.Response(
+          jsonEncode({
+            'cotizacionId': 'cot-1',
+            'solicitudId': 'sol-1',
+            'version': 2,
+            'total': 270000,
+            'resultado': 'POR_ENCIMA',
+            'alerta': true,
+            'desviacionPorcentaje': 50,
+            'tarifa': {
+              'id': 'tar-1',
+              'version': 1,
+              'valorMin': 80000,
+              'valorTipico': 120000,
+              'valorMax': 180000,
+              'moneda': 'COP',
+            },
+            'reglasVersion': 'rates-v1',
+            'correlationId': 'corr-test',
+          }),
+          200,
+          headers: _json,
+        );
+        final e = await GatewayFuenteTarifas(gateway()).evaluacion('cot-1');
+        expect(alGateway.single.method, 'GET');
+        expect(
+          alGateway.single.url.toString(),
+          'http://gateway.local/api/v1/core/cotizaciones/cot-1/evaluacion-tarifa',
+        );
+        expect(
+          alGateway.single.headers['Authorization'],
+          'Bearer jwt-de-prueba',
+        );
+        expect(
+          alGateway.single.headers.keys.map((k) => k.toLowerCase()),
+          isNot(contains('x-tenant-id')),
+        );
+        expect(e.resultado, ResultadoTarifa.porEncima);
+        expect(e.alerta, isTrue);
+        expect(
+          [e.valorMin, e.valorTipico, e.valorMax],
+          [80000, 120000, 180000],
+        );
+        expect(e.desviacionPorcentaje, 50);
       },
     );
 

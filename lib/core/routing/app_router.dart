@@ -73,6 +73,7 @@ import 'package:mani/features/services/ratings/presentation/calificacion_cierre_
 import 'package:mani/features/services/ratings/presentation/politica_cancelacion_page.dart';
 import 'package:mani/features/tariffs/data/tarifas_datasource.dart';
 import 'package:mani/features/tariffs/presentation/referencia_tarifa_seccion.dart';
+import 'package:mani/features/tariffs/presentation/alerta_tarifa_cotizacion.dart';
 import 'package:mani/features/tariffs/presentation/reporte_fuera_rango_page.dart';
 import 'package:mani/features/tariffs/presentation/tarifario_cubit.dart';
 import 'package:mani/features/tariffs/presentation/tarifario_page.dart';
@@ -175,6 +176,14 @@ Widget _pantallaServicio(
       encabezado: ReferenciaTarifaSeccion(
         fuente: sl<FuenteTarifas>(),
         solicitudId: solicitudId,
+      ),
+      // Alerta de tarifa bidireccional de la versión vigente (HU-M06-02 /
+      // SCRUM-866): la ven el aliado y el cliente con el resultado de Rules.
+      alertaTarifa: (cotizacionId) => AlertaTarifaCotizacion(
+        key: ValueKey('alerta-tarifa-$cotizacionId'),
+        fuente: sl<FuenteTarifas>(),
+        cotizacionId: cotizacionId,
+        esAliado: esAliado,
       ),
       // El pago cobra el total vigente: cotización aceptada + adiciones
       // aceptadas (SCRUM-872). Sin resumen, el total de la cotización.
