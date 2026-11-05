@@ -116,25 +116,15 @@ Future<void> init() async {
       // ya no puede cargar nada.
       onTokenExpired: () => refrescarOCerrarSesion(sl<SupabaseClient>().auth),
       // Tenant elegido y usuario con el que actúa el admin de plataforma
-      // (SCRUM-901). Solo con una sesión de ese rol: para los demás, vacío.
-      cabecerasExtra: () => cabecerasPlataformaPara(
-        sl<SupabaseClient>().auth.currentSession?.accessToken,
-        sl<ContextoPlataforma>(),
-      ),
+      // (SCRUM-901). Vacío para los demás roles.
+      cabecerasExtra: () => sl<ContextoPlataforma>().cabeceras,
     ),
   );
   // El contexto es de la sesión que lo eligió: al iniciar o cerrar sesión,
   // por cualquier camino (menú, tarjeta de Inicio, token vencido), se borra.
-  sl.registerLazySingleton<ContextoPlataforma>(() {
-    final contexto = ContextoPlataforma();
-    sl<SupabaseClient>().auth.onAuthStateChange.listen((cambio) {
-      if (cambio.event == AuthChangeEvent.signedIn ||
-          cambio.event == AuthChangeEvent.signedOut) {
-        contexto.limpiar();
-      }
-    });
-    return contexto;
-  });
+  sl.registerLazySingleton<ContextoPlataforma>(
+    () => ContextoPlataforma(auth: sl<SupabaseClient>().auth),
+  );
   sl.registerLazySingleton<FuenteUsuariosTenant>(
     () => GatewayFuenteUsuariosTenant(sl()),
   );
