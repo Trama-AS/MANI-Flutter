@@ -216,7 +216,17 @@ void main() {
         core.rolSesion = 'ALLY';
         await tester.pumpWidget(_seccion(core, esAliado: true));
         await tester.pumpAndSettle();
-        expect(find.text('Calificación recibida: ★ 5/5'), findsOneWidget);
+        // La calificación del cliente es privada: el aliado sabe que existe
+        // pero no ve el puntaje, aunque la respuesta lo trajera.
+        expect(find.textContaining('5/5'), findsNothing);
+        expect(
+          find.text('El cliente ya registró su calificación.'),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const Key('m08-aviso-calificacion-privada')),
+          findsOneWidget,
+        );
 
         await _calificar(tester, 4);
 
