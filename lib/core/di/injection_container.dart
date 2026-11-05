@@ -1,9 +1,15 @@
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:get_it/get_it.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:mani/features/audit/data/auditoria_datasource.dart';
+import 'package:mani/features/conversation_review/data/conversacion_queja_datasource.dart';
+import 'package:mani/features/notifications/data/avisos_datasource.dart';
+import 'package:mani/core/session/contexto_plataforma.dart';
 import 'package:mani/core/network/gateway_client.dart';
 import 'package:mani/core/session/sesion_expirada.dart';
 import 'package:mani/core/shell/datos_sesion.dart';
+import 'package:mani/features/catalog/map/data/mapa_remote_datasource.dart';
+import 'package:mani/features/catalog/map/presentation/bloc/mapa_cubit.dart';
 import 'package:mani/features/home/data/resumen_inicio.dart';
 import 'package:mani/core/platform/url_opener.dart';
 import 'package:mani/features/auth/data/datasources/auth_remote_data_source.dart';
@@ -20,6 +26,8 @@ import 'package:mani/features/auth/domain/repositories/i_recuperacion_contrasena
 import 'package:mani/features/auth/domain/usecases/recuperar_contrasena_usecases.dart';
 import 'package:mani/features/auth/presentation/bloc/recuperacion_contrasena_cubit.dart';
 import 'package:mani/features/messaging/data/mensajes_datasource.dart';
+import 'package:mani/core/platform/guardador_archivo.dart';
+import 'package:mani/features/payments/data/cobros_datasource.dart';
 import 'package:mani/features/payments/data/pagos_datasource.dart';
 import 'package:mani/features/auth/presentation/bloc/auth_cubit.dart';
 import 'package:mani/features/availability/data/datasources/disponibilidad_remote_datasource.dart';
@@ -54,6 +62,8 @@ import 'package:mani/features/asignacion/domain/repositories/i_asignacion_reposi
 import 'package:mani/features/asignacion/domain/usecases/asignacion_usecases.dart';
 import 'package:mani/features/asignacion/presentation/bloc/solicitudes_aliado_cubit.dart';
 import 'package:mani/core/platform/selector_fotos.dart';
+import 'package:mani/features/tenant_rules/data/tenant_rules_datasource.dart';
+import 'package:mani/features/tenant_rules/presentation/tenant_rules_cubit.dart';
 import 'package:mani/features/services/requests/data/datasources/solicitudes_cliente_remote_datasource.dart';
 import 'package:mani/features/services/requests/data/repositories/solicitudes_cliente_repository_impl.dart';
 import 'package:mani/features/services/requests/domain/repositories/solicitudes_cliente_repository.dart';
@@ -78,7 +88,13 @@ import 'package:mani/features/services/execution/data/ejecucion_datasource.dart'
 import 'package:mani/features/services/events/data/almacen_cola_eventos.dart';
 import 'package:mani/features/services/events/data/cola_eventos.dart';
 import 'package:mani/features/services/events/data/eventos_datasource.dart';
+import 'package:mani/features/services/ratings/data/calificacion_cierre_datasource.dart';
 import 'package:mani/core/session/tenant_sesion.dart';
+import 'package:mani/features/services/ratings/data/politica_cancelacion_datasource.dart';
+import 'package:mani/features/tariffs/data/tarifas_datasource.dart';
+import 'package:mani/features/complaints/data/quejas_datasource.dart';
+import 'package:mani/features/metrics/data/metricas_datasource.dart';
+import 'package:mani/features/platform/data/tenants_datasource.dart';
 
 final sl = GetIt.instance; // sl = service locator
 
@@ -99,7 +115,14 @@ Future<void> init() async {
       // (US-11.2.2 / SCRUM-1445): no se deja al usuario en una pantalla que
       // ya no puede cargar nada.
       onTokenExpired: () => refrescarOCerrarSesion(sl<SupabaseClient>().auth),
+      // Tenant elegido y usuario con el que actúa el admin de plataforma
+      // (SCRUM-901). Vacío para los demás roles.
+      cabecerasExtra: () => sl<ContextoPlataforma>().cabeceras,
     ),
+  );
+  sl.registerLazySingleton<ContextoPlataforma>(ContextoPlataforma.new);
+  sl.registerLazySingleton<FuenteUsuariosTenant>(
+    () => GatewayFuenteUsuariosTenant(sl()),
   );
   sl.registerLazySingleton<UrlOpener>(() => const UrlLauncherOpener());
   sl.registerLazySingleton<SelectorFotos>(
@@ -195,6 +218,12 @@ Future<void> init() async {
     () => GatewayCoberturaDataSource(sl(), sesion: sl()),
   );
 
+  // Features - Catalogo / Mapa cartografico (HU-M04-07, SCRUM-1396)
+  sl.registerFactory(() => MapaCubit(sl()));
+  sl.registerLazySingleton<MapaRemoteDataSource>(
+    () => GatewayMapaDataSource(sl()),
+  );
+
   // Features - Profiles / Verification (US-02.1.3)
   sl.registerFactory(
     () => BandejaVerificacionCubit(
@@ -272,15 +301,43 @@ Future<void> init() async {
   // Pago en el sandbox (HU-M11-01 / SCRUM-1432), por el Gateway a Core. El Cubit
   // se crea por cotización en la ruta.
   sl.registerLazySingleton<FuentePagos>(() => GatewayFuentePagos(sl()));
+  // Módulo M-08: calificación bidireccional, cierre, historial y penalización
+  // por cancelación tardía (SCRUM-874, 875, 878, 879, 880 y 1418), por el
+  // Gateway a Core.
+  sl.registerLazySingleton<FuenteModuloM08>(() => GatewayFuenteModuloM08(sl()));
+  sl.registerLazySingleton<FuentePoliticaCancelacion>(
+    () => GatewayFuentePoliticaCancelacion(sl()),
+  );
+  // Tarifario de referencia (M-10: SCRUM-885, 886 y 887), por el Gateway a Core.
+  sl.registerLazySingleton<FuenteTarifas>(() => GatewayFuenteTarifas(sl()));
+  // Quejas, métricas y tenants (M-12: SCRUM-895, 896, 900 y 901), por el
+  // Gateway a Core. Los Cubits se crean en cada ruta.
+  sl.registerLazySingleton<FuenteQuejas>(() => GatewayFuenteQuejas(sl()));
+  sl.registerLazySingleton<FuenteMetricas>(() => GatewayFuenteMetricas(sl()));
+  sl.registerLazySingleton<FuenteTenants>(() => GatewayFuenteTenants(sl()));
+  sl.registerLazySingleton<FuenteCobros>(() => GatewayFuenteCobros(sl()));
+  sl.registerLazySingleton<GuardadorArchivo>(
+    () => const FilePickerGuardadorArchivo(),
+  );
   // Mensajería cliente-aliado (HU-M09-02 / SCRUM-881), por el Gateway a Core. El
   // Cubit se crea por solicitud en la ruta y consulta cada pocos segundos.
   sl.registerLazySingleton<FuenteMensajes>(() => GatewayFuenteMensajes(sl()));
+  // SCRUM-882/884 (bandeja de avisos), SCRUM-889 (auditoría) y SCRUM-883
+  // (conversación de una queja): lecturas por el Gateway; el rol lo decide Core.
+  sl.registerLazySingleton<FuenteAvisos>(() => GatewayFuenteAvisos(sl()));
+  sl.registerLazySingleton<FuenteAuditoria>(() => GatewayFuenteAuditoria(sl()));
+  sl.registerLazySingleton<FuenteConversacionQueja>(
+    () => GatewayFuenteConversacionQueja(sl()),
+  );
   // Ejecución del servicio (US-04.3.1 / SCRUM-868), en la misma pantalla.
   sl.registerLazySingleton<FuenteEjecucion>(() => GatewayFuenteEjecucion(sl()));
   // Adiciones por imprevisto (US-04.3.5 / SCRUM-872), en la misma pantalla.
   sl.registerLazySingleton<FuenteAdiciones>(() => GatewayFuenteAdiciones(sl()));
   // Bitácora del servicio (US-04.3.2 / SCRUM-869), en la misma pantalla.
   sl.registerLazySingleton<FuenteEventos>(() => GatewayFuenteEventos(sl()));
+  // Calificación bidireccional, cierre condicionado, penalización e historial
+  // (Módulo C / M-08: SCRUM-1418, 874, 875, 876, 878, 879, 880).
+  sl.registerLazySingleton<FuenteModuloM08>(() => GatewayFuenteModuloM08(sl()));
   // Cola de eventos sin conexión (US-04.3.6 / SCRUM-873), solo en el móvil.
   // Es del usuario de la sesión: se borra al cerrarla, también cuando la
   // cierra el vencimiento del token (decisión del PO).
@@ -373,4 +430,10 @@ Future<void> init() async {
   sl.registerLazySingleton<IEmpleadosDirectosRemoteDataSource>(
     () => EmpleadosDirectosRemoteDataSource(gateway: sl()),
   );
+
+  // Features - Tenant Rules (SCRUM-1366 / HU-M01-03)
+  sl.registerLazySingleton<FuenteReglasTenant>(
+    () => GatewayFuenteReglasTenant(sl()),
+  );
+  sl.registerFactory(() => TenantRulesCubit(sl()));
 }

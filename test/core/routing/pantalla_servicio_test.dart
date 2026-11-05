@@ -14,6 +14,11 @@ import 'package:mani/features/services/execution/data/ejecucion_datasource.dart'
 import 'package:mani/features/services/quotes/data/cotizaciones_datasource.dart';
 import 'package:mani/features/services/quotes/domain/cotizacion.dart';
 import 'package:mani/features/services/requests/domain/entities/foto_adjunta.dart';
+import 'package:mani/features/services/ratings/data/calificacion_cierre_datasource.dart';
+import 'package:mani/features/services/ratings/domain/calificacion_cierre_modelos.dart';
+import 'package:mani/features/tariffs/data/tarifas_datasource.dart';
+import 'package:mani/features/tariffs/domain/evaluacion_tarifa.dart';
+import 'package:mani/features/tariffs/domain/tarifa.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class _PkceEnMemoria extends GotrueAsyncStorage {
@@ -54,6 +59,73 @@ class _Cotizaciones implements FuenteCotizaciones {
     DecisionCotizacion decision, {
     String? texto,
   }) => throw UnimplementedError();
+}
+
+// La categoría de la solicitud tiene tarifa vigente (SCRUM-886).
+class _Tarifas implements FuenteTarifas {
+  @override
+  Future<ReferenciaTarifa> referencia(String solicitudId) async =>
+      ReferenciaTarifa.fromJson({
+        'disponible': true,
+        'tarifa': {
+          'id': 'tar-1',
+          'categoriaId': 'cat-1',
+          'categoriaNombre': 'Plomería',
+          'valorMin': 80000,
+          'valorTipico': 120000,
+          'valorMax': 180000,
+          'moneda': 'COP',
+          'vigenciaDesde': '2026-01-01',
+          'version': 2,
+        },
+      });
+
+  // SCRUM-866: la cotización vigente (total 100) queda por debajo del mínimo.
+  @override
+  Future<EvaluacionTarifa> evaluacion(String cotizacionId) async =>
+      EvaluacionTarifa.fromJson({
+        'cotizacionId': cotizacionId,
+        'resultado': 'POR_DEBAJO',
+        'total': 100,
+        'desviacionPorcentaje': 99.9,
+        'tarifa': {
+          'valorMin': 80000,
+          'valorTipico': 120000,
+          'valorMax': 180000,
+          'moneda': 'COP',
+        },
+      });
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => throw UnimplementedError();
+}
+
+// Calificación y cierre (SCRUM-874, 875 y 1418): el estado de la solicitud lo
+// fija cada prueba; por omisión, en ejecución (aún no se califica).
+class _ModuloM08 implements FuenteModuloM08 {
+  String estado = 'EN_EJECUCION';
+  int consultas = 0;
+
+  @override
+  Future<ResumenCalificacionesSolicitud> obtenerCalificaciones(
+    String solicitudId,
+  ) async {
+    consultas++;
+    return ResumenCalificacionesSolicitud(
+      solicitudId: solicitudId,
+      estado: estado,
+      cierre: EstadoCierreSolicitud(
+        cerrada: estado == 'CERRADA',
+        estadoSolicitud: estado,
+        tieneCalificacionCliente: false,
+        tieneCalificacionAliado: false,
+        pendientes: const ['CLIENTE', 'ALIADO'],
+      ),
+    );
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => throw UnimplementedError();
 }
 
 // Cotización de 100 con una adición aceptada de 30: total vigente 130 (SCRUM-872).
@@ -180,6 +252,7 @@ void main() {
   late _Ejecucion ejecucion;
   late _Eventos eventos;
   late _Adiciones adiciones;
+  final moduloM08 = _ModuloM08();
 
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
@@ -197,6 +270,8 @@ void main() {
     eventos = _Eventos();
     adiciones = _Adiciones();
     sl.registerSingleton<FuenteCotizaciones>(_Cotizaciones());
+    sl.registerSingleton<FuenteModuloM08>(moduloM08);
+    sl.registerSingleton<FuenteTarifas>(_Tarifas());
     sl.registerSingleton<FuenteEjecucion>(ejecucion);
     sl.registerSingleton<FuenteAdiciones>(adiciones);
     sl.registerSingleton<FuenteEventos>(eventos);
@@ -239,11 +314,109 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  group('pantalla del servicio en columnas', () {
+    const columnas = [
+      Key('servicio-columna-pagos'),
+      Key('servicio-columna-bitacora'),
+      Key('servicio-columna-calificacion'),
+    ];
+
+    // La de calificación solo aparece si la fuente de M-08 está registrada.
+    List<Offset> posiciones(WidgetTester tester) {
+      final presentes = [
+        for (final k in columnas)
+          if (find.byKey(k).evaluate().isNotEmpty) k,
+      ];
+      expect(presentes.length, greaterThanOrEqualTo(2));
+      expect(presentes.take(2), columnas.take(2));
+      return [for (final k in presentes) tester.getTopLeft(find.byKey(k))];
+    }
+
+    void conTamano(WidgetTester tester, Size tamano) {
+      tester.view.physicalSize = tamano;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+    }
+
+    for (final nombre in ['cotizacion-cliente', 'cotizacion-aliado']) {
+      testWidgets('$nombre: en escritorio pagos, ejecución y bitácora, y '
+          'calificación van lado a lado', (tester) async {
+        conTamano(tester, const Size(1400, 1000));
+        await montar(tester, nombre);
+
+        final pos = posiciones(tester);
+        for (var k = 1; k < pos.length; k++) {
+          expect(pos[k - 1].dx < pos[k].dx, isTrue, reason: '$pos');
+        }
+        expect(pos.map((p) => p.dy).toSet(), hasLength(1));
+        expect(find.byKey(const Key('btn-abrir-chat')), findsOneWidget);
+      });
+    }
+
+    testWidgets('en móvil las columnas se apilan en el mismo orden', (
+      tester,
+    ) async {
+      conTamano(tester, const Size(420, 900));
+      await montar(tester, 'cotizacion-cliente');
+
+      final pos = posiciones(tester);
+      expect(pos.map((p) => p.dx).toSet(), hasLength(1));
+      for (var k = 1; k < pos.length; k++) {
+        expect(pos[k - 1].dy < pos[k].dy, isTrue, reason: '$pos');
+      }
+    });
+  });
+  // SCRUM-874, 875 y 1418: la calificación vive en la pantalla del servicio y
+  // solo aparece con el servicio finalizado o cerrado.
+  for (final (ruta, esAliado) in [
+    ('cotizacion-cliente', false),
+    ('cotizacion-aliado', true),
+  ]) {
+    testWidgets('$ruta: en ejecución no se ofrece calificar', (tester) async {
+      moduloM08.estado = 'EN_EJECUCION';
+      await montar(tester, ruta);
+      expect(
+        find.byKey(const Key('m08-calificacion-cierre-card')),
+        findsNothing,
+      );
+      await _verHasta(tester, const Key('m08-calificacion-oculta'));
+      expect(find.byKey(const Key('m08-calificacion-oculta')), findsOneWidget);
+    });
+
+    testWidgets('$ruta: con el servicio FINALIZADA aparece la calificación', (
+      tester,
+    ) async {
+      moduloM08.estado = 'FINALIZADA';
+      await montar(tester, ruta);
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('m08-calificacion-cierre-card')),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(
+        find.text(
+          esAliado
+              ? 'Calificar al cliente y estado de cierre'
+              : 'Calificar al aliado y estado de cierre',
+        ),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('m08-estrella-5')), findsOneWidget);
+      moduloM08.estado = 'EN_EJECUCION';
+    });
+  }
+
   testWidgets('el aliado ve cotización, ejecución y bitácora con formulario '
       'mientras el servicio está en ejecución', (tester) async {
     await montar(tester, 'cotizacion-aliado');
 
+    // SCRUM-886: la tarifa de referencia vigente se ve al cotizar.
+    expect(find.byKey(const Key('referencia-disponible')), findsOneWidget);
+    expect(find.text('\$ 80.000,00 – \$ 180.000,00 COP'), findsOneWidget);
     expect(find.byKey(const Key('cotizacion-v1')), findsOneWidget);
+    // SCRUM-866: bajo la cotización vigente, la alerta de tarifa de Rules.
+    expect(find.byKey(const Key('alerta-tarifa-debajo')), findsOneWidget);
+    await _verHasta(tester, const Key('seccion-ejecucion'));
     expect(find.byKey(const Key('seccion-ejecucion')), findsOneWidget);
     await tester.scrollUntilVisible(
       find.byKey(const Key('seccion-adiciones')),
@@ -277,14 +450,30 @@ void main() {
       -300,
       scrollable: find.byType(Scrollable).first,
     );
-    await tester.drag(find.byType(ListView).first, const Offset(0, 300));
+    await tester.drag(
+      find.byType(SingleChildScrollView).first,
+      const Offset(0, 300),
+    );
+    await tester.pumpAndSettle();
+    // El gesto de recargar solo se arma desde el borde superior.
+    tester
+        .state<ScrollableState>(
+          find
+              .descendant(
+                of: find.byType(SingleChildScrollView).first,
+                matching: find.byType(Scrollable),
+              )
+              .first,
+        )
+        .position
+        .jumpTo(0);
     await tester.pumpAndSettle();
 
     final antesEjecucion = ejecucion.consultas;
     final antesEventos = eventos.consultas;
     final antesAdiciones = adiciones.consultas;
     await tester.fling(
-      find.byType(ListView).first,
+      find.byType(SingleChildScrollView).first,
       const Offset(0, 2000),
       2000,
     );
@@ -326,6 +515,7 @@ void main() {
     await tester.pumpWidget(MaterialApp.router(routerConfig: router));
     await tester.pumpAndSettle();
 
+    await _verHasta(tester, const Key('btn-pagar-cotizacion'));
     await tester.tap(find.byKey(const Key('btn-pagar-cotizacion')));
     await tester.pumpAndSettle();
 
@@ -364,6 +554,7 @@ void main() {
       await tester.pumpWidget(MaterialApp.router(routerConfig: router));
       await tester.pumpAndSettle();
 
+      await _verHasta(tester, const Key('btn-abrir-chat'));
       expect(find.text(etiqueta), findsOneWidget);
       await tester.tap(find.byKey(const Key('btn-abrir-chat')));
       await tester.pumpAndSettle();
@@ -390,4 +581,15 @@ void main() {
       expect(find.byKey(const Key('chat-vacio')), findsOneWidget);
     });
   }
+}
+
+/// La lista solo construye lo que cabe en pantalla; la alerta de tarifa
+/// (SCRUM-866) baja las secciones siguientes, así que se desplaza hasta ellas.
+Future<void> _verHasta(WidgetTester tester, Key key) async {
+  await tester.scrollUntilVisible(
+    find.byKey(key),
+    300,
+    scrollable: find.byType(Scrollable).first,
+  );
+  await tester.pumpAndSettle();
 }

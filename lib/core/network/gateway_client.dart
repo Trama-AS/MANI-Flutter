@@ -63,7 +63,9 @@ class GatewayClient {
     this.retryMultiplier = 2.0,
     TokenRefreshCallback? onTokenExpired,
     StructuredLogger? logger,
+    Map<String, String> Function()? cabecerasExtra,
   }) : _baseUri = Uri.parse(baseUrl),
+       _cabecerasExtra = cabecerasExtra,
        _tokenProvider = tokenProvider,
        _http = httpClient ?? http.Client(),
        _correlationId = correlationId ?? nuevoUuid,
@@ -84,6 +86,10 @@ class GatewayClient {
   final double retryMultiplier;
   final TokenRefreshCallback? _onTokenExpired;
   final StructuredLogger? _logger;
+
+  /// Cabeceras de la sesión que van en cada petición (p. ej. el contexto del
+  /// administrador de plataforma, SCRUM-901). Se leen en cada intento.
+  final Map<String, String> Function()? _cabecerasExtra;
 
   /// Ejecuta una petición GET contra [path], soportando [queryParameters].
   Future<Map<String, dynamic>> get(
@@ -284,6 +290,8 @@ class GatewayClient {
       if (token != null && token.isNotEmpty) {
         request.headers['Authorization'] = 'Bearer $token';
       }
+      final extra = _cabecerasExtra?.call();
+      if (extra != null) request.headers.addAll(extra);
 
       final sw = Stopwatch()..start();
       _logger?.info(

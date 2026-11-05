@@ -1,0 +1,683 @@
+<mxfile host="app.diagrams.net" modified="2026-10-08T21:15:00.000Z" agent="Mozilla/5.0" version="21.6.8" type="device">
+
+  <!-- ============================================================================== -->
+  <!-- TAB 1: REGISTRO ALIADO TÉCNICO -->
+  <!-- ============================================================================== -->
+  <diagram id="seq-reg-aliado" name="Seq 1. Registro Aliado">
+    <mxGraphModel dx="1200" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="900" background="#FFFFFF">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- TÍTULOS -->
+        <mxCell id="t1" value="DIAGRAMA DE SECUENCIA: REGISTRO DE ALIADO TÉCNICO (US-02.1.1-M2)" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=18;fontStyle=1;fontColor=#0F172A;" vertex="1" parent="1">
+          <mxGeometry x="150" y="20" width="870" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="st1" value="Flujo de registro con resolución de tenant, verificación de unicidad, llamada a Auth y compensación de Saga en PostgreSQL" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=12;fontColor=#64748B;" vertex="1" parent="1">
+          <mxGeometry x="150" y="50" width="870" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- LIFELINES (Cabezas y líneas de vida con puntos exactos de conexión) -->
+        <!-- User: X center = 110 -->
+        <mxCell id="p1_user" value="Aliado Técnico&#xa;(Usuario)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#FFFFFF;strokeColor=#475569;strokeWidth=1.5;fontColor=#0F172A;fontStyle=1;size=40;" vertex="1" parent="1">
+          <mxGeometry x="50" y="90" width="120" height="730" as="geometry" />
+        </mxCell>
+
+        <!-- Flutter: X center = 290 -->
+        <mxCell id="p1_fl" value="MANI-Flutter&#xa;(UI / GatewayClient)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#FFFFFF;strokeColor=#475569;strokeWidth=1.5;fontColor=#0F172A;fontStyle=1;size=40;" vertex="1" parent="1">
+          <mxGeometry x="220" y="90" width="140" height="730" as="geometry" />
+        </mxCell>
+
+        <!-- Gateway: X center = 490 -->
+        <mxCell id="p1_gw" value="MANI-APIGateway&#xa;(NGINX :80)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#FFFFFF;strokeColor=#2563EB;strokeWidth=2;fontColor=#1E40AF;fontStyle=1;size=40;" vertex="1" parent="1">
+          <mxGeometry x="420" y="90" width="140" height="730" as="geometry" />
+        </mxCell>
+
+        <!-- Node Core: X center = 690 -->
+        <mxCell id="p1_node" value="MANI-Node&#xa;(Core :3000 / UseCase)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#FFFFFF;strokeColor=#475569;strokeWidth=1.5;fontColor=#0F172A;fontStyle=1;size=40;" vertex="1" parent="1">
+          <mxGeometry x="610" y="90" width="160" height="730" as="geometry" />
+        </mxCell>
+
+        <!-- Auth Service: X center = 870 -->
+        <mxCell id="p1_auth" value="Auth Service&#xa;(Supabase / Mock)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#FFFFFF;strokeColor=#475569;strokeWidth=1.5;fontColor=#0F172A;fontStyle=1;size=40;" vertex="1" parent="1">
+          <mxGeometry x="810" y="90" width="120" height="730" as="geometry" />
+        </mxCell>
+
+        <!-- DB: X center = 1040 -->
+        <mxCell id="p1_db" value="PostgreSQL&#xa;(mani_db)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#FFFFFF;strokeColor=#475569;strokeWidth=1.5;fontColor=#0F172A;fontStyle=1;size=40;" vertex="1" parent="1">
+          <mxGeometry x="980" y="90" width="120" height="730" as="geometry" />
+        </mxCell>
+
+        <!-- MENSAJES (con puntos exactos en X y distribución vertical en Y) -->
+        <!-- Y = 170: User -> Flutter -->
+        <mxCell id="m1_1" value="1. Envía formulario de registro (cédula, correo, categorías)" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#2563EB;strokeWidth=1.5;fontSize=11;fontColor=#0F172A;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="110" y="170" as="sourcePoint" />
+            <mxPoint x="290" y="170" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Y = 215: Flutter -> Gateway -->
+        <mxCell id="m1_2" value="2. POST /api/v1/core/auth/register/aliado [X-Correlation-ID, X-Tenant-Slug]" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#2563EB;strokeWidth=1.5;fontSize=11;fontColor=#0F172A;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="290" y="215" as="sourcePoint" />
+            <mxPoint x="490" y="215" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Y = 260: Gateway -> Node -->
+        <mxCell id="m1_3" value="3. Proxy upstream mani-core-service:3000 (mantiene headers)" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#2563EB;strokeWidth=1.5;fontSize=11;fontColor=#0F172A;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="490" y="260" as="sourcePoint" />
+            <mxPoint x="690" y="260" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Y = 305: Node -> DB -->
+        <mxCell id="m1_4" value="4. findBySlug(slug) &amp; valida email/cédula en BD" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#2563EB;strokeWidth=1.5;fontSize=11;fontColor=#0F172A;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="690" y="305" as="sourcePoint" />
+            <mxPoint x="1040" y="305" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Y = 345: DB -> Node -->
+        <mxCell id="m1_5" value="5. Validación OK (Datos no existen previamente)" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;rounded=0;strokeColor=#64748B;fontSize=11;fontColor=#475569;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1040" y="345" as="sourcePoint" />
+            <mxPoint x="690" y="345" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Y = 390: Node -> Auth -->
+        <mxCell id="m1_6" value="6. createIdentity(email, password)" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#2563EB;strokeWidth=1.5;fontSize=11;fontColor=#0F172A;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="690" y="390" as="sourcePoint" />
+            <mxPoint x="870" y="390" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Y = 430: Auth -> Node -->
+        <mxCell id="m1_7" value="7. authUserId creado exitosamente" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;rounded=0;strokeColor=#64748B;fontSize=11;fontColor=#475569;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="870" y="430" as="sourcePoint" />
+            <mxPoint x="690" y="430" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Y = 475: Node -> DB -->
+        <mxCell id="m1_8" value="8. INSERT usuario + aliado (pendiente_kyc) + categorías" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#2563EB;strokeWidth=1.5;fontSize=11;fontColor=#0F172A;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="690" y="475" as="sourcePoint" />
+            <mxPoint x="1040" y="475" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Y = 515: DB -> Node -->
+        <mxCell id="m1_9" value="9. Registros confirmados en transacción" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;rounded=0;strokeColor=#16A34A;fontSize=11;fontColor=#15803D;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1040" y="515" as="sourcePoint" />
+            <mxPoint x="690" y="515" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- BLOQUE ALT: COMPENSACIÓN (Y = 540 a 640) -->
+        <mxCell id="box_alt1" value="alt [Falla inserción en DB (Compensación de Saga)]" style="shape=umlFrame;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#DC2626;strokeWidth=1.5;fontColor=#B91C1C;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="450" y="540" width="630" height="95" as="geometry" />
+        </mxCell>
+
+        <!-- Y = 575: Node -> Auth Rollback -->
+        <mxCell id="m1_roll" value="10a. [Rollback] deleteIdentity(authUserId)" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#DC2626;strokeWidth=1.5;fontSize=11;fontColor=#B91C1C;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="690" y="575" as="sourcePoint" />
+            <mxPoint x="870" y="575" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Y = 610: Node -> Gateway (Error) -->
+        <mxCell id="m1_err" value="11a. HTTP 500 Compensado (Identidad eliminada sin huérfanos)" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;rounded=0;strokeColor=#DC2626;strokeWidth=1.5;fontSize=11;fontColor=#B91C1C;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="690" y="610" as="sourcePoint" />
+            <mxPoint x="490" y="610" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- CAMINO EXITOSO (Y = 660 en adelante) -->
+        <!-- Y = 660: Node -> Gateway -->
+        <mxCell id="m1_10" value="10b. HTTP 201 Created { user, allyId, status: 'CREATED' }" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;rounded=0;strokeColor=#16A34A;strokeWidth=1.5;fontSize=11;fontColor=#15803D;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="690" y="660" as="sourcePoint" />
+            <mxPoint x="490" y="660" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Y = 705: Gateway -> Flutter -->
+        <mxCell id="m1_11" value="11b. HTTP 201 Created (Token + Sesión)" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;rounded=0;strokeColor=#16A34A;strokeWidth=1.5;fontSize=11;fontColor=#15803D;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="490" y="705" as="sourcePoint" />
+            <mxPoint x="290" y="705" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Y = 750: Flutter -> User -->
+        <mxCell id="m1_12" value="12b. Redirige a pantalla 'En espera de Verificación KYC'" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;rounded=0;strokeColor=#16A34A;strokeWidth=1.5;fontSize=11;fontColor=#15803D;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="290" y="750" as="sourcePoint" />
+            <mxPoint x="110" y="750" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+
+  <!-- ============================================================================== -->
+  <!-- TAB 2: REGISTRO CLIENTE NATURAL -->
+  <!-- ============================================================================== -->
+  <diagram id="seq-reg-cliente" name="Seq 2. Registro Cliente">
+    <mxGraphModel dx="1200" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="900" background="#FFFFFF">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="t2" value="DIAGRAMA DE SECUENCIA: REGISTRO DE CLIENTE PERSONA NATURAL (US-02.2.1-M2)" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=18;fontStyle=1;fontColor=#0F172A;" vertex="1" parent="1">
+          <mxGeometry x="150" y="20" width="870" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="st2" value="Coordinación transaccional: Creación de identidad, perfil de cliente natural y sitio de hogar inicial" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=12;fontColor=#64748B;" vertex="1" parent="1">
+          <mxGeometry x="150" y="50" width="870" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- Lifelines: Centros en X = 130, 350, 580, 810, 1030 -->
+        <mxCell id="p2_user" value="Cliente&#xa;(Usuario)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#FFFFFF;strokeColor=#475569;strokeWidth=1.5;fontColor=#0F172A;fontStyle=1;size=40;" vertex="1" parent="1">
+          <mxGeometry x="70" y="90" width="120" height="650" as="geometry" />
+        </mxCell>
+
+        <mxCell id="p2_fl" value="MANI-Flutter&#xa;(UI / BLoC)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#FFFFFF;strokeColor=#475569;strokeWidth=1.5;fontColor=#0F172A;fontStyle=1;size=40;" vertex="1" parent="1">
+          <mxGeometry x="280" y="90" width="140" height="650" as="geometry" />
+        </mxCell>
+
+        <mxCell id="p2_gw" value="MANI-APIGateway&#xa;(NGINX :80)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#FFFFFF;strokeColor=#2563EB;strokeWidth=2;fontColor=#1E40AF;fontStyle=1;size=40;" vertex="1" parent="1">
+          <mxGeometry x="510" y="90" width="140" height="650" as="geometry" />
+        </mxCell>
+
+        <mxCell id="p2_node" value="MANI-Node&#xa;(RegisterClientNaturalPerson)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#FFFFFF;strokeColor=#475569;strokeWidth=1.5;fontColor=#0F172A;fontStyle=1;size=40;" vertex="1" parent="1">
+          <mxGeometry x="720" y="90" width="180" height="650" as="geometry" />
+        </mxCell>
+
+        <mxCell id="p2_db" value="PostgreSQL&#xa;(Tablas usuario, cliente, sitio)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#FFFFFF;strokeColor=#475569;strokeWidth=1.5;fontColor=#0F172A;fontStyle=1;size=40;" vertex="1" parent="1">
+          <mxGeometry x="940" y="90" width="180" height="650" as="geometry" />
+        </mxCell>
+
+        <!-- Mensajes -->
+        <!-- Y = 170: User -> Flutter -->
+        <mxCell id="m2_1" value="1. Envía datos personales, documento y dirección de hogar" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#2563EB;strokeWidth=1.5;fontSize=11;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="130" y="170" as="sourcePoint" />
+            <mxPoint x="350" y="170" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Y = 220: Flutter -> Gateway -->
+        <mxCell id="m2_2" value="2. POST /api/v1/core/auth/register/cliente-natural [X-Tenant-Slug, X-Correlation-ID]" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#2563EB;strokeWidth=1.5;fontSize=11;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="350" y="220" as="sourcePoint" />
+            <mxPoint x="580" y="220" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Y = 270: Gateway -> Node -->
+        <mxCell id="m2_3" value="3. Proxy upstream hacia mani-core-service:3000" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#2563EB;strokeWidth=1.5;fontSize=11;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="580" y="270" as="sourcePoint" />
+            <mxPoint x="810" y="270" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Y = 320: Node -> DB -->
+        <mxCell id="m2_4" value="4. findBySlug(tenantSlug) -> Resuelve ID de Franquicia" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#2563EB;strokeWidth=1.5;fontSize=11;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="810" y="320" as="sourcePoint" />
+            <mxPoint x="1030" y="320" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Y = 370: Node -> DB -->
+        <mxCell id="m2_5" value="5. Verifica unicidad y genera auth_user_id" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#2563EB;strokeWidth=1.5;fontSize=11;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="810" y="370" as="sourcePoint" />
+            <mxPoint x="1030" y="370" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Y = 420: Node -> DB -->
+        <mxCell id="m2_6" value="6. INSERT usuario (cliente) + INSERT cliente (natural) + INSERT sitio (Hogar)" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#2563EB;strokeWidth=1.5;fontSize=11;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="810" y="420" as="sourcePoint" />
+            <mxPoint x="1030" y="420" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Y = 470: DB -> Node -->
+        <mxCell id="m2_7" value="7. Transacción SQL confirmada (Commit)" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;rounded=0;strokeColor=#16A34A;fontSize=11;fontColor=#15803D;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1030" y="470" as="sourcePoint" />
+            <mxPoint x="810" y="470" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Y = 520: Node -> Gateway -->
+        <mxCell id="m2_8" value="8. HTTP 201 Created { user, client, site, token }" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;rounded=0;strokeColor=#16A34A;strokeWidth=1.5;fontSize=11;fontColor=#15803D;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="810" y="520" as="sourcePoint" />
+            <mxPoint x="580" y="520" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Y = 570: Gateway -> Flutter -->
+        <mxCell id="m2_9" value="9. HTTP 201 Created" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;rounded=0;strokeColor=#16A34A;strokeWidth=1.5;fontSize=11;fontColor=#15803D;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="580" y="570" as="sourcePoint" />
+            <mxPoint x="350" y="570" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Y = 620: Flutter -> User -->
+        <mxCell id="m2_10" value="10. Redirige a Home de Cliente con sitio y dirección activas" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;rounded=0;strokeColor=#16A34A;strokeWidth=1.5;fontSize=11;fontColor=#15803D;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="350" y="620" as="sourcePoint" />
+            <mxPoint x="130" y="620" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+
+  <!-- ============================================================================== -->
+  <!-- TAB 3: LOGIN Y RESOLUCIÓN DE ROL -->
+  <!-- ============================================================================== -->
+  <diagram id="seq-login" name="Seq 3. Login y Resolución Rol">
+    <mxGraphModel dx="1200" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="900" background="#FFFFFF">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="t3" value="DIAGRAMA DE SECUENCIA: LOGIN Y ENCAMINAMIENTO DE DASHBOARD POR ROL" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=18;fontStyle=1;fontColor=#0F172A;" vertex="1" parent="1">
+          <mxGeometry x="150" y="20" width="870" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="st3" value="Autenticación con JWT, resolución de claims en Core Node /profiles/me y apertura de panel correspondiente" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=12;fontColor=#64748B;" vertex="1" parent="1">
+          <mxGeometry x="150" y="50" width="870" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- Lifelines: Centros en X = 130, 350, 580, 810, 1030 -->
+        <mxCell id="p3_user" value="Usuario" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#FFFFFF;strokeColor=#475569;strokeWidth=1.5;fontColor=#0F172A;fontStyle=1;size=40;" vertex="1" parent="1">
+          <mxGeometry x="70" y="90" width="120" height="600" as="geometry" />
+        </mxCell>
+
+        <mxCell id="p3_fl" value="MANI-Flutter&#xa;(LoginBloc)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#FFFFFF;strokeColor=#475569;strokeWidth=1.5;fontColor=#0F172A;fontStyle=1;size=40;" vertex="1" parent="1">
+          <mxGeometry x="280" y="90" width="140" height="600" as="geometry" />
+        </mxCell>
+
+        <mxCell id="p3_auth" value="Proveedor Auth&#xa;(Token Issuer)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#FFFFFF;strokeColor=#475569;strokeWidth=1.5;fontColor=#0F172A;fontStyle=1;size=40;" vertex="1" parent="1">
+          <mxGeometry x="510" y="90" width="140" height="600" as="geometry" />
+        </mxCell>
+
+        <mxCell id="p3_gw" value="MANI-APIGateway&#xa;(NGINX :80)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#FFFFFF;strokeColor=#2563EB;strokeWidth=2;fontColor=#1E40AF;fontStyle=1;size=40;" vertex="1" parent="1">
+          <mxGeometry x="740" y="90" width="140" height="600" as="geometry" />
+        </mxCell>
+
+        <mxCell id="p3_node" value="MANI-Node&#xa;(/profiles/me :3000)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#FFFFFF;strokeColor=#475569;strokeWidth=1.5;fontColor=#0F172A;fontStyle=1;size=40;" vertex="1" parent="1">
+          <mxGeometry x="960" y="90" width="140" height="600" as="geometry" />
+        </mxCell>
+
+        <!-- Mensajes -->
+        <!-- Y = 170: User -> Flutter -->
+        <mxCell id="m3_1" value="1. Ingresa email, contraseña y tenant" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#2563EB;strokeWidth=1.5;fontSize=11;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="130" y="170" as="sourcePoint" />
+            <mxPoint x="350" y="170" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Y = 215: Flutter -> Auth -->
+        <mxCell id="m3_2" value="2. signInWithPassword(email, password)" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#2563EB;strokeWidth=1.5;fontSize=11;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="350" y="215" as="sourcePoint" />
+            <mxPoint x="580" y="215" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Y = 260: Auth -> Flutter -->
+        <mxCell id="m3_3" value="3. 200 OK: Access Token (JWT) + UID" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;rounded=0;strokeColor=#16A34A;fontSize=11;fontColor=#15803D;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="580" y="260" as="sourcePoint" />
+            <mxPoint x="350" y="260" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Y = 310: Flutter -> Gateway -->
+        <mxCell id="m3_4" value="4. GET /api/v1/core/profiles/me [Bearer JWT, X-Tenant-Slug]" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#2563EB;strokeWidth=1.5;fontSize=11;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="350" y="310" as="sourcePoint" />
+            <mxPoint x="810" y="310" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Y = 355: Gateway -> Node -->
+        <mxCell id="m3_5" value="5. Proxy request con headers de autorización intactos" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#2563EB;strokeWidth=1.5;fontSize=11;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="810" y="355" as="sourcePoint" />
+            <mxPoint x="1030" y="355" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Y = 405: Node -> Node (Self Loop) -->
+        <mxCell id="m3_6" value="6. Consulta rol en BD según auth_user_id y tenant" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#2563EB;strokeWidth=1.5;fontSize=11;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1060" y="395" />
+              <mxPoint x="1080" y="415" />
+              <mxPoint x="1030" y="415" />
+            </Array>
+            <mxPoint x="1030" y="395" as="sourcePoint" />
+            <mxPoint x="1030" y="415" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Y = 460: Node -> Gateway -->
+        <mxCell id="m3_7" value="7. 200 OK: { id, email, rol: 'admin' | 'aliado' | 'cliente' }" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;rounded=0;strokeColor=#16A34A;fontSize=11;fontColor=#15803D;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1030" y="460" as="sourcePoint" />
+            <mxPoint x="810" y="460" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Y = 505: Gateway -> Flutter -->
+        <mxCell id="m3_8" value="8. 200 OK Perfil Resuelto" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;rounded=0;strokeColor=#16A34A;fontSize=11;fontColor=#15803D;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="810" y="505" as="sourcePoint" />
+            <mxPoint x="350" y="505" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Y = 550: Flutter -> User -->
+        <mxCell id="m3_9" value="9. Renderiza Dashboard correspondiente (Admin / Aliado / Cliente)" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;rounded=0;strokeColor=#16A34A;strokeWidth=1.5;fontSize=11;fontColor=#15803D;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="350" y="550" as="sourcePoint" />
+            <mxPoint x="130" y="550" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+
+  <!-- ============================================================================== -->
+  <!-- TAB 4: COTIZACIÓN EN VIVO Y DESPACHO -->
+  <!-- ============================================================================== -->
+  <diagram id="seq-cotizacion-despacho" name="Seq 4. Cotización y Despacho">
+    <mxGraphModel dx="1200" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="900" background="#FFFFFF">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="t4" value="DIAGRAMA DE SECUENCIA: COTIZACIÓN EN VIVO Y LANZAMIENTO DE DESPACHO" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=18;fontStyle=1;fontColor=#0F172A;" vertex="1" parent="1">
+          <mxGeometry x="150" y="20" width="870" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="st4" value="Interacción completa entre Flutter, API Gateway, Rules Engine (Java) y Dispatch Engine (.NET)" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=12;fontColor=#64748B;" vertex="1" parent="1">
+          <mxGeometry x="150" y="50" width="870" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- Lifelines: Centros en X = 130, 350, 580, 810, 1030 -->
+        <mxCell id="p4_cli" value="Cliente" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#FFFFFF;strokeColor=#475569;strokeWidth=1.5;fontColor=#0F172A;fontStyle=1;size=40;" vertex="1" parent="1">
+          <mxGeometry x="70" y="90" width="120" height="700" as="geometry" />
+        </mxCell>
+
+        <mxCell id="p4_fl" value="MANI-Flutter&#xa;(SolicitudBloc)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#FFFFFF;strokeColor=#475569;strokeWidth=1.5;fontColor=#0F172A;fontStyle=1;size=40;" vertex="1" parent="1">
+          <mxGeometry x="280" y="90" width="140" height="700" as="geometry" />
+        </mxCell>
+
+        <mxCell id="p4_gw" value="MANI-APIGateway&#xa;(NGINX :80)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#FFFFFF;strokeColor=#2563EB;strokeWidth=2;fontColor=#1E40AF;fontStyle=1;size=40;" vertex="1" parent="1">
+          <mxGeometry x="510" y="90" width="140" height="700" as="geometry" />
+        </mxCell>
+
+        <mxCell id="p4_rules" value="MANI-Rules-Java&#xa;(Reglas :8080)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#FFFFFF;strokeColor=#16A34A;strokeWidth=2;fontColor=#15803D;fontStyle=1;size=40;" vertex="1" parent="1">
+          <mxGeometry x="730" y="90" width="160" height="700" as="geometry" />
+        </mxCell>
+
+        <mxCell id="p4_disp" value="MANI-Dispatch-DotNet&#xa;(Despacho :5000)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#FFFFFF;strokeColor=#D97706;strokeWidth=2;fontColor=#B45309;fontStyle=1;size=40;" vertex="1" parent="1">
+          <mxGeometry x="950" y="90" width="160" height="700" as="geometry" />
+        </mxCell>
+
+        <!-- Mensajes escalonados con Y creciente -->
+        <!-- Y = 170: Cliente -> Flutter -->
+        <mxCell id="m4_1" value="1. Selecciona categoría, fecha/hora y dirección" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#2563EB;strokeWidth=1.5;fontSize=11;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="130" y="170" as="sourcePoint" />
+            <mxPoint x="350" y="170" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Y = 215: Flutter -> Gateway -->
+        <mxCell id="m4_2" value="2. POST /api/v1/rules/quote { lat, lng, catId, fechaHora }" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#2563EB;strokeWidth=1.5;fontSize=11;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="350" y="215" as="sourcePoint" />
+            <mxPoint x="580" y="215" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Y = 260: Gateway -> Rules Java -->
+        <mxCell id="m4_3" value="3. Proxy upstream rules_backend:8080" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#16A34A;strokeWidth=1.5;fontSize=11;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="580" y="260" as="sourcePoint" />
+            <mxPoint x="810" y="260" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Y = 305: Rules Java -> Gateway -->
+        <mxCell id="m4_4" value="4. Evalúa recargos (clima, noche, festivos) y tarifa base" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;rounded=0;strokeColor=#16A34A;fontSize=11;fontColor=#15803D;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="810" y="305" as="sourcePoint" />
+            <mxPoint x="580" y="305" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Y = 350: Gateway -> Flutter -->
+        <mxCell id="m4_5" value="5. 200 OK: Total cotizado ($)" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;rounded=0;strokeColor=#16A34A;fontSize=11;fontColor=#15803D;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="580" y="350" as="sourcePoint" />
+            <mxPoint x="350" y="350" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Y = 395: Flutter -> Cliente -->
+        <mxCell id="m4_6" value="6. Muestra resumen de cotización y botón 'Confirmar Solicitud'" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;rounded=0;strokeColor=#2563EB;fontSize=11;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="350" y="395" as="sourcePoint" />
+            <mxPoint x="130" y="395" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Y = 445: Cliente -> Flutter -->
+        <mxCell id="m4_7" value="7. Presiona 'Confirmar Solicitud de Servicio'" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#2563EB;strokeWidth=1.5;fontSize=11;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="130" y="445" as="sourcePoint" />
+            <mxPoint x="350" y="445" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Y = 490: Flutter -> Gateway -->
+        <mxCell id="m4_8" value="8. POST /api/v1/dispatch/requests { cotizacionId, categoriaId, notas }" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#2563EB;strokeWidth=1.5;fontSize=11;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="350" y="490" as="sourcePoint" />
+            <mxPoint x="580" y="490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Y = 535: Gateway -> Dispatch DotNet -->
+        <mxCell id="m4_9" value="9. Proxy upstream dispatch_backend:5000" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#D97706;strokeWidth=1.5;fontSize=11;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="580" y="535" as="sourcePoint" />
+            <mxPoint x="1030" y="535" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Y = 580: Dispatch DotNet -> Gateway -->
+        <mxCell id="m4_10" value="10. Registra orden en BD e inicia búsqueda geoespacial" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;rounded=0;strokeColor=#D97706;fontSize=11;fontColor=#B45309;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1030" y="580" as="sourcePoint" />
+            <mxPoint x="580" y="580" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Y = 625: Gateway -> Flutter -->
+        <mxCell id="m4_11" value="11. 201 Created { ordenId, estado: 'buscando_aliados' }" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;rounded=0;strokeColor=#16A34A;fontSize=11;fontColor=#15803D;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="580" y="625" as="sourcePoint" />
+            <mxPoint x="350" y="625" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Y = 670: Flutter -> Cliente -->
+        <mxCell id="m4_12" value="12. Redirige a pantalla: 'Buscando aliad@ cercano para tu servicio...'" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;rounded=0;strokeColor=#16A34A;strokeWidth=1.5;fontSize=11;fontColor=#15803D;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="350" y="670" as="sourcePoint" />
+            <mxPoint x="130" y="670" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+
+  <!-- ============================================================================== -->
+  <!-- TAB 5: DESPACHO CONCURRENTE (EXCLUSIÓN MUTUA) -->
+  <!-- ============================================================================== -->
+  <diagram id="seq-exclusion-mutua" name="Seq 5. Exclusión Concurrente">
+    <mxGraphModel dx="1200" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="900" background="#FFFFFF">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="t5" value="DIAGRAMA DE SECUENCIA: ACEPTACIÓN DE ORDEN CONCURRENTE (EXCLUSIÓN MUTUA)" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=18;fontStyle=1;fontColor=#0F172A;" vertex="1" parent="1">
+          <mxGeometry x="150" y="20" width="870" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="st5" value="Garantía de consistencia en MANI-Dispatch-DotNet: Un solo aliado adjudicado mediante bloqueo transaccional" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=12;fontColor=#64748B;" vertex="1" parent="1">
+          <mxGeometry x="150" y="50" width="870" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- Lifelines: Centros en X = 130, 350, 580, 810, 1030 -->
+        <mxCell id="p5_a" value="Aliado A&#xa;(Más veloz)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#FFFFFF;strokeColor=#16A34A;strokeWidth=2;fontColor=#15803D;fontStyle=1;size=40;" vertex="1" parent="1">
+          <mxGeometry x="70" y="90" width="120" height="660" as="geometry" />
+        </mxCell>
+
+        <mxCell id="p5_b" value="Aliado B&#xa;(Concurrente)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#FFFFFF;strokeColor=#DC2626;strokeWidth=2;fontColor=#B91C1C;fontStyle=1;size=40;" vertex="1" parent="1">
+          <mxGeometry x="280" y="90" width="140" height="660" as="geometry" />
+        </mxCell>
+
+        <mxCell id="p5_gw" value="MANI-APIGateway&#xa;(NGINX :80)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#FFFFFF;strokeColor=#2563EB;strokeWidth=2;fontColor=#1E40AF;fontStyle=1;size=40;" vertex="1" parent="1">
+          <mxGeometry x="510" y="90" width="140" height="660" as="geometry" />
+        </mxCell>
+
+        <mxCell id="p5_disp" value="MANI-Dispatch-DotNet&#xa;(Motor de Asignación :5000)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#FFFFFF;strokeColor=#475569;strokeWidth=1.5;fontColor=#0F172A;fontStyle=1;size=40;" vertex="1" parent="1">
+          <mxGeometry x="720" y="90" width="180" height="660" as="geometry" />
+        </mxCell>
+
+        <mxCell id="p5_db" value="PostgreSQL&#xa;(orden_servicio)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;recursiveResize=0;outlineConnect=0;fillColor=#FFFFFF;strokeColor=#475569;strokeWidth=1.5;fontColor=#0F172A;fontStyle=1;size=40;" vertex="1" parent="1">
+          <mxGeometry x="960" y="90" width="140" height="660" as="geometry" />
+        </mxCell>
+
+        <!-- Mensajes escalonados con Y creciente -->
+        <!-- Y = 170: Aliado A -> Gateway -->
+        <mxCell id="m5_1" value="1. POST /dispatch/requests/101/accept (Aliado A)" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#16A34A;strokeWidth=1.5;fontSize=11;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="130" y="170" as="sourcePoint" />
+            <mxPoint x="580" y="170" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Y = 215: Gateway -> DotNet (Aliado A) -->
+        <mxCell id="m5_2" value="2. Proxy accept hacia DotNet" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#16A34A;strokeWidth=1.5;fontSize=11;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="580" y="215" as="sourcePoint" />
+            <mxPoint x="810" y="215" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Y = 260: DotNet -> DB (Bloqueo Pesimista) -->
+        <mxCell id="m5_3" value="3. SELECT * FROM orden_servicio WHERE id=101 FOR UPDATE" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#16A34A;strokeWidth=1.5;fontSize=11;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="810" y="260" as="sourcePoint" />
+            <mxPoint x="1030" y="260" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Y = 305: Aliado B -> Gateway (Petición Concurrente) -->
+        <mxCell id="m5_b_in" value="4. [Concurrente] POST /dispatch/requests/101/accept (Aliado B)" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#DC2626;strokeWidth=1.5;fontSize=11;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="350" y="305" as="sourcePoint" />
+            <mxPoint x="580" y="305" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Y = 350: Gateway -> DotNet (Aliado B) -->
+        <mxCell id="m5_b_gw" value="5. Proxy request Aliado B hacia DotNet" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#DC2626;strokeWidth=1.5;fontSize=11;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="580" y="350" as="sourcePoint" />
+            <mxPoint x="810" y="350" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Y = 395: DB -> DotNet (Orden libre asignada a A) -->
+        <mxCell id="m5_4" value="6. Orden libre (estado='disponible') -> Asignada a Aliado A" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;rounded=0;strokeColor=#16A34A;fontSize=11;fontColor=#15803D;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1030" y="395" as="sourcePoint" />
+            <mxPoint x="810" y="395" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Y = 440: DotNet -> Gateway (Éxito A) -->
+        <mxCell id="m5_5" value="7. 200 OK: { success: true, ordenId: 101, aliadoId: A }" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;rounded=0;strokeColor=#16A34A;strokeWidth=1.5;fontSize=11;fontColor=#15803D;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="810" y="440" as="sourcePoint" />
+            <mxPoint x="580" y="440" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Y = 485: Gateway -> Aliado A -->
+        <mxCell id="m5_6" value="8. 200 OK: ¡Trabajo aceptado! Dirígete a la dirección" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;rounded=0;strokeColor=#16A34A;strokeWidth=1.5;fontSize=11;fontColor=#15803D;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="580" y="485" as="sourcePoint" />
+            <mxPoint x="130" y="485" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Y = 530: DotNet -> DB (Intento B evalúa orden) -->
+        <mxCell id="m5_7" value="9. Intento B evalúa orden liberada: estado = 'asignada'" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#DC2626;strokeWidth=1.5;fontSize=11;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="810" y="530" as="sourcePoint" />
+            <mxPoint x="1030" y="530" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Y = 575: DotNet -> Gateway (Conflicto B) -->
+        <mxCell id="m5_8" value="10. 409 Conflict ('ORDER_ALREADY_TAKEN')" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;rounded=0;strokeColor=#DC2626;strokeWidth=1.5;fontSize=11;fontColor=#B91C1C;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="810" y="575" as="sourcePoint" />
+            <mxPoint x="580" y="575" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Y = 620: Gateway -> Aliado B -->
+        <mxCell id="m5_9" value="11. 409 Conflict: 'Esta orden ya fue tomada por otro profesional'" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;rounded=0;strokeColor=#DC2626;strokeWidth=1.5;fontSize=11;fontColor=#B91C1C;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="580" y="620" as="sourcePoint" />
+            <mxPoint x="350" y="620" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+
+</mxfile>

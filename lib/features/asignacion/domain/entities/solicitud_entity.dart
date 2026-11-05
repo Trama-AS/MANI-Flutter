@@ -39,6 +39,7 @@ class SolicitudEntity extends Equatable {
     this.reglasSitio = const [],
     this.descripcion,
     this.cantidadFotos = 0,
+    this.fotosRutas = const [],
     this.direccion,
     this.fechaAsignacion,
   });
@@ -57,7 +58,9 @@ class SolicitudEntity extends Equatable {
   final String zona;
   final String? zonaPadre;
 
-  /// Reglas del sitio: visibles ANTES de aceptar (QS-06).
+  /// Reglas del sitio. En la oferta Core envía solo los requisitos; el
+  /// contacto y las instrucciones de ingreso llegan tras la asignación
+  /// (SCRUM-1388).
   final List<ReglaSitio> reglasSitio;
 
   /// Problema descrito por el cliente al publicar (US-04.1.1).
@@ -65,6 +68,9 @@ class SolicitudEntity extends Equatable {
 
   /// Fotos que adjuntó el cliente.
   final int cantidadFotos;
+
+  /// Rutas de Storage de las fotos adjuntas.
+  final List<String> fotosRutas;
 
   /// Dirección exacta: el servidor solo la envía cuando la solicitud es mía.
   final String? direccion;
@@ -100,6 +106,7 @@ class SolicitudEntity extends Equatable {
     reglasSitio,
     descripcion,
     cantidadFotos,
+    fotosRutas,
     direccion,
     fechaCreacion,
     fechaAsignacion,

@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:mani/core/platform/guardador_archivo.dart';
 import 'package:mani/core/widgets/mani_button.dart';
 import 'package:mani/features/services/quotes/presentation/cotizacion_page.dart'
     show formatearPesos;
 
+import '../data/cobros_datasource.dart';
 import '../domain/pago.dart';
 import 'pago_cubit.dart';
+import 'retencion_pago_card.dart';
 
 /// Pago de una cotización aceptada en el sandbox (SCRUM-1432, HU-M11-01).
 ///
@@ -13,7 +19,13 @@ import 'pago_cubit.dart';
 /// solo elige el desenlace que quiere probar. El monto lo calcula Core a partir
 /// de la cotización; [total], si llega, es solo una ayuda para mostrar antes.
 class PagoSandboxPage extends StatelessWidget {
-  const PagoSandboxPage({super.key, this.total});
+  const PagoSandboxPage({super.key, this.total, this.cobros, this.guardador});
+
+  /// Guarda el comprobante en el dispositivo; si no llega, no hay botón de descarga (SCRUM-890).
+  final GuardadorArchivo? guardador;
+
+  /// Fuente de la retención en garantía; si no llega, no se muestra (SCRUM-891).
+  final FuenteCobros? cobros;
 
   /// Total de la cotización que se está pagando, para mostrarlo antes de pagar.
   final double? total;
@@ -30,64 +42,81 @@ class PagoSandboxPage extends StatelessWidget {
       body: BlocBuilder<PagoCubit, PagoState>(
         builder: (context, state) {
           final cubit = context.read<PagoCubit>();
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              const _AvisoSandbox(),
-              const SizedBox(height: 16),
-              if (total != null)
-                Text(
-                  'Total de tu cotización: ${formatearPesos(total!)}',
-                  key: const Key('total-cotizacion'),
-                  style: Theme.of(context).textTheme.titleMedium,
+          return Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 640),
+              child: ListView(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 24,
                 ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<EscenarioPago>(
-                key: const Key('escenario-pago'),
-                initialValue: state.escenario,
-                decoration: const InputDecoration(
-                  labelText: 'Resultado que quieres simular',
-                  border: OutlineInputBorder(),
-                ),
-                items: [
-                  for (final e in EscenarioPago.values)
-                    DropdownMenuItem(value: e, child: Text(e.etiqueta)),
-                ],
-                onChanged: state.pagando
-                    ? null
-                    : (e) {
-                        if (e != null) cubit.elegirEscenario(e);
-                      },
-              ),
-              const SizedBox(height: 16),
-              ManiButton(
-                key: const Key('btn-pagar-sandbox'),
-                etiqueta: 'Pagar (simulado)',
-                icono: Icons.payments_outlined,
-                expandir: true,
-                cargando: state.pagando,
-                onPressed: state.pagando ? null : cubit.pagar,
-              ),
-              if (state.error != null) ...[
-                const SizedBox(height: 16),
-                _ErrorPago(error: state.error!),
-              ],
-              if (state.pago != null) ...[
-                const SizedBox(height: 16),
-                _ResultadoPago(pago: state.pago!),
-                if (state.comprobante != null)
-                  _Comprobante(comprobante: state.comprobante!),
-                if (state.falloComprobante)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 8),
-                    child: Text(
-                      'El pago se aprobó, pero no pudimos traer el comprobante. '
-                      'Vuelve a abrir esta pantalla en unos minutos.',
-                      key: Key('sin-comprobante'),
+                children: [
+                  const _AvisoSandbox(),
+                  const SizedBox(height: 16),
+                  if (total != null)
+                    Text(
+                      'Total de tu cotización: ${formatearPesos(total!)}',
+                      key: const Key('total-cotizacion'),
+                      style: Theme.of(context).textTheme.titleMedium,
                     ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<EscenarioPago>(
+                    key: const Key('escenario-pago'),
+                    isExpanded: true,
+                    initialValue: state.escenario,
+                    decoration: const InputDecoration(
+                      labelText: 'Resultado que quieres simular',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: [
+                      for (final e in EscenarioPago.values)
+                        DropdownMenuItem(value: e, child: Text(e.etiqueta)),
+                    ],
+                    onChanged: state.pagando
+                        ? null
+                        : (e) {
+                            if (e != null) cubit.elegirEscenario(e);
+                          },
                   ),
-              ],
-            ],
+                  const SizedBox(height: 16),
+                  ManiButton(
+                    key: const Key('btn-pagar-sandbox'),
+                    etiqueta: 'Pagar (simulado)',
+                    icono: Icons.payments_outlined,
+                    expandir: true,
+                    cargando: state.pagando,
+                    onPressed: state.pagando ? null : cubit.pagar,
+                  ),
+                  if (state.error != null) ...[
+                    const SizedBox(height: 16),
+                    _ErrorPago(error: state.error!),
+                  ],
+                  if (state.pago != null) ...[
+                    const SizedBox(height: 16),
+                    _ResultadoPago(pago: state.pago!),
+                    if (state.comprobante != null)
+                      _Comprobante(
+                        comprobante: state.comprobante!,
+                        guardador: guardador,
+                      ),
+                    if (cobros != null && state.pago!.aprobado)
+                      RetencionPagoCard(
+                        fuente: cobros!,
+                        pagoId: state.pago!.id,
+                      ),
+                    if (state.falloComprobante)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 8),
+                        child: Text(
+                          'El pago se aprobó, pero no pudimos traer el comprobante. '
+                          'Vuelve a abrir esta pantalla en unos minutos.',
+                          key: Key('sin-comprobante'),
+                        ),
+                      ),
+                  ],
+                ],
+              ),
+            ),
           );
         },
       ),
@@ -199,9 +228,34 @@ class _ResultadoPago extends StatelessWidget {
 }
 
 class _Comprobante extends StatelessWidget {
-  const _Comprobante({required this.comprobante});
+  const _Comprobante({required this.comprobante, this.guardador});
 
   final ComprobantePago comprobante;
+  final GuardadorArchivo? guardador;
+
+  Future<void> _descargar(BuildContext context) async {
+    final mensajero = ScaffoldMessenger.of(context);
+    try {
+      final guardado = await guardador!.guardar(
+        nombre: comprobante.nombreArchivo,
+        bytes: Uint8List.fromList(utf8.encode(comprobante.comoTexto())),
+        tipoMime: 'text/plain',
+      );
+      if (guardado) {
+        mensajero.showSnackBar(
+          const SnackBar(content: Text('Comprobante guardado.')),
+        );
+      }
+    } catch (_) {
+      mensajero.showSnackBar(
+        const SnackBar(
+          content: Text(
+            'No pudimos guardar el comprobante. Inténtalo de nuevo.',
+          ),
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -227,6 +281,15 @@ class _Comprobante extends StatelessWidget {
                 comprobante.leyenda!,
                 key: const Key('leyenda-comprobante'),
                 style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+            if (guardador != null) ...[
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                key: const Key('btn-descargar-comprobante'),
+                onPressed: () => _descargar(context),
+                icon: const Icon(Icons.download_outlined),
+                label: const Text('Descargar comprobante'),
               ),
             ],
           ],

@@ -151,6 +151,8 @@ class AuthRepositoryImpl implements IAuthRepository {
 
   static const mensajeCredencialesInvalidas =
       'Correo o contraseña incorrectos.';
+  static const mensajeCorreoSinConfirmar =
+      'Debes confirmar tu correo antes de ingresar. Revisa tu bandeja de entrada.';
   static const mensajeSinConexion =
       'No pudimos conectar. Revisa tu conexión e inténtalo de nuevo.';
   static const mensajeDemasiadosIntentos =
@@ -158,13 +160,18 @@ class AuthRepositoryImpl implements IAuthRepository {
   static const mensajeLoginInesperado =
       'No pudimos iniciar sesión. Inténtalo de nuevo.';
 
-  /// Mensaje del inicio de sesión (SCRUM-1370, C2). Una credencial inválida,
-  /// un correo que no existe y uno sin confirmar dan EL MISMO mensaje: así el
-  /// login no revela si un correo está registrado. Solo se distinguen los
-  /// fallos que no dicen nada de la cuenta: demasiados intentos y falta de red.
+  /// Mensaje del inicio de sesión (SCRUM-1370, C2). Una credencial inválida y
+  /// un correo que no existe dan EL MISMO mensaje: así el login no revela si un
+  /// correo está registrado. Por decisión de la PO, el correo sin confirmar sí
+  /// tiene mensaje propio (le dice qué hacer). También se distinguen los fallos
+  /// que no dicen nada de la cuenta: demasiados intentos y falta de red.
   static String mensajeDeErrorDeLogin(AuthException e) {
     if (e is AuthRetryableFetchException) return mensajeSinConexion;
     final texto = e.message.toLowerCase();
+    if (e.code == 'email_not_confirmed' ||
+        texto.contains('email not confirmed')) {
+      return mensajeCorreoSinConfirmar;
+    }
     if (e.statusCode == '429' ||
         texto.contains('too many requests') ||
         texto.contains('rate limit')) {

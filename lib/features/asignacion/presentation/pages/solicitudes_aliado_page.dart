@@ -2,9 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:mani/core/di/injection_container.dart';
 import 'package:mani/core/theme/app_theme.dart';
 import 'package:mani/core/widgets/mani_button.dart';
 import 'package:mani/core/widgets/mani_snackbar.dart';
+import 'package:mani/features/services/ratings/data/calificacion_cierre_datasource.dart';
+import 'package:mani/features/services/ratings/presentation/calificacion_cierre_cubit.dart';
+import 'package:mani/features/services/ratings/presentation/calificacion_cierre_widgets.dart';
 
 import '../../domain/failures/asignacion_failure.dart';
 import '../bloc/solicitudes_aliado_cubit.dart';
@@ -518,6 +522,30 @@ class _BarraSuperior extends StatelessWidget {
               tooltip: 'Mi disponibilidad',
               onPressed: onAbrirDisponibilidad,
               icon: const Icon(Icons.event_busy_outlined, color: AppTheme.dark),
+            ),
+          if (sl.isRegistered<FuenteModuloM08>())
+            IconButton(
+              key: const ValueKey('btn-ir-historial-aliado'),
+              tooltip: 'Historial de trabajos',
+              onPressed: () => showDialog<void>(
+                context: context,
+                builder: (_) => Dialog(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      maxWidth: 720,
+                      maxHeight: 620,
+                    ),
+                    child: BlocProvider(
+                      create: (_) => HistorialServiciosCubit(
+                        sl<FuenteModuloM08>(),
+                        esAliado: true,
+                      )..cargar(),
+                      child: const HistorialServiciosPage(),
+                    ),
+                  ),
+                ),
+              ),
+              icon: const Icon(Icons.history_rounded, color: AppTheme.dark),
             ),
           IconButton(
             key: const ValueKey('btn-actualizar-solicitudes'),

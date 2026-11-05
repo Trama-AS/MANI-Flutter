@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -5,7 +8,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mani/core/session/guardas_ruta.dart';
 import 'package:mani/core/session/rol_usuario.dart';
+import 'package:mani/core/platform/guardador_archivo.dart';
+import 'package:mani/features/payments/data/cobros_datasource.dart';
 import 'package:mani/features/payments/data/pagos_datasource.dart';
+import 'package:mani/features/payments/domain/cobros.dart';
 import 'package:mani/features/payments/domain/pago.dart';
 import 'package:mani/features/payments/presentation/pago_cubit.dart';
 import 'package:mani/features/payments/presentation/pago_sandbox_page.dart';
@@ -61,6 +67,44 @@ class _FuenteFake implements FuentePagos {
     comprobantes.add(pagoId);
     if (falloComprobante != null) throw falloComprobante!;
     return _comprobante;
+  }
+}
+
+class _GuardadorFalso implements GuardadorArchivo {
+  _GuardadorFalso({this.resultado = true, this.falla});
+
+  final bool resultado;
+  final Object? falla;
+  final guardados = <({String nombre, String texto, String tipo})>[];
+
+  @override
+  Future<bool> guardar({
+    required String nombre,
+    required Uint8List bytes,
+    String tipoMime = 'application/octet-stream',
+  }) async {
+    if (falla != null) throw falla!;
+    guardados.add((nombre: nombre, texto: utf8.decode(bytes), tipo: tipoMime));
+    return resultado;
+  }
+}
+
+class _CobrosFalsos implements FuenteCobros {
+  final pedidas = <String>[];
+
+  @override
+  Future<List<CobroAliado>> cobrosDelAliado() async => const [];
+
+  @override
+  Future<RetencionPago> retencion(String pagoId) async {
+    pedidas.add(pagoId);
+    return const RetencionPago(
+      pagoId: 'pago-1',
+      monto: 150000.5,
+      moneda: 'COP',
+      estado: EstadoRetencion.retenida,
+      simulada: true,
+    );
   }
 }
 
@@ -179,13 +223,23 @@ void main() {
       WidgetTester tester, {
       double? total = 150000.5,
       _FuenteFake? fuente,
+      FuenteCobros? cobros,
+      GuardadorArchivo? guardador,
     }) async {
+      // Pantalla alta: con el comprobante, la retención y la descarga el contenido no cabe en 600 px.
+      tester.view.devicePixelRatio = 1.0;
+      tester.view.physicalSize = const Size(800, 1600);
+      addTearDown(tester.view.reset);
       final f = fuente ?? _FuenteFake();
       await tester.pumpWidget(
         MaterialApp(
           home: BlocProvider(
             create: (_) => PagoCubit(f, 'cot-1', generarClave: () => 'k'),
-            child: PagoSandboxPage(total: total),
+            child: PagoSandboxPage(
+              total: total,
+              cobros: cobros,
+              guardador: guardador,
+            ),
           ),
         ),
       );
@@ -208,6 +262,101 @@ void main() {
         expect(find.textContaining('150.000,50'), findsOneWidget);
       },
     );
+
+    testWidgets('SCRUM-891: un pago aprobado muestra su retención simulada', (
+      tester,
+    ) async {
+      final cobros = _CobrosFalsos();
+      await montar(tester, cobros: cobros);
+      await tester.tap(find.byKey(const Key('btn-pagar-sandbox')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('retencion-pago')), findsOneWidget);
+      expect(find.byKey(const Key('leyenda-retencion')), findsOneWidget);
+      expect(cobros.pedidas, ['pago-1']);
+    });
+
+    testWidgets(
+      'SCRUM-891 C2: un pago rechazado no consulta ni muestra retención',
+      (tester) async {
+        final rechazado = _FuenteFake()..respuesta = _pago(estado: 'RECHAZADO');
+        final cobros = _CobrosFalsos();
+        await montar(tester, fuente: rechazado, cobros: cobros);
+        await tester.tap(find.byKey(const Key('btn-pagar-sandbox')));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('retencion-pago')), findsNothing);
+        expect(cobros.pedidas, isEmpty);
+      },
+    );
+
+    testWidgets(
+      'SCRUM-890 C1: el comprobante se descarga como archivo con su leyenda de simulado',
+      (tester) async {
+        final g = _GuardadorFalso();
+        await montar(tester, guardador: g);
+        await tester.tap(find.byKey(const Key('btn-pagar-sandbox')));
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(
+          find.byKey(const Key('btn-descargar-comprobante')),
+        );
+        await tester.ensureVisible(
+          find.byKey(const Key('btn-descargar-comprobante')),
+        );
+        await tester.tap(find.byKey(const Key('btn-descargar-comprobante')));
+        await tester.pumpAndSettle();
+
+        final archivo = g.guardados.single;
+        expect(archivo.nombre, 'comprobante-SIM-ABCDEF12.txt');
+        expect(archivo.tipo, 'text/plain');
+        expect(archivo.texto, contains('COMPROBANTE DE PAGO SIM-ABCDEF12'));
+        expect(archivo.texto, contains('150000.50 COP'));
+        expect(archivo.texto, contains('SIN VALOR CONTABLE NI FISCAL'));
+        expect(find.text('Comprobante guardado.'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'SCRUM-890: si guardar falla lo dice; si se cancela no muestra nada; sin guardador no hay botón',
+      (tester) async {
+        final g = _GuardadorFalso(falla: StateError('x'));
+        await montar(tester, guardador: g);
+        await tester.tap(find.byKey(const Key('btn-pagar-sandbox')));
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(
+          find.byKey(const Key('btn-descargar-comprobante')),
+        );
+        await tester.ensureVisible(
+          find.byKey(const Key('btn-descargar-comprobante')),
+        );
+        await tester.tap(find.byKey(const Key('btn-descargar-comprobante')));
+        await tester.pumpAndSettle();
+        expect(find.textContaining('No pudimos guardar'), findsOneWidget);
+      },
+    );
+
+    testWidgets('SCRUM-890: cancelar la descarga no muestra mensaje', (
+      tester,
+    ) async {
+      final g = _GuardadorFalso(resultado: false);
+      await montar(tester, guardador: g);
+      await tester.tap(find.byKey(const Key('btn-pagar-sandbox')));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const Key('btn-descargar-comprobante')),
+      );
+      await tester.tap(find.byKey(const Key('btn-descargar-comprobante')));
+      await tester.pumpAndSettle();
+      expect(g.guardados, hasLength(1));
+      expect(find.text('Comprobante guardado.'), findsNothing);
+    });
+
+    testWidgets('SCRUM-890: sin guardador no hay botón de descarga', (
+      tester,
+    ) async {
+      await montar(tester);
+      await tester.tap(find.byKey(const Key('btn-pagar-sandbox')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('btn-descargar-comprobante')), findsNothing);
+    });
 
     testWidgets('sin total no inventa uno', (tester) async {
       await montar(tester, total: null);
@@ -312,12 +461,16 @@ void main() {
   });
 
   group('Guarda de rol de la ruta de pago', () {
-    test('/cliente/pagos/... solo lo abre el cliente', () {
+    test('/cliente/pagos/... lo abren el cliente y el admin de plataforma', () {
       expect(rolPuedeAbrir(RolUsuario.cliente, '/cliente/pagos/cot-1'), isTrue);
       expect(rolPuedeAbrir(RolUsuario.aliado, '/cliente/pagos/cot-1'), isFalse);
       expect(
         rolPuedeAbrir(RolUsuario.adminTenant, '/cliente/pagos/cot-1'),
         isFalse,
+      );
+      expect(
+        rolPuedeAbrir(RolUsuario.adminPlataforma, '/cliente/pagos/cot-1'),
+        isTrue,
       );
     });
   });

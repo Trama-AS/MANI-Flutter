@@ -5,6 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:mani/core/platform/guardador_archivo.dart';
+import 'package:mani/features/payments/data/cobros_datasource.dart';
+import 'package:mani/features/payments/domain/cobros.dart';
 import 'package:mani/core/di/injection_container.dart';
 import 'package:mani/core/platform/selector_fotos.dart';
 import 'package:mani/core/routing/app_router.dart';
@@ -124,7 +127,10 @@ const _rutasConSesion = {
   '/sitios/:id/reglas',
   '/perfil/editar',
   '/cliente/sedes',
-  '/aliado/empleados/nuevo',
+  '/admin/empleados/nuevo',
+  '/perfil/avisos',
+  '/admin/auditoria-transacciones',
+  '/admin/conversaciones',
   '/cliente/solicitudes/nueva',
   '/cliente/solicitudes',
   '/cliente/solicitudes/:id/aliados',
@@ -134,10 +140,46 @@ const _rutasConSesion = {
   '/aliado/solicitudes/:id/chat',
   '/aliado/solicitudes/:id/cotizacion',
   '/aliado/solicitudes',
+  '/aliado/cobros',
   '/aliado/disponibilidad',
   '/admin/verificacion-aliados',
   '/admin/categorias',
+  // M-10 (SCRUM-885 y 887).
+  '/admin/tarifas',
+  '/admin/reportes/cotizaciones-fuera-de-rango',
+  // M-01 (SCRUM-1366).
+  '/admin/reglas',
+  // M-08 (SCRUM-878, 879 y 880).
+  '/cliente/historial',
+  '/aliado/historial',
+  '/admin/politica-cancelacion',
+  // M-12 (SCRUM-895, 896, 900 y 901).
+  '/cliente/quejas',
+  '/admin/quejas',
+  '/admin/metricas',
+  '/plataforma/tenants',
+  // Mapa del catálogo geográfico (HU-M04-07).
+  '/catalogo/mapa',
 };
+
+class _GuardadorFalso implements GuardadorArchivo {
+  @override
+  Future<bool> guardar({
+    required String nombre,
+    required Uint8List bytes,
+    String tipoMime = 'application/octet-stream',
+  }) async => true;
+}
+
+/// Fuente de cobros vacía: la ruta del pago la resuelve al armar la pantalla.
+class _CobrosFalsos implements FuenteCobros {
+  @override
+  Future<List<CobroAliado>> cobrosDelAliado() async => const [];
+
+  @override
+  Future<RetencionPago> retencion(String pagoId) async =>
+      throw UnimplementedError();
+}
 
 void main() {
   late _AuthFalso auth;
@@ -160,6 +202,8 @@ void main() {
     sl.registerSingleton<PerfilPropioRemoteDataSource>(_PerfilFalso());
     sl.registerSingleton<SelectorFotos>(_SelectorSinFotos());
     sl.registerSingleton<FuenteResumenInicio>(_ResumenFijo());
+    sl.registerSingleton<FuenteCobros>(_CobrosFalsos());
+    sl.registerSingleton<GuardadorArchivo>(_GuardadorFalso());
     sl.registerFactory(() => CoberturaController(FakeCoberturaRepository()));
   });
 

@@ -35,7 +35,7 @@ void main() {
   const generico = 'Correo o contraseña incorrectos.';
 
   test(
-    'C2: contraseña incorrecta, correo inexistente y correo sin confirmar dan el MISMO mensaje',
+    'C2: contraseña incorrecta y correo inexistente dan el MISMO mensaje',
     () async {
       final mensajes = <String>{
         await _mensajeDeLogin(
@@ -44,9 +44,6 @@ void main() {
         await _mensajeDeLogin(const AuthException('invalid_credentials')),
         await _mensajeDeLogin(
           const AuthException('User not found', statusCode: '400'),
-        ),
-        await _mensajeDeLogin(
-          const AuthException('Email not confirmed', statusCode: '400'),
         ),
         await _mensajeDeLogin(const AuthException('User is banned')),
       };
@@ -58,6 +55,23 @@ void main() {
             'si cambiara según el caso, el login delataría qué correos existen',
       );
       expect(AuthRepositoryImpl.mensajeCredencialesInvalidas, generico);
+    },
+  );
+
+  test(
+    'el correo sin confirmar tiene mensaje propio, por decisión de la PO',
+    () async {
+      const esperado =
+          'Debes confirmar tu correo antes de ingresar. Revisa tu bandeja de entrada.';
+      expect(AuthRepositoryImpl.mensajeCorreoSinConfirmar, esperado);
+      for (final e in [
+        const AuthException('Email not confirmed', statusCode: '400'),
+        const AuthException('x', code: 'email_not_confirmed'),
+      ]) {
+        final m = await _mensajeDeLogin(e);
+        expect(m, esperado);
+        expect(m, isNot(generico));
+      }
     },
   );
 
