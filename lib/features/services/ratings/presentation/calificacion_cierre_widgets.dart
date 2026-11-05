@@ -66,9 +66,14 @@ class _CalificacionCierreSeccionState extends State<CalificacionCierreSeccion> {
         final miCalificacion = widget.esAliado
             ? resumen?.aliadoACliente
             : resumen?.clienteAAliado;
-        final otraCalificacion = widget.esAliado
-            ? resumen?.clienteAAliado
-            : resumen?.aliadoACliente;
+        // La calificación del otro participante es privada: Core no la
+        // envía y la app solo indica si ya existe (el cierre lo necesita).
+        final otroYaCalifico =
+            resumen != null &&
+            (widget.esAliado
+                ? resumen.cierre.tieneCalificacionCliente
+                : resumen.cierre.tieneCalificacionAliado);
+        final contraparte = widget.esAliado ? 'El cliente' : 'El aliado';
 
         return ManiCard(
           key: const Key('m08-calificacion-cierre-card'),
@@ -125,17 +130,29 @@ class _CalificacionCierreSeccionState extends State<CalificacionCierreSeccion> {
                   comentario: _comentarioCtrl.text,
                 ),
               ),
-              if (otraCalificacion != null) ...[
-                const Divider(height: 24),
-                Text(
-                  'Calificación recibida: ★ ${otraCalificacion.puntaje}/5',
-                  key: const Key('m08-otra-calificacion-registrada'),
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w800,
-                    color: AppTheme.dark,
-                  ),
+              const Divider(height: 24),
+              // La calificación del otro participante es privada (SCRUM-1418): solo se dice si ya existe.
+              Text(
+                otroYaCalifico
+                    ? '$contraparte ya registró su calificación.'
+                    : '$contraparte aún no ha calificado.',
+                key: Key(
+                  otroYaCalifico
+                      ? 'm08-otra-calificacion-registrada'
+                      : 'm08-otra-calificacion-pendiente',
                 ),
-              ],
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  color: AppTheme.dark,
+                ),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Las calificaciones son privadas: ni tú ves la que te dan ni '
+                'la otra parte ve la tuya. Solo el administrador puede verlas.',
+                key: Key('m08-aviso-calificacion-privada'),
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+              ),
               const SizedBox(height: 12),
               OutlinedButton(
                 key: const Key('m08-cerrar-solicitud-btn'),
@@ -470,9 +487,11 @@ class _TarjetaHistorialItem extends StatelessWidget {
               Text(
                 'Calificación emitida: ★ ${item.calificacionEmitida!.puntaje}/5',
               ),
-            if (item.calificacionRecibida != null)
+            // La calificación recibida es privada: solo se indica si existe.
+            if (item.calificacionRecibidaRegistrada)
               Text(
-                'Calificación recibida: ★ ${item.calificacionRecibida!.puntaje}/5',
+                '${esAliado ? 'El cliente' : 'El aliado'} ya te calificó (privada)',
+                key: Key('m08-historial-recibida-${item.id}'),
               ),
             if (onAbrir != null)
               Align(
