@@ -155,19 +155,10 @@ class MapaCubit extends Cubit<MapaState> {
       final cobertura = await _cargarCoberturaTolerante();
 
       final ids = localidades.map((z) => '${z['id']}').toList();
-      final geometrias = <GeometriaZona>[];
-      final sinGeometria = <String>[];
-      final atribuciones = <String>{};
-      for (var i = 0; i < ids.length; i += _porPeticion) {
-        final tanda = ids.sublist(
-          i,
-          i + _porPeticion > ids.length ? ids.length : i + _porPeticion,
-        );
-        final res = await _datos.obtenerGeometrias(tanda);
-        geometrias.addAll(res.geometrias.where((g) => g.tienePuntos));
-        sinGeometria.addAll(res.sinGeometria);
-        atribuciones.addAll(res.atribuciones);
-      }
+      final pedido = await _pedirEnTandas(ids);
+      final geometrias = pedido.geometrias;
+      final sinGeometria = pedido.sinGeometria;
+      final atribuciones = pedido.atribuciones;
 
       emit(
         state.copyWith(
@@ -175,7 +166,7 @@ class MapaCubit extends Cubit<MapaState> {
           localidades: localidades,
           geometrias: geometrias,
           sinGeometria: sinGeometria,
-          atribuciones: atribuciones.toList(growable: false),
+          atribuciones: atribuciones,
           coberturaPropia: cobertura,
           sitios: const [],
           sitiosSinUbicacion: 0,
@@ -186,6 +177,34 @@ class MapaCubit extends Cubit<MapaState> {
     }
   }
 
+  /// Pide los límites de [ids] partiéndolos en tandas del tope que impone el
+  /// contrato, y junta lo recibido: solo los dibujables, lo que no tiene límite
+  /// y las atribuciones sin repetir.
+  Future<
+    ({
+      List<GeometriaZona> geometrias,
+      List<String> sinGeometria,
+      List<String> atribuciones,
+    })
+  >
+  _pedirEnTandas(List<String> ids) async {
+    final geometrias = <GeometriaZona>[];
+    final sinGeometria = <String>[];
+    final atribuciones = <String>{};
+    for (var i = 0; i < ids.length; i += _porPeticion) {
+      final fin = i + _porPeticion > ids.length ? ids.length : i + _porPeticion;
+      final res = await _datos.obtenerGeometrias(ids.sublist(i, fin));
+      geometrias.addAll(res.geometrias.where((g) => g.tienePuntos));
+      sinGeometria.addAll(res.sinGeometria);
+      atribuciones.addAll(res.atribuciones);
+    }
+    return (
+      geometrias: geometrias,
+      sinGeometria: sinGeometria,
+      atribuciones: atribuciones.toList(growable: false),
+    );
+  }
+
   Future<void> seleccionar(String localidadId) async {
     emit(state.copyWith(estado: MapaEstado.cargando, localidadId: localidadId));
     try {
@@ -194,10 +213,11 @@ class MapaCubit extends Cubit<MapaState> {
           .map((z) => '${z['id']}')
           .toList();
       final pedidas = <String>[localidadId, ...barrios];
-      final res = await _datos.obtenerGeometrias(pedidas);
-      final dibujables = res.geometrias
-          .where((g) => g.tienePuntos)
-          .toList(growable: false);
+      // Una localidad grande llega a más de cien barrios: se pide en tandas del
+      // tope del contrato. Con una sola petición el cliente recortaba la lista
+      // a 20 y el resto de barrios no se dibujaba nunca, sin avisar.
+      final res = await _pedirEnTandas(pedidas);
+      final dibujables = res.geometrias;
 
       // Sedes de la localidad elegida y de sus barrios.
       final deLaZona = _misSitios
