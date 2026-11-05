@@ -1,6 +1,5 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
-
 import 'package:mani/core/logging/structured_logger.dart';
+import 'package:mani/core/network/gateway_exception.dart';
 
 import '../../domain/entities/zona.dart';
 import '../../domain/failures/cobertura_failure.dart';
@@ -77,10 +76,8 @@ class CoberturaRepositoryImpl implements CoberturaRepository {
   Future<T> _guard<T>(Future<T> Function() op) async {
     try {
       return await op();
-    } on PostgrestException catch (e) {
-      throw mapearMensaje(e.message);
-    } on AuthException catch (e) {
-      throw CoberturaFailure(CoberturaErrorTipo.sinSesion, e.message);
+    } on GatewayException catch (e) {
+      throw mapearError(e);
     } on CoberturaFailure {
       rethrow;
     } catch (e) {
@@ -94,7 +91,27 @@ class CoberturaRepositoryImpl implements CoberturaRepository {
     }
   }
 
-  /// Traduce el prefijo `MANI-COB-*` de la RPC. El orden importa: 403R antes que 403.
+  /// Traduce el error del Gateway: primero el `code` `MANI-COB-*` que Core pone
+  /// en el cuerpo y, si no lo hay, el status HTTP.
+  static CoberturaFailure mapearError(GatewayException e) {
+    final code = e.cuerpo?['code'];
+    if (code is String) {
+      final porCodigo = mapearMensaje(code);
+      if (porCodigo.tipo != CoberturaErrorTipo.desconocido) return porCodigo;
+    }
+    if (e.isConnectionError) {
+      return CoberturaFailure(CoberturaErrorTipo.sinConexion, e.message);
+    }
+    if (e.isUnauthorized) {
+      return CoberturaFailure(CoberturaErrorTipo.sinSesion, e.message);
+    }
+    if (e.isForbidden) {
+      return CoberturaFailure(CoberturaErrorTipo.noEsAliado, e.message);
+    }
+    return CoberturaFailure(CoberturaErrorTipo.desconocido, e.message);
+  }
+
+  /// Traduce el prefijo `MANI-COB-*` del código o del mensaje. El orden importa: 403R antes que 403.
   static CoberturaFailure mapearMensaje(String mensaje) {
     const tabla = <String, CoberturaErrorTipo>{
       'MANI-COB-401': CoberturaErrorTipo.sinSesion,

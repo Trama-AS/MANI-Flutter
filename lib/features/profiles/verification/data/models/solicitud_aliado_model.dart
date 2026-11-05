@@ -1,7 +1,8 @@
 import '../../domain/entities/documento_kyc.dart';
 import '../../domain/entities/solicitud_aliado.dart';
 
-/// Mapea el JSON que devuelve `_ver_aliado_json` (migración 002).
+/// Mapea la vista de verificación que devuelve Core
+/// (`hydrateAllyVerificationView`), con la misma forma que `_ver_aliado_json`.
 class DocumentoKycModel extends DocumentoKyc {
   const DocumentoKycModel({
     required super.id,
@@ -9,16 +10,20 @@ class DocumentoKycModel extends DocumentoKyc {
     required super.rutaStorage,
     required super.estado,
     super.fechaCarga,
+    super.aliadoId,
   });
 
-  factory DocumentoKycModel.fromJson(Map<String, dynamic> json) =>
-      DocumentoKycModel(
-        id: json['id'] as String,
-        tipo: TipoDocumentoKyc.desde(json['tipo_documento'] as String? ?? ''),
-        rutaStorage: json['ruta_storage'] as String? ?? '',
-        estado: EstadoDocumentoKyc.desde(json['estado'] as String? ?? ''),
-        fechaCarga: _fecha(json['fecha_carga']),
-      );
+  factory DocumentoKycModel.fromJson(
+    Map<String, dynamic> json, {
+    String? aliadoId,
+  }) => DocumentoKycModel(
+    id: json['id'] as String,
+    tipo: TipoDocumentoKyc.desde(json['tipo_documento'] as String? ?? ''),
+    rutaStorage: json['ruta_storage'] as String? ?? '',
+    estado: EstadoDocumentoKyc.desde(json['estado'] as String? ?? ''),
+    fechaCarga: _fecha(json['fecha_carga']),
+    aliadoId: aliadoId,
+  );
 }
 
 class SolicitudAliadoModel extends SolicitudAliado {
@@ -54,6 +59,7 @@ class SolicitudAliadoModel extends SolicitudAliado {
             .map(
               (e) => DocumentoKycModel.fromJson(
                 Map<String, dynamic>.from(e as Map),
+                aliadoId: json['id'] as String,
               ),
             )
             .toList(growable: false),

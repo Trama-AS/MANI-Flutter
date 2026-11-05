@@ -220,6 +220,56 @@ void main() {
     });
   });
 
+  group('Aviso a los aliados (SCRUM-1402)', () {
+    test(
+      'tras crear, orquesta el despacho con la clave de la creación',
+      () async {
+        final p = await repo.publicar(_nueva(clave: 'clave-xyz'));
+
+        expect(p.aliadosAvisados, isTrue);
+        expect(servidor.avisos.single, (p.id, 'clave-xyz'));
+      },
+    );
+
+    test(
+      'si Dispatch falla, la solicitud igual queda publicada sin aviso',
+      () async {
+        servidor.fallarAviso = GatewayException.fromStatus(503);
+
+        final p = await repo.publicar(_nueva());
+
+        expect(p.aliadosAvisados, isFalse);
+        expect(servidor.solicitudes, hasLength(1));
+        final log = logs.firstWhere(
+          (l) => l['message'] == 'aliados_no_avisados',
+        );
+        expect(log['level'], 'ERROR');
+        expect(log['error'], '503');
+        expect(
+          logs.firstWhere(
+            (l) => l['message'] == 'solicitud_creada',
+          )['aliados_avisados'],
+          isFalse,
+        );
+      },
+    );
+
+    test('reintentar el aviso usa una clave nueva y traduce errores', () async {
+      final p = await repo.publicar(_nueva(clave: 'clave-1'));
+
+      await repo.avisarAliados(p.id);
+      expect(servidor.avisos, hasLength(2));
+      expect(servidor.avisos.last.$1, p.id);
+      expect(servidor.avisos.last.$2, isNot('clave-1'));
+
+      servidor.fallarAviso = const GatewayException(message: 'sin red');
+      await expectLater(
+        repo.avisarAliados(p.id),
+        _falla(SolicitudErrorTipo.sinConexion),
+      );
+    });
+  });
+
   group('Trazabilidad', () {
     test('log INFO con campos acordados y SIN la descripción', () async {
       await repo.publicar(_nueva(fotos: 1));

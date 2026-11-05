@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mani/features/profile_categories/data/repositories/categories_repository_impl.dart';
 import 'package:mani/features/profile_categories/domain/failures/categories_failure.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:mani/core/network/gateway_exception.dart';
 
 import 'fakes.dart';
 
@@ -37,10 +37,15 @@ void main() {
     expect(guardadas, {'a', 'c'});
   });
 
-  group('traduce los errores de las RPC', () {
+  group('traduce el code MANI-CAT-* del Gateway', () {
     final casos = <String, CategoriesErrorTipo>{
       'MANI-CAT-401: sesión requerida': CategoriesErrorTipo.sinSesion,
       'MANI-CAT-403: solo un aliado activo': CategoriesErrorTipo.noEsAliado,
+      // SCRUM-1392 C2: Core usa el mismo código cuando el aliado existe pero su
+      // verificación no está aprobada.
+      'MANI-CAT-403: la verificación del aliado debe estar aprobada para '
+              'declarar categorías':
+          CategoriesErrorTipo.noEsAliado,
       'MANI-CAT-422V: selecciona al menos una categoría':
           CategoriesErrorTipo.seleccionVacia,
       'MANI-CAT-422C: categoría no disponible':
@@ -50,7 +55,11 @@ void main() {
     };
     for (final c in casos.entries) {
       test(c.key, () async {
-        ds.error = PostgrestException(message: c.key);
+        ds.error = GatewayException(
+          message: c.key,
+          statusCode: 422,
+          cuerpo: {'code': c.key.split(':').first, 'error': c.key},
+        );
         await expectLater(
           repo.saveSelectedCategories({'a'}),
           throwsA(
@@ -59,6 +68,18 @@ void main() {
         );
       });
     }
+
+    // SCRUM-1392 C2: Core agrupa bajo MANI-CAT-403 dos casos — quien pide no es
+    // aliado de este tenant, y es un aliado sin la verificación aprobada. El
+    // mensaje al usuario tiene que ser cierto en los dos.
+    test('el mensaje del 403 no afirma que baste con ser aliado', () {
+      const falla = CategoriesFailure(CategoriesErrorTipo.noEsAliado);
+      expect(falla.mensajeUsuario, contains('verificación aprobada'));
+      expect(
+        falla.mensajeUsuario,
+        isNot('Solo los aliados pueden declarar las categorías que atienden.'),
+      );
+    });
 
     test('sin red -> sinConexion', () async {
       ds.error = Exception('SocketException: Failed host lookup');

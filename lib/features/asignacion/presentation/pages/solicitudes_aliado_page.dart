@@ -2,9 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:mani/core/di/injection_container.dart';
 import 'package:mani/core/theme/app_theme.dart';
 import 'package:mani/core/widgets/mani_button.dart';
 import 'package:mani/core/widgets/mani_snackbar.dart';
+import 'package:mani/features/services/ratings/data/calificacion_cierre_datasource.dart';
+import 'package:mani/features/services/ratings/presentation/calificacion_cierre_cubit.dart';
+import 'package:mani/features/services/ratings/presentation/calificacion_cierre_widgets.dart';
 
 import '../../domain/failures/asignacion_failure.dart';
 import '../bloc/solicitudes_aliado_cubit.dart';
@@ -22,12 +26,16 @@ class SolicitudesAliadoPage extends StatefulWidget {
     this.onAbrirCobertura,
     this.onAbrirCategorias,
     this.onAbrirDisponibilidad,
+    this.onCotizar,
     this.intervaloRefresco = const Duration(seconds: 30),
   });
 
   final VoidCallback? onAbrirCobertura;
   final VoidCallback? onAbrirCategorias;
   final VoidCallback? onAbrirDisponibilidad;
+
+  /// Abre la cotización de una solicitud ya asignada al aliado (SCRUM-865).
+  final void Function(String solicitudId)? onCotizar;
 
   /// Cada cuánto se refresca la bandeja para no ofrecer solicitudes que otro
   /// aliado ya tomó. `null` desactiva el refresco (tests).
@@ -99,6 +107,7 @@ class _SolicitudesAliadoPageState extends State<SolicitudesAliadoPage> {
                         CargaSolicitudes.listo => _Bandeja(
                           onAbrirCobertura: widget.onAbrirCobertura,
                           onAbrirCategorias: widget.onAbrirCategorias,
+                          onCotizar: widget.onCotizar,
                         ),
                       },
                     ),
@@ -112,10 +121,15 @@ class _SolicitudesAliadoPageState extends State<SolicitudesAliadoPage> {
 }
 
 class _Bandeja extends StatelessWidget {
-  const _Bandeja({this.onAbrirCobertura, this.onAbrirCategorias});
+  const _Bandeja({
+    this.onAbrirCobertura,
+    this.onAbrirCategorias,
+    this.onCotizar,
+  });
 
   final VoidCallback? onAbrirCobertura;
   final VoidCallback? onAbrirCategorias;
+  final void Function(String solicitudId)? onCotizar;
 
   Future<void> _rechazar(BuildContext context, String id) async {
     final cubit = context.read<SolicitudesAliadoCubit>();
@@ -125,7 +139,11 @@ class _Bandeja extends StatelessWidget {
     }
     final confirmacion = await confirmarRechazo(context, solicitud);
     if (confirmacion != null) {
-      await cubit.rechazar(id, motivo: confirmacion.motivo);
+      await cubit.rechazar(
+        id,
+        motivo: confirmacion.motivo,
+        detalle: confirmacion.detalle,
+      );
     }
   }
 
@@ -177,6 +195,9 @@ class _Bandeja extends StatelessWidget {
                         bloqueada: state.procesando,
                         onAceptar: () => cubit.aceptar(s.id),
                         onRechazar: () => _rechazar(context, s.id),
+                        onCotizar: onCotizar == null
+                            ? null
+                            : () => onCotizar!(s.id),
                       ),
                       const SizedBox(height: 14),
                     ],
@@ -501,6 +522,30 @@ class _BarraSuperior extends StatelessWidget {
               tooltip: 'Mi disponibilidad',
               onPressed: onAbrirDisponibilidad,
               icon: const Icon(Icons.event_busy_outlined, color: AppTheme.dark),
+            ),
+          if (sl.isRegistered<FuenteModuloM08>())
+            IconButton(
+              key: const ValueKey('btn-ir-historial-aliado'),
+              tooltip: 'Historial de trabajos',
+              onPressed: () => showDialog<void>(
+                context: context,
+                builder: (_) => Dialog(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      maxWidth: 720,
+                      maxHeight: 620,
+                    ),
+                    child: BlocProvider(
+                      create: (_) => HistorialServiciosCubit(
+                        sl<FuenteModuloM08>(),
+                        esAliado: true,
+                      )..cargar(),
+                      child: const HistorialServiciosPage(),
+                    ),
+                  ),
+                ),
+              ),
+              icon: const Icon(Icons.history_rounded, color: AppTheme.dark),
             ),
           IconButton(
             key: const ValueKey('btn-actualizar-solicitudes'),

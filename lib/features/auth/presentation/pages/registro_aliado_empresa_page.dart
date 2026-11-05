@@ -6,10 +6,13 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mani/core/config/tenant_config.dart';
 import 'package:mani/core/theme/app_theme.dart';
 import 'package:mani/core/di/injection_container.dart';
 import 'package:mani/features/auth/presentation/bloc/auth_cubit.dart';
+import 'package:mani/features/auth/presentation/widgets/selector_categoria_catalogo.dart';
 import 'package:mani/features/auth/presentation/widgets/terminos_condiciones_section.dart';
+import 'package:mani/features/services/categories/data/datasources/catalogo_publico_datasource.dart';
 
 /// Pantalla independiente de Registro para Empresas de Servicios (Persona Jurídica).
 /// US-02.1.2: Registro de empresa con Cámara de Comercio y datos del representante legal.
@@ -50,22 +53,12 @@ class _RegistroAliadoEmpresaViewState
   bool _aceptaTerminos = false;
   bool _mostrarErrorTerminos = false;
 
-  // Tenant seleccionado (slug público para pre-autenticación según ADR-0018)
-  String _selectedTenantId = 'plomeria-express';
-  final Map<String, String> _tenants = const {
-    'plomeria-express': 'Plomería Express CDMX SA',
-    'electricistas-pro': 'Electricistas Pro Monterrey',
-    'cerrajeria-total': 'Cerrajería Total GDL',
-  };
+  // Tenant del despliegue (TENANT_SLUG): el aliado se registra en el
+  // operador configurado, igual que el cliente (ADR-0018).
+  late final String _tenantSlug = tenantSlugRegistro();
 
-  // Categoría de servicio seleccionada
-  String _selectedCategoriaId = 'd0eebc99-9c0b-4ef8-bb6d-6bb9bd380a18';
-  final Map<String, String> _categorias = const {
-    'd0eebc99-9c0b-4ef8-bb6d-6bb9bd380a18': 'Plomería y Redes Hidráulicas',
-    'd0eebc99-9c0b-4ef8-bb6d-6bb9bd380a19':
-        'Electricidad Residencial e Industrial',
-    'd0eebc99-9c0b-4ef8-bb6d-6bb9bd380a20': 'Cerrajería y Seguridad',
-  };
+  // Especialidad elegida del catálogo del tenant; null hasta que se elige.
+  String? _selectedCategoriaId;
 
   // Documentos KYC corporativos adjuntos
   PlatformFile? _camaraComercioFile;
@@ -117,6 +110,12 @@ class _RegistroAliadoEmpresaViewState
   void _handleRegistro() {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
+    final categoriaId = _selectedCategoriaId;
+    if (categoriaId == null) {
+      _showNotification('Selecciona tu especialidad técnica principal.');
+      return;
+    }
+
     if (_camaraComercioFile == null) {
       _showNotification(
         'Debes adjuntar el Certificado de Cámara de Comercio vigente.',
@@ -147,11 +146,11 @@ class _RegistroAliadoEmpresaViewState
       password: _passwordController.text,
       razonSocial: _razonSocialController.text,
       nit: _nitController.text,
-      tenantId: _selectedTenantId,
+      tenantId: _tenantSlug,
       nombreRepresentante: _nombreRepController.text,
       docRepresentante: _docRepController.text,
       telefonoContacto: _telefonoController.text,
-      categoriaId: _selectedCategoriaId,
+      categoriaId: categoriaId,
       documentosKYC: documentos,
       aceptaTerminos: _aceptaTerminos,
     );
@@ -556,12 +555,6 @@ class _RegistroAliadoEmpresaViewState
           ),
           const SizedBox(height: 20),
 
-          // Selector de Empresa / Tenant Operador
-          _buildFieldLabel('OPERADOR / TENANT DE AFILIACIÓN'),
-          const SizedBox(height: 6),
-          _buildTenantDropdown(),
-          const SizedBox(height: 18),
-
           // Razón Social
           _buildFieldLabel('RAZÓN SOCIAL DE LA EMPRESA'),
           const SizedBox(height: 6),
@@ -931,61 +924,12 @@ class _RegistroAliadoEmpresaViewState
     );
   }
 
-  Widget _buildTenantDropdown() {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(AppTheme.radiusXl),
-        border: Border.all(color: AppTheme.dark, width: 2),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: _selectedTenantId,
-          isExpanded: true,
-          icon: const Icon(Icons.arrow_drop_down, color: AppTheme.dark),
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-            color: AppTheme.dark,
-          ),
-          items: _tenants.entries.map((e) {
-            return DropdownMenuItem<String>(value: e.key, child: Text(e.value));
-          }).toList(),
-          onChanged: (val) {
-            if (val != null) setState(() => _selectedTenantId = val);
-          },
-        ),
-      ),
-    );
-  }
-
   Widget _buildCategoriaDropdown() {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(AppTheme.radiusXl),
-        border: Border.all(color: AppTheme.dark, width: 2),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: _selectedCategoriaId,
-          isExpanded: true,
-          icon: const Icon(Icons.arrow_drop_down, color: AppTheme.dark),
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-            color: AppTheme.dark,
-          ),
-          items: _categorias.entries.map((e) {
-            return DropdownMenuItem<String>(value: e.key, child: Text(e.value));
-          }).toList(),
-          onChanged: (val) {
-            if (val != null) setState(() => _selectedCategoriaId = val);
-          },
-        ),
-      ),
+    return SelectorCategoriaCatalogo(
+      cargar: () =>
+          sl<CatalogoPublicoDataSource>().categoriasActivas(_tenantSlug),
+      value: _selectedCategoriaId,
+      onChanged: (val) => setState(() => _selectedCategoriaId = val),
     );
   }
 

@@ -19,5 +19,10 @@ abstract class IAsignacionRepository {
   Future<SolicitudEntity> aceptar(String solicitudId);
 
   /// Oculta la solicitud para el aliado autenticado. No la quita a los demás.
-  Future<void> rechazar(String solicitudId, {MotivoRechazo? motivo});
+  /// [detalle] solo con [MotivoRechazo.otro].
+  Future<void> rechazar(
+    String solicitudId, {
+    required MotivoRechazo motivo,
+    String? detalle,
+  });
 }

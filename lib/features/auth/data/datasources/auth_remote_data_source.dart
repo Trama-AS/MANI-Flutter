@@ -4,6 +4,7 @@ import 'package:mani/core/logging/structured_logger.dart';
 import 'package:mani/core/network/gateway_client.dart';
 import 'package:mani/core/network/gateway_exception.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:mani/features/auth/domain/entities/registro_cliente_empresa.dart';
 
 abstract class IAuthRemoteDataSource {
   Future<User> signInWithEmail({
@@ -19,6 +20,10 @@ abstract class IAuthRemoteDataSource {
     String? telefono,
     String? direccionHogar,
   });
+
+  Future<Map<String, dynamic>> registrarClienteEmpresa(
+    RegistroClienteEmpresa datos,
+  );
 
   Future<Map<String, dynamic>> registrarAliadoPersonaNatural({
     required String email,
@@ -82,6 +87,11 @@ class AuthRemoteDataSource implements IAuthRemoteDataSource {
   /// para Aliado (mismo authIdentityService del lado del servicio).
   static const rutaRegistroClientePersonaNatural =
       '/api/v1/core/auth/register/client';
+
+  /// Registro de cliente empresa en Core Node (HU-M02-07): NIT y representante
+  /// legal, sin sitios; las sedes se administran después, ya con sesión (M-03).
+  static const rutaRegistroClienteEmpresa =
+      '/api/v1/core/auth/register/client/company';
 
   /// Resuelve el tenant antes de autenticarse (ADR-0018). No autoriza nada:
   /// Core toma el tenant definitivo del JWT que emite tras el registro.
@@ -214,6 +224,40 @@ class AuthRemoteDataSource implements IAuthRemoteDataSource {
   }
 
   @override
+  Future<Map<String, dynamic>> registrarClienteEmpresa(
+    RegistroClienteEmpresa datos,
+  ) async {
+    // El tenant va solo en X-Tenant-Slug (ADR-0018). Core registra la
+    // aceptación de términos en la misma operación, por eso se envía
+    // acceptsTerms (el cubit ya exige la casilla) y no se llama después a
+    // /legal/consents, que la duplicaría.
+    final campos = <String, dynamic>{
+      'email': datos.email.trim(),
+      'password': datos.password,
+      'razonSocial': datos.razonSocial.trim(),
+      'nit': datos.nit.trim(),
+      'nombreRepresentante': datos.nombreRepresentante.trim(),
+      'phone': ?_texto(datos.telefono),
+      'acceptsTerms': true,
+    };
+
+    final respuesta = await gateway.postJson(
+      rutaRegistroClienteEmpresa,
+      campos,
+      headers: {headerTenantSlug: datos.tenantId},
+    );
+
+    return {
+      ...respuesta,
+      'success': true,
+      'usuario_id': respuesta['profile']?['id'],
+      'rol': respuesta['profile']?['role'],
+      'estado': respuesta['profile']?['status'],
+      'mensaje': 'Cuenta de cliente empresa creada exitosamente.',
+    };
+  }
+
+  @override
   Future<Map<String, dynamic>> registrarAliadoPersonaNatural({
     required String email,
     required String password,
@@ -317,8 +361,16 @@ class AuthRemoteDataSource implements IAuthRemoteDataSource {
     return limpio == null || limpio.isEmpty ? null : limpio;
   }
 
+  /// Ruta con la que Core deja constancia del cierre de sesión (HU-M02-03, RNF-04).
+  static const rutaCierreSesion = '/api/v1/core/auth/logout';
+
   @override
   Future<void> signOut() async {
+    // Core solo audita: la sesión la revoca Supabase (T6). Si la llamada falla (sin red, token vencido, Core
+    // caído) el cierre no se bloquea: la persona debe poder salir siempre.
+    try {
+      await gateway.postJson(rutaCierreSesion, const {});
+    } catch (_) {}
     await client.auth.signOut();
   }
 }

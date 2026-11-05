@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:mani/core/logging/structured_logger.dart';
+import 'package:mani/core/network/gateway_exception.dart';
 
 import '../../domain/entities/decision_verificacion.dart';
 import '../../domain/entities/documento_kyc.dart';
@@ -83,7 +84,13 @@ class VerificacionAliadosRepositoryImpl
   @override
   Future<Uri> urlDocumento(DocumentoKyc documento) async {
     try {
-      final url = await _guard(() => _ds.urlFirmada(documento.rutaStorage));
+      final url = await _guard(
+        () => _ds.urlFirmada(
+          documento.rutaStorage,
+          aliadoId: documento.aliadoId,
+          documentoId: documento.id,
+        ),
+      );
       return Uri.parse(url);
     } on VerificacionFailure catch (f) {
       if (f.tipo == VerificacionErrorTipo.sinConexion) rethrow;
@@ -97,6 +104,8 @@ class VerificacionAliadosRepositoryImpl
   Future<T> _guard<T>(Future<T> Function() op) async {
     try {
       return await op();
+    } on GatewayException catch (e) {
+      throw mapearGateway(e);
     } on PostgrestException catch (e) {
       throw mapearMensaje(e.message);
     } on AuthException catch (e) {
@@ -119,7 +128,27 @@ class VerificacionAliadosRepositoryImpl
     }
   }
 
-  /// Traduce el prefijo `MANI-VER-*` de las RPC.
+  /// Traduce una [GatewayException]. Core manda el código de negocio en
+  /// `code` (`MANI-VER-*`); si no viene, se decide por el status HTTP.
+  static VerificacionFailure mapearGateway(GatewayException e) {
+    if (e.isConnectionError) {
+      return VerificacionFailure(VerificacionErrorTipo.sinConexion, e.message);
+    }
+    final codigo = e.cuerpo?['code'];
+    if (codigo is String && codigo.startsWith('MANI-VER-')) {
+      return mapearMensaje(codigo);
+    }
+    final tipo = switch (e.statusCode) {
+      401 => VerificacionErrorTipo.sinSesion,
+      403 => VerificacionErrorTipo.noAutorizado,
+      404 => VerificacionErrorTipo.noEncontrado,
+      409 => VerificacionErrorTipo.yaResuelta,
+      _ => VerificacionErrorTipo.desconocido,
+    };
+    return VerificacionFailure(tipo, e.message);
+  }
+
+  /// Traduce el prefijo `MANI-VER-*` de Core y de las RPC.
   static VerificacionFailure mapearMensaje(String mensaje) {
     const tabla = <String, VerificacionErrorTipo>{
       'MANI-VER-401': VerificacionErrorTipo.sinSesion,

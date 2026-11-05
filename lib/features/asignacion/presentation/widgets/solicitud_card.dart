@@ -8,6 +8,7 @@ import '../../domain/entities/regla_sitio.dart';
 import '../../domain/entities/solicitud_entity.dart';
 import '../bloc/solicitudes_aliado_cubit.dart';
 import '../utils/formato_solicitud.dart';
+import 'fotos_adjuntas_viewer.dart';
 
 /// Tarjeta de una solicitud. Si está disponible muestra Rechazar / Aceptar;
 /// si ya es del aliado muestra la dirección y cuándo la ganó.
@@ -17,6 +18,7 @@ class SolicitudCard extends StatelessWidget {
     required this.solicitud,
     this.onAceptar,
     this.onRechazar,
+    this.onCotizar,
     this.accionEnCurso,
     this.bloqueada = false,
     this.recienAsignada = false,
@@ -26,6 +28,10 @@ class SolicitudCard extends StatelessWidget {
   final SolicitudEntity solicitud;
   final VoidCallback? onAceptar;
   final VoidCallback? onRechazar;
+
+  /// Abre la cotización; solo se ofrece en las solicitudes asignadas al aliado
+  /// (SCRUM-865). Core valida que sea el aliado asignado.
+  final VoidCallback? onCotizar;
 
   /// Acción que se está enviando para ESTA solicitud.
   final AccionSolicitud? accionEnCurso;
@@ -108,20 +114,54 @@ class SolicitudCard extends StatelessWidget {
                   ],
                 ),
               ),
-              if (recienAsignada) const _Etiqueta('NUEVA'),
+              if (s.cancelada)
+                const _Etiqueta(
+                  'CANCELADA',
+                  key: ValueKey('etiqueta-cancelada'),
+                )
+              else if (recienAsignada)
+                const _Etiqueta('NUEVA'),
             ],
           ),
           if ((s.descripcion ?? '').trim().isNotEmpty) ...[
             const SizedBox(height: 12),
-            _Problema(texto: s.descripcion!.trim(), fotos: s.cantidadFotos),
+            _Problema(
+              texto: s.descripcion!.trim(),
+              fotos: s.cantidadFotos,
+              fotosRutas: s.fotosRutas,
+              solicitudId: s.id,
+            ),
           ],
           const SizedBox(height: 12),
           _ModalidadBadge(modalidad: s.modalidad),
           const SizedBox(height: 12),
-          _ReglasSitio(reglas: s.reglasSitio),
+          _ReglasSitio(
+            reglas: reglasParaMostrar(s.reglasSitio, asignado: s.esMia),
+          ),
           if (s.esMia) ...[
             const SizedBox(height: 12),
             _Direccion(direccion: s.direccion),
+            if (s.cancelada) ...[
+              const SizedBox(height: 12),
+              const Text(
+                'El cliente canceló esta solicitud antes de la ejecución.',
+                key: ValueKey('aviso-cancelada'),
+                style: TextStyle(
+                  color: AppTheme.error,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ] else if (onCotizar != null) ...[
+              const SizedBox(height: 12),
+              ManiButton(
+                key: ValueKey('btn-cotizar-${s.id}'),
+                etiqueta: 'Cotización',
+                icono: Icons.request_quote_outlined,
+                variante: ManiButtonVariante.secundario,
+                expandir: true,
+                onPressed: onCotizar,
+              ),
+            ],
           ],
           if (s.estaDisponible) ...[
             const SizedBox(height: 16),
@@ -178,10 +218,17 @@ class _Dato extends StatelessWidget {
 
 /// Problema descrito por el cliente (US-04.1.1): base para decidir y cotizar.
 class _Problema extends StatelessWidget {
-  const _Problema({required this.texto, required this.fotos});
+  const _Problema({
+    required this.texto,
+    required this.fotos,
+    this.fotosRutas = const [],
+    this.solicitudId,
+  });
 
   final String texto;
   final int fotos;
+  final List<String> fotosRutas;
+  final String? solicitudId;
 
   @override
   Widget build(BuildContext context) {
@@ -202,7 +249,12 @@ class _Problema extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontSize: 13, height: 1.35),
           ),
-          if (fotos > 0) ...[
+          if (fotosRutas.isNotEmpty)
+            FotosAdjuntasPreview(
+              fotosRutas: fotosRutas,
+              solicitudId: solicitudId,
+            )
+          else if (fotos > 0) ...[
             const SizedBox(height: 8),
             _Dato(
               icono: Icons.photo_library_outlined,
@@ -271,7 +323,8 @@ class _ModalidadBadge extends StatelessWidget {
   }
 }
 
-/// Reglas del sitio del cliente: el aliado las ve antes de aceptar (QS-06).
+/// Reglas del sitio del cliente (RF-09, SCRUM-1388): en la oferta, los
+/// requisitos; ya asignada, también el contacto y las instrucciones de ingreso.
 class _ReglasSitio extends StatelessWidget {
   const _ReglasSitio({required this.reglas});
 
@@ -328,11 +381,15 @@ class _ReglasSitio extends StatelessWidget {
                       children: [
                         Icon(d.icono, size: 13, color: AppTheme.dark),
                         const SizedBox(width: 4),
-                        Text(
-                          d.texto,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
+                        // Flexible: los textos largos (horario, contacto,
+                        // instrucciones) saltan de línea en vez de desbordar.
+                        Flexible(
+                          child: Text(
+                            d.texto,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
                       ],
@@ -446,7 +503,7 @@ class _Acciones extends StatelessWidget {
 }
 
 class _Etiqueta extends StatelessWidget {
-  const _Etiqueta(this.texto);
+  const _Etiqueta(this.texto, {super.key});
 
   final String texto;
 

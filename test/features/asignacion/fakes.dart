@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:mani/core/network/gateway_exception.dart';
+
 import 'package:mani/features/asignacion/data/datasources/asignacion_remote_datasource.dart';
 import 'package:mani/features/asignacion/domain/entities/modalidad_servicio.dart';
 import 'package:mani/features/asignacion/domain/entities/motivo_rechazo.dart';
@@ -9,7 +11,6 @@ import 'package:mani/features/asignacion/domain/failures/asignacion_failure.dart
 import 'package:mani/features/asignacion/domain/repositories/i_asignacion_repository.dart';
 import 'package:mani/features/asignacion/domain/usecases/asignacion_usecases.dart';
 import 'package:mani/features/asignacion/presentation/bloc/solicitudes_aliado_cubit.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 // ---------------------------------------------------------------- builders
 SolicitudEntity solicitud(
@@ -51,7 +52,8 @@ class FakeAsignacionRepository implements IAsignacionRepository {
     : _datos = {for (final s in iniciales) s.id: s};
 
   final Map<String, SolicitudEntity> _datos;
-  final Map<String, MotivoRechazo?> rechazadas = {};
+  final Map<String, MotivoRechazo> rechazadas = {};
+  final Map<String, String?> detallesRechazo = {};
 
   AsignacionFailure? fallarAlListar;
   AsignacionFailure? fallarAlAceptar;
@@ -113,7 +115,11 @@ class FakeAsignacionRepository implements IAsignacionRepository {
   }
 
   @override
-  Future<void> rechazar(String solicitudId, {MotivoRechazo? motivo}) async {
+  Future<void> rechazar(
+    String solicitudId, {
+    required MotivoRechazo motivo,
+    String? detalle,
+  }) async {
     llamadasRechazar++;
     if (pausa != null) {
       await pausa!.future;
@@ -122,6 +128,7 @@ class FakeAsignacionRepository implements IAsignacionRepository {
       throw fallarAlRechazar!;
     }
     rechazadas[solicitudId] = motivo;
+    detallesRechazo[solicitudId] = detalle;
   }
 
   static SolicitudEntity _copiar(
@@ -152,7 +159,7 @@ SolicitudesAliadoCubit crearCubit(IAsignacionRepository repo) =>
       rechazar: RechazarSolicitud(repo),
     );
 
-// -------------------------------------------- servidor Supabase simulado
+// ---------------------------------- Dispatch por el Gateway, simulado
 /// Perfil de un aliado en el servidor simulado.
 class AliadoFake {
   AliadoFake({
@@ -171,22 +178,29 @@ class AliadoFake {
   final Set<String> zonas;
 }
 
-/// Simula, a nivel JSON, las RPC de `005_aceptar_rechazar_solicitud.sql`
-/// para VARIOS aliados a la vez. Cada aliado usa su propia sesión
-/// ([sesion]); todas comparten la misma "BD".
+/// Simula, a nivel JSON, lo que responde el Gateway para la bandeja del
+/// aliado (decisión 6A): `offers/me`, `accept` y `reject` de Dispatch, con la
+/// asignación que registra Core. Atiende a VARIOS aliados a la vez: cada uno
+/// usa su propia sesión ([sesion]) y todas comparten la misma "BD".
 ///
 /// La asignación es un check-and-set síncrono tras la latencia de red, como
-/// el UPDATE condicional de PostgreSQL: si dos aceptaciones compiten, ambas
-/// se suspenden en el `await` y la segunda encuentra la fila ya asignada.
+/// el UPDATE condicional de Core bajo bloqueo de fila: si dos aceptaciones
+/// compiten, ambas se suspenden en el `await` y la segunda encuentra la fila
+/// ya asignada. Los errores llegan como `GatewayException` con el `code` de
+/// `dispatch.yaml`.
 class ServidorAsignacionFake {
   ServidorAsignacionFake({this.latencia = Duration.zero});
 
   final Duration latencia;
   final Map<String, AliadoFake> aliados = {};
   final List<Map<String, dynamic>> solicitudes = [];
-  final Map<(String, String), String?> rechazos = {};
+  final Map<(String, String), String> rechazos = {};
+  final Map<(String, String), String?> detallesRechazo = {};
   final List<Map<String, dynamic>> eventos = [];
   final List<Map<String, dynamic>> notificaciones = [];
+
+  /// Claves `Idempotency-Key` recibidas en cada aceptación.
+  final List<String?> clavesAceptar = [];
 
   void registrarAliado(String id, AliadoFake aliado) => aliados[id] = aliado;
 
@@ -199,6 +213,8 @@ class ServidorAsignacionFake {
     String? zonaPadre = 'Cuauhtémoc',
     Map<String, dynamic> reglas = const {},
     String direccion = 'Calle Colima 120, Apto 401',
+    String? descripcion,
+    int fotos = 0,
     int minutosAtras = 10,
   }) {
     final creada = DateTime.now()
@@ -214,6 +230,8 @@ class ServidorAsignacionFake {
       'zona_padre': zonaPadre,
       'reglas_sitio': reglas,
       'direccion': direccion,
+      'descripcion': descripcion,
+      'fotos': fotos,
       'estado': 'PENDIENTE',
       'aliado_id': null,
       'created_at': creada,
@@ -229,6 +247,14 @@ class ServidorAsignacionFake {
       _SesionAliado(this, aliadoId);
 }
 
+/// Respuesta de error del Gateway con el formato de Dispatch.
+Never errorGateway(int status, String code) =>
+    throw GatewayException.fromStatus(
+      status,
+      detalle: code,
+      cuerpo: {'error': code, 'code': code, 'status': status},
+    );
+
 class _SesionAliado implements AsignacionRemoteDataSource {
   _SesionAliado(this._srv, this._aliadoId);
 
@@ -238,18 +264,14 @@ class _SesionAliado implements AsignacionRemoteDataSource {
   AliadoFake _aliadoActual() {
     final id = _aliadoId;
     if (id == null) {
-      throw const PostgrestException(message: 'MANI-SOL-401: sesión requerida');
+      errorGateway(401, 'MANI-DSP-401');
     }
-    final a = _srv.aliados[id];
-    if (a == null) {
-      throw const PostgrestException(message: 'MANI-SOL-403: no es aliado');
-    }
-    return a;
+    return _srv.aliados[id] ?? errorGateway(403, 'MANI-DSP-403');
   }
 
   void _exigirVerificado(AliadoFake a) {
     if (!a.verificado) {
-      throw const PostgrestException(message: 'MANI-SOL-403V: no verificado');
+      errorGateway(403, 'MANI-SOL-403V');
     }
   }
 
@@ -266,23 +288,27 @@ class _SesionAliado implements AsignacionRemoteDataSource {
     return null;
   }
 
-  /// Proyección de `_sol_json`: la dirección solo si es mía.
+  /// Proyección de `AllyOffer`: la dirección solo si es mía.
   Map<String, dynamic> _json(Map<String, dynamic> s) {
     final mia = s['aliado_id'] == _aliadoId;
     return {
       'id': s['id'],
       'estado': s['estado'],
-      'es_mia': mia,
+      'esMia': mia,
       'categoria': s['categoria'],
-      'flujo_operativo': s['flujo_operativo'],
+      'flujoOperativo': s['flujo_operativo'],
+      'descripcion': s['descripcion'],
+      'fotos': s['fotos'],
       'zona': s['zona'],
-      'zona_padre': s['zona_padre'],
-      'reglas_sitio': s['reglas_sitio'],
+      'zonaPadre': s['zona_padre'],
+      'reglasSitio': s['reglas_sitio'],
       'direccion': mia ? s['direccion'] : null,
-      'created_at': s['created_at'],
-      'asignada_at': mia ? s['updated_at'] : null,
+      'creadaEn': s['created_at'],
+      'asignadaEn': mia ? s['updated_at'] : null,
     };
   }
+
+  bool _rechazada(String id) => _srv.rechazos.containsKey((id, _aliadoId!));
 
   @override
   Future<List<Map<String, dynamic>>> listar() async {
@@ -296,31 +322,36 @@ class _SesionAliado implements AsignacionRemoteDataSource {
               (s['estado'] == 'PENDIENTE' &&
                   s['aliado_id'] == null &&
                   _elegible(a, s) &&
-                  !_srv.rechazos.containsKey((s['id'] as String, _aliadoId!))),
+                  !_rechazada(s['id'] as String)),
         )
         .map(_json)
         .toList();
   }
 
+  /// Dispatch revisa el perfil y los rechazos; Core asigna (decisión 6A).
   @override
   Future<Map<String, dynamic>> aceptar(String solicitudId) async {
     final a = _aliadoActual();
     _exigirVerificado(a);
+    if (_rechazada(solicitudId)) {
+      errorGateway(409, 'MANI-DSP-409R');
+    }
     await Future<void>.delayed(_srv.latencia);
 
-    final s = _delTenant(a, solicitudId);
-    if (s == null) {
-      throw const PostgrestException(message: 'MANI-SOL-404: no encontrada');
-    }
+    final s = _delTenant(a, solicitudId) ?? errorGateway(404, 'MANI-SOL-404');
     if (s['aliado_id'] == _aliadoId) {
-      return _json(s); // reintento idempotente
-    }
-    if (!_elegible(a, s)) {
-      throw const PostgrestException(message: 'MANI-SOL-403E: no elegible');
+      // Reintento idempotente: Core responde asignada=false.
+      return {'requestId': solicitudId, 'status': 'ASSIGNED', 'isRetry': true};
     }
     // UPDATE ... WHERE estado = 'PENDIENTE' AND aliado_id IS NULL (atómico).
-    if (s['estado'] != 'PENDIENTE' || s['aliado_id'] != null) {
-      throw const PostgrestException(message: 'MANI-SOL-409: ya_no_disponible');
+    if (s['aliado_id'] != null) {
+      errorGateway(409, 'MANI-SOL-409');
+    }
+    if (s['estado'] != 'PENDIENTE') {
+      errorGateway(409, 'MANI-SOL-409E');
+    }
+    if (!_elegible(a, s)) {
+      errorGateway(403, 'MANI-SOL-403E');
     }
     s['aliado_id'] = _aliadoId;
     s['estado'] = 'ASIGNADA';
@@ -334,12 +365,17 @@ class _SesionAliado implements AsignacionRemoteDataSource {
       'solicitud_id': solicitudId,
       'tipo': 'SOLICITUD_ASIGNADA',
     });
-    return _json(s);
+    return {'requestId': solicitudId, 'status': 'ASSIGNED', 'isRetry': false};
   }
 
   @override
-  Future<void> rechazar(String solicitudId, String? motivo) async {
+  Future<void> rechazar(
+    String solicitudId,
+    String motivo,
+    String? detalle,
+  ) async {
     final a = _aliadoActual();
+    _exigirVerificado(a);
     await Future<void>.delayed(_srv.latencia);
     const validos = {
       'FUERA_DE_ZONA',
@@ -347,17 +383,28 @@ class _SesionAliado implements AsignacionRemoteDataSource {
       'NO_ES_MI_ESPECIALIDAD',
       'OTRO',
     };
-    if (motivo != null && !validos.contains(motivo)) {
-      throw PostgrestException(message: 'MANI-SOL-422M: motivo ($motivo)');
+    // Mismas reglas que Dispatch (SCRUM-1617), antes de tocar la solicitud.
+    if (!validos.contains(motivo)) {
+      errorGateway(422, 'MANI-SOL-422M');
     }
-    final s = _delTenant(a, solicitudId);
-    if (s == null) {
-      throw const PostgrestException(message: 'MANI-SOL-404: no encontrada');
+    final texto = detalle?.trim() ?? '';
+    final largoValido = texto.runes.length >= 3 && texto.runes.length <= 280;
+    if ((motivo == 'OTRO') != (detalle != null) ||
+        (motivo == 'OTRO' && !largoValido)) {
+      errorGateway(422, 'MANI-SOL-422D');
     }
+    final s = _delTenant(a, solicitudId) ?? errorGateway(404, 'MANI-DSP-404');
     if (s['aliado_id'] == _aliadoId) {
-      throw const PostgrestException(message: 'MANI-SOL-409A: ya es tuya');
+      errorGateway(409, 'MANI-DSP-409A');
     }
-    _srv.rechazos.putIfAbsent((solicitudId, _aliadoId!), () => motivo);
+    if (s['estado'] != 'PENDIENTE') {
+      errorGateway(409, 'MANI-DSP-409E');
+    }
+    final clave = (solicitudId, _aliadoId!);
+    if (!_srv.rechazos.containsKey(clave)) {
+      _srv.rechazos[clave] = motivo;
+      _srv.detallesRechazo[clave] = detalle;
+    }
   }
 
   @override

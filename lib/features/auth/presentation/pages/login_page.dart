@@ -2,34 +2,51 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mani/core/session/guardas_ruta.dart';
+import 'package:mani/core/session/rol_usuario.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show Supabase;
 import 'package:mani/core/theme/app_theme.dart';
 import 'package:mani/core/di/injection_container.dart';
 import 'package:mani/features/auth/presentation/bloc/auth_cubit.dart';
 
 /// Pantalla de inicio de sesión de MANI.
-/// Replicada pixel-perfect del prototipo oficial en Figma:
+/// Replicada con diseño limpio y robusto (RBAC Puro):
 /// - Fondo crema: #FDFBF7
 /// - Logo amarillo con M gruesa y hard-shadow
 /// - Título MANI con tracking tight
-/// - Selector de Empresa / Tenant con borde negro
-/// - Selector de rol con 3 pestañas: Soy Cliente, Soy Aliado, Admin
 /// - Inputs con bordes negros 2px, fondo blanco y placeholder gris
 /// - Botón "INGRESAR A MANI" amarillo con sombra dura de 4px
-/// - Enlaces inferiores: "¿Olvidaste tu contraseña?" • "Registrarme"
+/// - Enlaces inferiores: "¿Olvidaste tu contraseña?" • Registros independientes
+///
+/// HU-M02-01 / RF-03: Autenticación por RBAC (Role-Based Access Control).
+/// El usuario ingresa credenciales directas (correo y contraseña); el rol y
+/// el tenant son derivados criptográficamente desde los claims verificados del
+/// token JWT ES256 (T4), garantizando aislamiento y enrutamiento seguro.
 class LoginPage extends StatelessWidget {
-  const LoginPage({super.key});
+  const LoginPage({super.key, this.rolDeSesion = rolDeSesionActual});
+
+  /// Rol de la sesión recién abierta, leído del access token. Se inyecta para
+  /// probar la pantalla sin Supabase.
+  final RolUsuario Function() rolDeSesion;
+
+  /// Lee el rol del access token de la sesión abierta (no de la pestaña).
+  static RolUsuario rolDeSesionActual() => rolDesdeAccessToken(
+    Supabase.instance.client.auth.currentSession?.accessToken,
+  );
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (_) => sl<AuthCubit>(),
-      child: const _LoginView(),
+      child: _LoginView(rolDeSesion: rolDeSesion),
     );
   }
 }
 
 class _LoginView extends StatefulWidget {
-  const _LoginView();
+  const _LoginView({required this.rolDeSesion});
+
+  final RolUsuario Function() rolDeSesion;
 
   @override
   State<_LoginView> createState() => _LoginViewState();
@@ -40,15 +57,7 @@ class _LoginViewState extends State<_LoginView> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
-  String _selectedRole = 'cliente'; // 'cliente', 'aliado', 'admin'
-  String _selectedTenant = 'Plomería Express CDMX SA';
   bool _showPassword = false;
-
-  final List<String> _tenants = const [
-    'Plomería Express CDMX SA',
-    'Electricistas Pro Monterrey',
-    'Cerrajería Total GDL',
-  ];
 
   @override
   void dispose() {
@@ -64,6 +73,9 @@ class _LoginViewState extends State<_LoginView> {
       _passwordController.text,
     );
   }
+
+  /// Saludo tras iniciar sesión (RBAC).
+  String _bienvenida(RolUsuario rolDelToken) => '¡Bienvenido a MANI!';
 
   void _showNotification(String message, {bool isError = true}) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -91,20 +103,9 @@ class _LoginViewState extends State<_LoginView> {
     return BlocConsumer<AuthCubit, AuthState>(
       listener: (context, state) {
         if (state is AuthAuthenticated) {
-          _showNotification('¡Bienvenido a MANI!', isError: false);
-          // US-02.1.3: el admin del tenant entra directo a su bandeja de
-          // verificación. Si la cuenta no es ADMIN_TENANT, el servidor
-          // responde 403 y la bandeja lo informa; la pestaña no otorga
-          // permisos por sí sola.
-          if (_selectedRole == 'admin') {
-            context.go('/admin/verificacion-aliados');
-          } else if (_selectedRole == 'aliado') {
-            // US-04.1.4: el aliado entra a su bandeja de solicitudes.
-            context.go('/aliado/solicitudes');
-          } else if (_selectedRole == 'cliente') {
-            // US-04.1.1: el cliente entra a publicar su solicitud.
-            context.go('/cliente/solicitudes/nueva');
-          }
+          _showNotification(_bienvenida(widget.rolDeSesion()), isError: false);
+          // US-11.2.3 (SCRUM-1446): enrutamiento RBAC puro según el token.
+          context.go(rutaInicio);
         } else if (state is AuthError) {
           _showNotification(state.message);
         }
@@ -129,17 +130,9 @@ class _LoginViewState extends State<_LoginView> {
                       children: [
                         // ── Header (Logo + Títulos) ───────────────────────
                         _buildLogoHeader(),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 28),
 
-                        // ── Selector de Tenant ─────────────────────────────
-                        _buildTenantSelector(),
-                        const SizedBox(height: 16),
-
-                        // ── Selector de Rol (Tabs) ─────────────────────────
-                        _buildRoleTabs(),
-                        const SizedBox(height: 18),
-
-                        // ── Inputs ─────────────────────────────────────────
+                        // ── Inputs (Email y Contraseña) ───────────────────
                         _buildInputs(),
                         const SizedBox(height: 24),
 
@@ -204,95 +197,6 @@ class _LoginViewState extends State<_LoginView> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildTenantSelector() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'EMPRESA / TENANT',
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 11,
-            fontWeight: FontWeight.w800,
-            color: AppTheme.dark,
-            letterSpacing: 0.5,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Container(
-          decoration: BoxDecoration(
-            color: AppTheme.surface,
-            borderRadius: BorderRadius.circular(AppTheme.radiusXl),
-            border: Border.all(color: AppTheme.dark, width: 2),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: _selectedTenant,
-              isExpanded: true,
-              icon: const Icon(Icons.arrow_drop_down, color: AppTheme.dark),
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.dark,
-              ),
-              items: _tenants.map((tenant) {
-                return DropdownMenuItem<String>(
-                  value: tenant,
-                  child: Text(tenant),
-                );
-              }).toList(),
-              onChanged: (val) {
-                if (val != null) setState(() => _selectedTenant = val);
-              },
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildRoleTabs() {
-    final roles = [
-      {'key': 'cliente', 'label': 'Soy Cliente'},
-      {'key': 'aliado', 'label': 'Soy Aliado'},
-      {'key': 'admin', 'label': 'Admin'},
-    ];
-
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(AppTheme.radiusXl),
-        border: Border.all(color: AppTheme.dark, width: 2),
-        boxShadow: const [AppTheme.hardShadowMd],
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Row(
-        children: roles.map((role) {
-          final isSelected = _selectedRole == role['key'];
-          return Expanded(
-            child: InkWell(
-              onTap: () => setState(() => _selectedRole = role['key']!),
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                color: isSelected ? AppTheme.primary : AppTheme.surface,
-                alignment: Alignment.center,
-                child: Text(
-                  role['label']!,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.3,
-                    color: isSelected ? AppTheme.dark : AppTheme.textSecondary,
-                  ),
-                ),
-              ),
-            ),
-          );
-        }).toList(),
-      ),
     );
   }
 
@@ -460,14 +364,10 @@ class _LoginViewState extends State<_LoginView> {
   }
 
   Widget _buildFooterLinks() {
-    final isAliado = _selectedRole == 'aliado';
-
     return Column(
       children: [
         GestureDetector(
-          onTap: () {
-            // TODO: Pantalla de recuperación
-          },
+          onTap: () => context.go('/forgot-password'),
           child: Text(
             '¿Olvidaste tu contraseña?',
             style: GoogleFonts.plusJakartaSans(
@@ -512,76 +412,45 @@ class _LoginViewState extends State<_LoginView> {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
             decoration: BoxDecoration(
-              color: !isAliado ? Colors.white : AppTheme.surface,
+              color: Colors.white,
               borderRadius: BorderRadius.circular(AppTheme.radiusXl),
-              border: Border.all(
-                color: AppTheme.dark,
-                width: !isAliado ? 2 : 1.5,
-              ),
-              boxShadow: !isAliado ? const [AppTheme.hardShadowSm] : [],
+              border: Border.all(color: AppTheme.dark, width: 2),
+              boxShadow: const [AppTheme.hardShadowSm],
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const Icon(Icons.home_outlined, color: AppTheme.dark, size: 18),
                 const SizedBox(width: 8),
-                Text(
-                  'REGISTRARME COMO CLIENTE',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.4,
-                    color: AppTheme.dark,
+                Flexible(
+                  child: Text(
+                    'REGISTRARME COMO CLIENTE',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.4,
+                      color: AppTheme.dark,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
                 ),
               ],
             ),
           ),
+        ),
+        const SizedBox(height: 10),
+
+        // Botón 1b: Registrar mi empresa como cliente (HU-M02-07)
+        _botonRegistroSecundario(
+          icono: Icons.apartment_outlined,
+          texto: 'REGISTRAR MI EMPRESA COMO CLIENTE',
+          ruta: '/register-cliente-empresa',
         ),
         const SizedBox(height: 10),
 
         // Botón 2: Registrarme como Aliado Técnico
         GestureDetector(
           onTap: () => context.go('/register-aliado'),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-            decoration: BoxDecoration(
-              color: isAliado ? Colors.white : AppTheme.surface,
-              borderRadius: BorderRadius.circular(AppTheme.radiusXl),
-              border: Border.all(
-                color: AppTheme.dark,
-                width: isAliado ? 2 : 1.5,
-              ),
-              boxShadow: isAliado ? const [AppTheme.hardShadowSm] : [],
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(
-                  Icons.handyman_outlined,
-                  color: AppTheme.dark,
-                  size: 18,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'REGISTRARME COMO ALIADO TÉCNICO',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.4,
-                    color: AppTheme.dark,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 10),
-
-        // Botón 3: Registrar Empresa de Servicios (US-02.1.2)
-        GestureDetector(
-          onTap: () => context.go('/register-empresa'),
           child: Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
@@ -594,25 +463,75 @@ class _LoginViewState extends State<_LoginView> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const Icon(
-                  Icons.business_outlined,
+                  Icons.handyman_outlined,
                   color: AppTheme.dark,
                   size: 18,
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  'REGISTRAR MI EMPRESA DE SERVICIOS',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.4,
-                    color: AppTheme.dark,
+                Flexible(
+                  child: Text(
+                    'REGISTRARME COMO ALIADO TÉCNICO',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.4,
+                      color: AppTheme.dark,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
                 ),
               ],
             ),
           ),
         ),
+        const SizedBox(height: 10),
+
+        // Botón 3: Registrar Empresa de Servicios (US-02.1.2)
+        _botonRegistroSecundario(
+          icono: Icons.business_outlined,
+          texto: 'REGISTRAR MI EMPRESA DE SERVICIOS',
+          ruta: '/register-empresa',
+        ),
       ],
+    );
+  }
+
+  /// Botón de registro sin resaltar (empresa cliente y empresa de servicios).
+  Widget _botonRegistroSecundario({
+    required IconData icono,
+    required String texto,
+    required String ruta,
+  }) {
+    return GestureDetector(
+      onTap: () => context.go(ruta),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        decoration: BoxDecoration(
+          color: AppTheme.surface,
+          borderRadius: BorderRadius.circular(AppTheme.radiusXl),
+          border: Border.all(color: AppTheme.dark, width: 1.5),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icono, color: AppTheme.dark, size: 18),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                texto,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.4,
+                  color: AppTheme.dark,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

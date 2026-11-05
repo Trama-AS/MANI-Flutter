@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mani/core/config/tenant_config.dart';
 import 'package:mani/core/theme/app_theme.dart';
 import 'package:mani/core/di/injection_container.dart';
 import 'package:mani/features/auth/presentation/bloc/auth_cubit.dart';
@@ -44,9 +45,6 @@ class _RegistroClienteViewState extends State<_RegistroClienteView> {
   bool _aceptaTerminos = false;
   bool _mostrarErrorTerminos = false;
 
-  // Tenant por defecto para el cliente (asignado internamente sin selector)
-  static const String _defaultTenantId = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11';
-
   @override
   void dispose() {
     _nombreController.dispose();
@@ -70,7 +68,8 @@ class _RegistroClienteViewState extends State<_RegistroClienteView> {
       email: _emailController.text,
       password: _passwordController.text,
       nombreCompleto: _nombreController.text,
-      tenantId: _defaultTenantId,
+      // Slug (no UUID) del tenant asignado sin selector: va en X-Tenant-Slug.
+      tenantId: tenantSlugRegistro(),
       telefono: _telefonoController.text,
       direccionHogar: _direccionHogarController.text,
       aceptaTerminos: _aceptaTerminos,

@@ -19,7 +19,7 @@ void main() {
   late List<http.BaseRequest> aSupabase;
   late http.Response Function(http.Request) responder;
 
-  SolicitudesClienteRemoteDataSource datasource() {
+  SolicitudesClienteRemoteDataSource datasource({DateTime Function()? ahora}) {
     final supabase = SupabaseClient(
       'http://supabase.local',
       'anon-key',
@@ -38,7 +38,11 @@ void main() {
         return responder(r);
       }),
     );
-    return SolicitudesClienteRemoteDataSourceImpl(supabase, gateway);
+    return SolicitudesClienteRemoteDataSourceImpl(
+      supabase,
+      gateway,
+      ahora: ahora,
+    );
   }
 
   final solicitudCore = {
@@ -171,5 +175,242 @@ void main() {
     responder = (_) => http.Response('{}', 201);
 
     await expectLater(crear(datasource()), throwsFormatException);
+  });
+  group('SCRUM-1465: categorías y sitios por Core, sin RPC', () {
+    http.Response json(Object cuerpo, [int status = 200]) => http.Response(
+      jsonEncode(cuerpo),
+      status,
+      headers: {'content-type': 'application/json; charset=utf-8'},
+    );
+
+    test(
+      'GET /api/v1/core/solicitudes/categorias sin ids del cliente',
+      () async {
+        responder = (_) => json({
+          'categorias': [
+            {
+              'id': 'cat-plo',
+              'nombre': 'Plomería',
+              'flujoOperativo': 'COTIZACION_PREVIA',
+            },
+          ],
+          'correlationId': 'corr-test',
+        });
+
+        final res = await datasource().listarCategorias();
+
+        expect(alGateway.single.method, 'GET');
+        expect(
+          alGateway.single.url.path,
+          '/api/v1/core/solicitudes/categorias',
+        );
+        expect(alGateway.single.url.query, isEmpty);
+        expect(alGateway.single.headers['Authorization'], 'Bearer jwt-cliente');
+        expect(res.single['flujoOperativo'], 'COTIZACION_PREVIA');
+        expect(aSupabase, isEmpty);
+      },
+    );
+
+    test(
+      'GET /api/v1/core/solicitudes/sitios trae zona y zona padre',
+      () async {
+        responder = (_) => json({
+          'sitios': [
+            {
+              'id': 'sitio-1',
+              'nombre': 'Calle Colima 120',
+              'direccion': 'Calle Colima 120',
+              'zonaId': 'z-roma',
+              'zona': 'Roma Norte',
+              'zonaPadre': 'Cuauhtémoc',
+            },
+          ],
+        });
+
+        final res = await datasource().listarSitios();
+
+        expect(alGateway.single.url.path, '/api/v1/core/solicitudes/sitios');
+        expect(res.single['zonaPadre'], 'Cuauhtémoc');
+        expect(aSupabase, isEmpty);
+      },
+    );
+
+    test(
+      'un 403 de Core llega como GatewayException, no como lista vacía',
+      () async {
+        responder = (_) => json({
+          'error':
+              'MANI-SOL-403C: solo un cliente activo puede publicar solicitudes',
+          'code': 'MANI-SOL-403C',
+        }, 403);
+
+        await expectLater(
+          datasource().listarSitios(),
+          throwsA(
+            isA<GatewayException>().having((e) => e.statusCode, 'status', 403),
+          ),
+        );
+      },
+    );
+
+    test(
+      'una respuesta sin la lista es un error, no una lista vacía',
+      () async {
+        responder = (_) => json({'correlationId': 'corr-test'});
+
+        await expectLater(
+          datasource().listarCategorias(),
+          throwsFormatException,
+        );
+      },
+    );
+  });
+
+  test(
+    'avisar a los aliados: POST orchestrate a Dispatch con la solicitud y la clave',
+    () async {
+      var n = 0;
+      responder = (_) => ++n == 1
+          ? http.Response('{"code":"CORE_SERVICE_UNAVAILABLE"}', 503)
+          : http.Response('{"notified":2}', 200);
+
+      await datasource().avisarAliados('sol-1', clave: 'clave-1');
+
+      final r = alGateway.last;
+      expect(r.method, 'POST');
+      expect(r.url.path, '/api/v1/dispatch/requests/orchestrate');
+      expect(r.headers['Authorization'], 'Bearer jwt-cliente');
+      expect(r.headers['Idempotency-Key'], 'clave-1');
+      expect(jsonDecode(r.body), {'requestId': 'sol-1'});
+      expect(alGateway, hasLength(2), reason: 'el 503 se reintenta');
+      expect(aSupabase, isEmpty);
+    },
+  );
+
+  group('SCRUM-1465: búsqueda de zonas en el catálogo de Core, sin RPC', () {
+    Map<String, dynamic> zona(
+      String id,
+      String nombre,
+      String nivel,
+      String? padre, {
+      bool activa = true,
+    }) => {
+      'id': id,
+      'name': nombre,
+      'level': nivel,
+      'parentId': padre,
+      'active': activa,
+      'selectable': activa,
+    };
+
+    final catalogo = [
+      zona('z-cdmx', 'Ciudad de México', 'CIUDAD', null),
+      zona('z-cuau', 'Cuauhtémoc', 'LOCALIDAD', 'z-cdmx', activa: false),
+      zona('z-roma', 'Roma Norte', 'BARRIO', 'z-cuau'),
+      zona('z-romas', 'Roma Sur', 'BARRIO', 'z-cuau', activa: false),
+      zona('z-condesa', 'Condesa', 'BARRIO', 'z-cuau'),
+      zona('z-romero', 'Romero de Terreros', 'BARRIO', 'z-cdmx'),
+    ];
+
+    http.Response respuestaCatalogo([List<Map<String, dynamic>>? zonas]) =>
+        http.Response(
+          jsonEncode({
+            'zones': zonas ?? catalogo,
+            'tree': const [],
+            'inconsistencies': const [],
+          }),
+          200,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        );
+
+    test(
+      'GET /api/v1/core/catalog/zones con el JWT y filtra como la RPC',
+      () async {
+        responder = (_) => respuestaCatalogo();
+
+        final res = await datasource().buscarZonas('  ROM ');
+
+        expect(alGateway.single.method, 'GET');
+        expect(alGateway.single.url.path, '/api/v1/core/catalog/zones');
+        expect(alGateway.single.url.query, isEmpty);
+        expect(alGateway.single.headers['Authorization'], 'Bearer jwt-cliente');
+        expect(aSupabase, isEmpty);
+        // Sin la ciudad (no tiene padre), sin Roma Sur (inactiva) y ordenadas.
+        expect(res, [
+          {'id': 'z-roma', 'nombre': 'Roma Norte', 'zonaPadre': 'Cuauhtémoc'},
+          {
+            'id': 'z-romero',
+            'nombre': 'Romero de Terreros',
+            'zonaPadre': 'Ciudad de México',
+          },
+        ]);
+      },
+    );
+
+    test('con menos de 2 caracteres no llama al Gateway', () async {
+      expect(await datasource().buscarZonas(' r '), isEmpty);
+      expect(alGateway, isEmpty);
+    });
+
+    test('devuelve como máximo 20 zonas', () async {
+      responder = (_) => respuestaCatalogo([
+        zona('z-cdmx', 'Ciudad de México', 'CIUDAD', null),
+        for (var i = 10; i < 40; i++)
+          zona('z-$i', 'Barrio $i', 'BARRIO', 'z-cdmx'),
+      ]);
+
+      final res = await datasource().buscarZonas('barrio');
+
+      expect(res, hasLength(20));
+      expect(res.first['nombre'], 'Barrio 10');
+    });
+
+    test('relee el catálogo solo cuando pasan 5 minutos', () async {
+      var ahora = DateTime(2026, 10, 27, 10);
+      responder = (_) => respuestaCatalogo();
+      final ds = datasource(ahora: () => ahora);
+
+      await ds.buscarZonas('roma');
+      await ds.buscarZonas('condesa');
+      expect(alGateway, hasLength(1));
+
+      ahora = ahora.add(const Duration(minutes: 5));
+      await ds.buscarZonas('roma');
+      expect(alGateway, hasLength(2));
+    });
+
+    test(
+      'un error de Core llega como GatewayException y no se guarda',
+      () async {
+        var n = 0;
+        responder = (_) => ++n == 1
+            ? http.Response(
+                jsonEncode({
+                  'error': 'Token inválido',
+                  'code': 'TOKEN_INVALID',
+                }),
+                401,
+              )
+            : respuestaCatalogo();
+        final ds = datasource();
+
+        await expectLater(
+          ds.buscarZonas('roma'),
+          throwsA(
+            isA<GatewayException>().having((e) => e.statusCode, 'status', 401),
+          ),
+        );
+        expect(await ds.buscarZonas('roma'), hasLength(1));
+      },
+    );
+
+    test('una respuesta sin `zones` es un error, no una lista vacía', () async {
+      responder = (_) => http.Response(jsonEncode({'tree': const []}), 200);
+
+      await expectLater(
+        datasource().buscarZonas('roma'),
+        throwsFormatException,
+      );
+    });
   });
 }

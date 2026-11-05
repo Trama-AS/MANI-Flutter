@@ -167,20 +167,87 @@ void main() {
     expect(find.bySemanticsLabel('Disponibles: 1'), findsOneWidget);
   });
 
-  testWidgets('rechazar pide confirmación y un motivo opcional', (t) async {
+  testWidgets('rechazar pide confirmación y un motivo obligatorio', (t) async {
     final repo = _repoBase();
     await _montar(t, repo);
 
     await _tocar(t, const ValueKey('btn-rechazar-s2'));
     expect(find.text('¿Rechazar Electricidad?'), findsOneWidget);
     expect(find.textContaining('Seguirá disponible'), findsOneWidget);
+    expect(find.text('¿Por qué la rechazas?'), findsOneWidget);
+    for (final etiqueta in [
+      'No estoy disponible',
+      'Fuera de mi zona',
+      'No hago este tipo de trabajo',
+      'Otro',
+    ]) {
+      expect(find.text(etiqueta), findsOneWidget);
+    }
+
+    // Sin motivo, «Rechazar» está deshabilitado: tocarlo no rechaza nada.
+    expect(find.byKey(const ValueKey('rechazo-sin-motivo')), findsOneWidget);
+    await _tocar(t, const ValueKey('dlg-confirmar-rechazo'));
+    expect(repo.llamadasRechazar, 0);
+    expect(find.text('¿Rechazar Electricidad?'), findsOneWidget);
 
     await _tocar(t, const ValueKey('motivo-SIN_DISPONIBILIDAD'));
     await _tocar(t, const ValueKey('dlg-confirmar-rechazo'));
 
     expect(repo.rechazadas['s2'], MotivoRechazo.sinDisponibilidad);
+    expect(repo.detallesRechazo['s2'], isNull);
     expect(find.byKey(const ValueKey('card-solicitud-s2')), findsNothing);
     expect(find.textContaining('Solicitud descartada'), findsOneWidget);
+  });
+
+  testWidgets(
+    '«Otro» pide el texto y no deja rechazar hasta tener 3 caracteres',
+    (t) async {
+      final repo = _repoBase();
+      await _montar(t, repo);
+
+      await _tocar(t, const ValueKey('btn-rechazar-s2'));
+      expect(find.byKey(const ValueKey('detalle-rechazo')), findsNothing);
+
+      await _tocar(t, const ValueKey('motivo-OTRO'));
+      expect(find.byKey(const ValueKey('detalle-rechazo')), findsOneWidget);
+
+      await t.enterText(find.byKey(const ValueKey('detalle-rechazo')), 'no');
+      await t.pump();
+      await _tocar(t, const ValueKey('dlg-confirmar-rechazo'));
+      expect(repo.llamadasRechazar, 0);
+
+      await t.enterText(
+        find.byKey(const ValueKey('detalle-rechazo')),
+        '  Mi herramienta está en reparación ',
+      );
+      await t.pump();
+      await _tocar(t, const ValueKey('dlg-confirmar-rechazo'));
+
+      expect(repo.rechazadas['s2'], MotivoRechazo.otro);
+      expect(repo.detallesRechazo['s2'], 'Mi herramienta está en reparación');
+      expect(find.byKey(const ValueKey('card-solicitud-s2')), findsNothing);
+    },
+  );
+
+  testWidgets('cambiar de «Otro» a otro motivo no envía el texto escrito', (
+    t,
+  ) async {
+    final repo = _repoBase();
+    await _montar(t, repo);
+
+    await _tocar(t, const ValueKey('btn-rechazar-s2'));
+    await _tocar(t, const ValueKey('motivo-OTRO'));
+    await t.enterText(
+      find.byKey(const ValueKey('detalle-rechazo')),
+      'Texto escrito',
+    );
+    await t.pump();
+    await _tocar(t, const ValueKey('motivo-FUERA_DE_ZONA'));
+    expect(find.byKey(const ValueKey('detalle-rechazo')), findsNothing);
+    await _tocar(t, const ValueKey('dlg-confirmar-rechazo'));
+
+    expect(repo.rechazadas['s2'], MotivoRechazo.fueraDeZona);
+    expect(repo.detallesRechazo['s2'], isNull);
   });
 
   testWidgets('volver del diálogo no rechaza nada', (t) async {
@@ -253,6 +320,68 @@ void main() {
 
     final ancho = t.getSize(find.byKey(const ValueKey('card-solicitud-s1')));
     expect(ancho.width, lessThanOrEqualTo(760));
+  });
+
+  group('SCRUM-1388: reglas del sitio en la tarjeta', () {
+    const reglas = [
+      ReglaSitio('contactoAcceso', {
+        'nombre': 'Portería',
+        'telefono': '3000000000',
+      }),
+      ReglaSitio('elementosProteccion', ['Casco']),
+      ReglaSitio('horario', {
+        'inicio': '08:00',
+        'fin': '17:00',
+        'diasPermitidos': ['LUN', 'MAR', 'MIE', 'JUE', 'VIE'],
+      }),
+      ReglaSitio('instruccionesIngreso', 'Pedir llave en recepción'),
+      ReglaSitio('permisosRequeridos', ['ARL']),
+    ];
+
+    testWidgets('en la oferta: requisitos legibles, sin contacto ni ingreso', (
+      t,
+    ) async {
+      await _montar(
+        t,
+        FakeAsignacionRepository([solicitud('o1', reglas: reglas)]),
+      );
+
+      expect(
+        find.text('Horario: lunes a viernes, de 8:00 a 17:00'),
+        findsOneWidget,
+      );
+      expect(find.text('Protección obligatoria: Casco'), findsOneWidget);
+      expect(find.text('Permisos requeridos: ARL'), findsOneWidget);
+      expect(find.textContaining('Contacto de acceso'), findsNothing);
+      expect(find.textContaining('Instrucciones de ingreso'), findsNothing);
+      expect(find.textContaining('{'), findsNothing, reason: 'sin JSON');
+    });
+
+    testWidgets('asignada: también el contacto y las instrucciones', (t) async {
+      await _montar(
+        t,
+        FakeAsignacionRepository([
+          solicitud(
+            'a1',
+            estado: EstadoSolicitud.asignada,
+            esMia: true,
+            reglas: reglas,
+            direccion: 'Calle 1 # 2-3',
+          ),
+        ]),
+      );
+      await _tocar(t, const ValueKey('tab-misTrabajos'));
+
+      expect(
+        find.text('Contacto de acceso: Portería · 3000000000'),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Instrucciones de ingreso: Pedir llave en recepción'),
+        findsOneWidget,
+      );
+      expect(find.text('Protección obligatoria: Casco'), findsOneWidget);
+    });
   });
 
   test('las solicitudes asignadas no ofrecen acciones', () {

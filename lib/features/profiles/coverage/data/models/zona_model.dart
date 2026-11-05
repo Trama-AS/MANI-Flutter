@@ -1,7 +1,7 @@
 import '../../domain/entities/zona.dart';
 
-/// Mapea las filas que devuelven las RPC `listar_zonas`, `buscar_zonas` y
-/// `obtener_mi_cobertura` (mismas columnas; `estado` solo viene en la última).
+/// Mapea las filas de zona que arma `GatewayCoberturaDataSource` a partir de
+/// `GET /catalog/zones` y `GET /profiles/me/coverage`.
 class ZonaModel extends Zona {
   const ZonaModel({
     required super.id,

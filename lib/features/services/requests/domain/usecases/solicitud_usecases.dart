@@ -46,3 +46,11 @@ class PublicarSolicitud {
   Future<SolicitudPublicada> call(NuevaSolicitud solicitud) =>
       _repo.publicar(solicitud);
 }
+
+/// Reintenta el aviso a los aliados cuando la publicación no lo logró.
+class AvisarAliados {
+  const AvisarAliados(this._repo);
+  final SolicitudesClienteRepository _repo;
+
+  Future<void> call(String solicitudId) => _repo.avisarAliados(solicitudId);
+}

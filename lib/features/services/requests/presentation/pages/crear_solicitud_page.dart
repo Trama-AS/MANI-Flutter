@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mani/core/platform/selector_fotos.dart';
 import 'package:mani/core/theme/app_theme.dart';
 import 'package:mani/core/widgets/mani_button.dart';
+import 'package:mani/core/widgets/mani_card.dart';
 import 'package:mani/core/widgets/mani_snackbar.dart';
 
 import '../bloc/crear_solicitud_cubit.dart';
@@ -103,12 +104,15 @@ class _CrearSolicitudPageState extends State<CrearSolicitudPage> {
                   buildWhen: (a, b) =>
                       a.carga != b.carga ||
                       a.paso != b.paso ||
-                      a.publicada != b.publicada,
+                      a.publicada != b.publicada ||
+                      a.avisando != b.avisando,
                   builder: (context, state) {
                     if (state.publicada != null) {
                       return SolicitudPublicadaVista(
                         solicitud: state.publicada!,
                         onNueva: _nuevaSolicitud,
+                        avisando: state.avisando,
+                        onReintentarAviso: _cubit.reintentarAviso,
                       );
                     }
                     return switch (state.carga) {
@@ -172,7 +176,10 @@ class _Asistente extends StatelessWidget {
                   children: [
                     IndicadorPasos(actual: paso),
                     const SizedBox(height: 24),
-                    pasoActual,
+                    ManiCard(
+                      padding: const EdgeInsets.all(24),
+                      child: pasoActual,
+                    ),
                   ],
                 ),
               ),
@@ -209,7 +216,7 @@ class _BarraAcciones extends StatelessWidget {
     };
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 16),
       decoration: const BoxDecoration(
         color: AppTheme.surface,
         border: Border(top: BorderSide(color: AppTheme.dark, width: 2)),
@@ -229,50 +236,60 @@ class _BarraAcciones extends StatelessWidget {
                     key: const ValueKey('pista-paso'),
                     textAlign: TextAlign.center,
                     style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
                       color: AppTheme.textSecondary,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 10),
                 ],
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Expanded(
-                      child: ManiButton(
-                        key: const ValueKey('btn-atras'),
-                        etiqueta: 'Atrás',
-                        icono: Icons.arrow_back_rounded,
-                        variante: ManiButtonVariante.secundario,
-                        expandir: true,
-                        onPressed: state.publicando ? null : cubit.anterior,
+                    // Flexible: en un teléfono los dos botones comparten el
+                    // ancho sin desbordar; en escritorio llegan a su máximo.
+                    Flexible(
+                      flex: 2,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 160),
+                        child: ManiButton(
+                          key: const ValueKey('btn-atras'),
+                          etiqueta: 'Atrás',
+                          icono: Icons.arrow_back_rounded,
+                          variante: ManiButtonVariante.secundario,
+                          expandir: true,
+                          onPressed: state.publicando ? null : cubit.anterior,
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      flex: 2,
-                      child: esRevision
-                          ? ManiButton(
-                              key: const ValueKey('btn-publicar'),
-                              etiqueta: state.publicando
-                                  ? 'Publicando…'
-                                  : 'Publicar solicitud',
-                              icono: Icons.campaign_rounded,
-                              expandir: true,
-                              cargando: state.publicando,
-                              onPressed: state.puedeAvanzar
-                                  ? cubit.publicar
-                                  : null,
-                            )
-                          : ManiButton(
-                              key: const ValueKey('btn-continuar'),
-                              etiqueta: 'Continuar',
-                              icono: Icons.arrow_forward_rounded,
-                              expandir: true,
-                              onPressed: state.puedeAvanzar
-                                  ? cubit.siguiente
-                                  : null,
-                            ),
+                    const SizedBox(width: 16),
+                    Flexible(
+                      flex: 3,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 260),
+                        child: esRevision
+                            ? ManiButton(
+                                key: const ValueKey('btn-publicar'),
+                                etiqueta: state.publicando
+                                    ? 'Publicando…'
+                                    : 'Publicar solicitud',
+                                icono: Icons.campaign_rounded,
+                                expandir: true,
+                                cargando: state.publicando,
+                                onPressed: state.puedeAvanzar
+                                    ? cubit.publicar
+                                    : null,
+                              )
+                            : ManiButton(
+                                key: const ValueKey('btn-continuar'),
+                                etiqueta: 'Continuar',
+                                icono: Icons.arrow_forward_rounded,
+                                expandir: true,
+                                onPressed: state.puedeAvanzar
+                                    ? cubit.siguiente
+                                    : null,
+                              ),
+                      ),
                     ),
                   ],
                 ),

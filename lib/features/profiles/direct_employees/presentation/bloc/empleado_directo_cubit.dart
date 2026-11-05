@@ -47,7 +47,10 @@ class EmpleadoDirectoCubit extends Cubit<EmpleadoDirectoState> {
     required String password,
     required String nombreCompleto,
     required List<String> categoriaIds,
-    String? telefono,
+    required String telefono,
+    required String tipoDocumento,
+    required String numeroDocumento,
+    required DocumentoIdentidad documento,
   }) async {
     emit(const EmpleadoDirectoLoading());
     try {
@@ -58,6 +61,9 @@ class EmpleadoDirectoCubit extends Cubit<EmpleadoDirectoState> {
           nombreCompleto: nombreCompleto,
           categoriaIds: categoriaIds,
           telefono: telefono,
+          tipoDocumento: tipoDocumento,
+          numeroDocumento: numeroDocumento,
+          documento: documento,
         ),
       );
       emit(EmpleadoDirectoRegistrado(creado));

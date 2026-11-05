@@ -12,8 +12,7 @@ RUN flutter pub get
 # Copy all source files
 COPY . .
 
-# Usar el .env real (incluido en el build context para dev).
-# En CI/CD se inyecta via ARG o secret antes de este paso.
+# Usar el .env real (incluido en el build context para dev o configurado en CI/CD).
 RUN if [ ! -f .env ]; then cp .env.example .env 2>/dev/null || touch .env; fi
 
 # Build web in release mode
@@ -23,6 +22,8 @@ RUN flutter build web --release
 FROM nginx:alpine
 
 COPY docker/nginx-web.conf /etc/nginx/conf.d/default.conf
+COPY docker/generate-env.sh /docker-entrypoint.d/40-generate-env.sh
+RUN chmod +x /docker-entrypoint.d/40-generate-env.sh
 COPY --from=builder /app/build/web /usr/share/nginx/html
 
 EXPOSE 80

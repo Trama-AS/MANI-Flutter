@@ -1,5 +1,5 @@
-/// Errores de negocio de US-02.1.4. Los códigos `MANI-COB-*` los emite la RPC
-/// `declarar_cobertura` (ver migración 20260922120000).
+/// Errores de negocio de US-02.1.4. Los códigos `MANI-COB-*` los emite Core
+/// Node en `PUT /profiles/me/coverage` (SCRUM-1380).
 enum CoberturaErrorTipo {
   sinSesion, // MANI-COB-401
   noEsAliado, // MANI-COB-403
@@ -17,7 +17,7 @@ class CoberturaFailure implements Exception {
   final CoberturaErrorTipo tipo;
   final String? detalle;
 
-  /// Máximo de zonas por declaración — debe coincidir con la RPC.
+  /// Máximo de zonas por declaración — debe coincidir con Core.
   static const int maxZonas = 200;
 
   String get mensajeUsuario => switch (tipo) {
