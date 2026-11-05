@@ -129,7 +129,9 @@ class SolicitudCard extends StatelessWidget {
           const SizedBox(height: 12),
           _ModalidadBadge(modalidad: s.modalidad),
           const SizedBox(height: 12),
-          _ReglasSitio(reglas: s.reglasSitio),
+          _ReglasSitio(
+            reglas: reglasParaMostrar(s.reglasSitio, asignado: s.esMia),
+          ),
           if (s.esMia) ...[
             const SizedBox(height: 12),
             _Direccion(direccion: s.direccion),
@@ -303,7 +305,8 @@ class _ModalidadBadge extends StatelessWidget {
   }
 }
 
-/// Reglas del sitio del cliente: el aliado las ve antes de aceptar (QS-06).
+/// Reglas del sitio del cliente (RF-09, SCRUM-1388): en la oferta, los
+/// requisitos; ya asignada, también el contacto y las instrucciones de ingreso.
 class _ReglasSitio extends StatelessWidget {
   const _ReglasSitio({required this.reglas});
 
@@ -360,11 +363,15 @@ class _ReglasSitio extends StatelessWidget {
                       children: [
                         Icon(d.icono, size: 13, color: AppTheme.dark),
                         const SizedBox(width: 4),
-                        Text(
-                          d.texto,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
+                        // Flexible: los textos largos (horario, contacto,
+                        // instrucciones) saltan de línea en vez de desbordar.
+                        Flexible(
+                          child: Text(
+                            d.texto,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
                       ],
