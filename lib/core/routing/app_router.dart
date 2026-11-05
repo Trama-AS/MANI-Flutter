@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart' show Icons;
+import 'package:flutter/material.dart' show Icons, ScaffoldMessenger, SnackBar;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -77,6 +77,12 @@ import 'package:mani/features/tariffs/presentation/alerta_tarifa_cotizacion.dart
 import 'package:mani/features/tariffs/presentation/reporte_fuera_rango_page.dart';
 import 'package:mani/features/tariffs/presentation/tarifario_cubit.dart';
 import 'package:mani/features/tariffs/presentation/tarifario_page.dart';
+import 'package:mani/features/complaints/data/quejas_datasource.dart';
+import 'package:mani/features/complaints/presentation/dialogo_queja.dart';
+import 'package:mani/features/complaints/presentation/quejas_cubit.dart';
+import 'package:mani/features/complaints/presentation/quejas_page.dart';
+import 'package:mani/features/metrics/presentation/metricas_page.dart';
+import 'package:mani/features/platform/presentation/tenants_page.dart';
 import 'package:mani/features/tenant_rules/presentation/tenant_rules_cubit.dart';
 import 'package:mani/features/tenant_rules/presentation/reglas_operativas_page.dart';
 
@@ -486,6 +492,23 @@ final appRouter = GoRouter(
                   context.push('/cliente/solicitudes/$id/cotizacion'),
               onVerAliados: (id) =>
                   context.push('/cliente/solicitudes/$id/aliados'),
+              onPresentarQueja: (id) async {
+                final queja = await presentarQueja(
+                  context,
+                  fuente: sl<FuenteQuejas>(),
+                  solicitudId: id,
+                );
+                if (queja != null && context.mounted) {
+                  ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+                    const SnackBar(
+                      key: Key('queja-registrada'),
+                      content: Text(
+                        'Registramos tu queja. La verás en «Mis quejas».',
+                      ),
+                    ),
+                  );
+                }
+              },
               // Penalización por cancelación tardía antes de confirmar (SCRUM-878).
               previsualizarCancelacion: (id) =>
                   sl<FuenteModuloM08>().previsualizarCancelacion(id),
@@ -612,6 +635,43 @@ final appRouter = GoRouter(
             child: BandejaVerificacionPage(
               onAbrirCategorias: () => context.push('/admin/categorias'),
             ),
+          ),
+        ),
+        // Quejas del cliente (HU-M12-01 / SCRUM-895): solo las suyas.
+        GoRoute(
+          path: '/cliente/quejas',
+          name: 'mis-quejas',
+          builder: (context, state) => BlocProvider(
+            create: (_) => QuejasCubit(sl(), esAdmin: false)..cargar(),
+            child: const QuejasPage(),
+          ),
+        ),
+        // Gestión de quejas del tenant (HU-M12-02 / SCRUM-896).
+        GoRoute(
+          path: '/admin/quejas',
+          name: 'quejas-tenant',
+          builder: (context, state) => BlocProvider(
+            create: (_) => QuejasCubit(sl(), esAdmin: true)..cargar(),
+            child: const QuejasPage(),
+          ),
+        ),
+        // Métricas operativas del tenant (HU-M12-06 / SCRUM-900).
+        GoRoute(
+          path: '/admin/metricas',
+          name: 'metricas',
+          builder: (context, state) => BlocProvider(
+            create: (_) => MetricasCubit(sl())..consultar(),
+            child: const MetricasPage(),
+          ),
+        ),
+        // Administración de tenants (HU-M12-07 / SCRUM-901). Core exige el
+        // permiso PLATFORM_ADMIN del token.
+        GoRoute(
+          path: '/plataforma/tenants',
+          name: 'tenants-plataforma',
+          builder: (context, state) => BlocProvider(
+            create: (_) => TenantsCubit(sl())..cargar(),
+            child: const TenantsPage(),
           ),
         ),
         // Tarifario de referencia (HU-M10-01 / SCRUM-885). Core exige
