@@ -63,6 +63,16 @@ class _Usuarios implements FuenteUsuariosTenant {
   }
 }
 
+/// JWT sin firmar con el rol dado: `rolDesdeAccessToken` solo lee el payload.
+String _tokenConRol(String rol) {
+  String parte(Map<String, dynamic> o) =>
+      base64Url.encode(utf8.encode(jsonEncode(o))).replaceAll('=', '');
+  return '${parte({'alg': 'none'})}.${parte({
+    'sub': 'u-1',
+    'app_metadata': {'tenant_id': 'otro', 'user_role': rol},
+  })}.firma';
+}
+
 Set<String> _rutas(RolUsuario rol, {RolUsuario? como}) => {
   for (final e
       in como == null
@@ -134,6 +144,33 @@ void main() {
         ]) {
           expect(rolPuedeAbrir(RolUsuario.adminPlataforma, ruta), isTrue);
         }
+      },
+    );
+
+    test(
+      'las cabeceras solo salen con una sesión de admin de plataforma: un contexto '
+      'que quedó de otra sesión no bloquea al cliente que entra después',
+      () {
+        // Reproduce el 403 MANI-PLA-403 de «Nueva solicitud»: el admin de
+        // plataforma actuó como un cliente, otra persona inició sesión como
+        // cliente en el mismo navegador y la app seguía enviando el contexto.
+        final c = ContextoPlataforma()
+          ..elegirTenant(_t2, 'Nova')
+          ..actuarComoUsuario(_clienteT2);
+
+        expect(cabecerasPlataformaPara(_tokenConRol('admin_plataforma'), c), {
+          'X-Mani-Tenant': _t2,
+          'X-Mani-Actuar-Como': _clienteT2.id,
+        });
+        for (final rol in ['cliente', 'aliado', 'admin_tenant']) {
+          expect(
+            cabecerasPlataformaPara(_tokenConRol(rol), c),
+            isEmpty,
+            reason: rol,
+          );
+        }
+        expect(cabecerasPlataformaPara(null, c), isEmpty);
+        expect(cabecerasPlataformaPara('no-es-un-jwt', c), isEmpty);
       },
     );
 

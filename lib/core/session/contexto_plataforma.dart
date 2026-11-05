@@ -119,3 +119,17 @@ class ContextoPlataforma extends ChangeNotifier {
     notifyListeners();
   }
 }
+
+/// Cabeceras de contexto que acompañan una petición hecha con [accessToken]
+/// (SCRUM-901).
+///
+/// Solo las envía una sesión de administrador de plataforma: Core rechaza con
+/// 403 `MANI-PLA-403` a cualquier otro rol que las mande. Así un contexto que
+/// quedó de una sesión anterior (otro usuario en el mismo navegador) no
+/// bloquea al cliente o aliado que inició sesión después.
+Map<String, String> cabecerasPlataformaPara(
+  String? accessToken,
+  ContextoPlataforma contexto,
+) => rolDesdeAccessToken(accessToken) == RolUsuario.adminPlataforma
+    ? contexto.cabeceras
+    : const {};
