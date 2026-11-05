@@ -70,13 +70,8 @@ List<EntradaMenu> entradasMenuPara(RolUsuario rol) {
           icono: Icons.feedback_outlined,
           ruta: '/cliente/quejas',
         ),
-        // El cliente ve el catálogo geográfico con la ubicación de sus propias
-        // sedes. No declara cobertura: eso es del aliado (HU-M04-07).
-        EntradaMenu(
-          etiqueta: 'Mapa de zonas',
-          icono: Icons.map_outlined,
-          ruta: '/catalogo/mapa',
-        ),
+        // Sin entrada propia de mapa: el cliente mira el mapa para comprobar
+        // dónde caen sus sedes, así que va dentro de «Mis sedes» (HU-M04-07).
         _avisos,
         _miPerfil,
       ];
@@ -99,14 +94,8 @@ List<EntradaMenu> entradasMenuPara(RolUsuario rol) {
           icono: Icons.checklist_outlined,
           ruta: '/aliado/cobertura',
         ),
-        // El aliado ve en el mapa resaltada la cobertura que ya declaró. Es
-        // consulta: para cambiarla usa «Zona de cobertura», que es por lista
-        // y hasta localidad (HU-M04-07).
-        EntradaMenu(
-          etiqueta: 'Mapa de zonas',
-          icono: Icons.map_outlined,
-          ruta: '/catalogo/mapa',
-        ),
+        // Sin entrada propia de mapa: el aliado lo ve dentro de «Zona de
+        // cobertura», donde marca y ve pintado lo que marca (HU-M04-07).
         EntradaMenu(
           etiqueta: 'Categorías',
           icono: Icons.category_outlined,
