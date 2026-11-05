@@ -61,6 +61,8 @@ import 'package:mani/features/asignacion/domain/repositories/i_asignacion_reposi
 import 'package:mani/features/asignacion/domain/usecases/asignacion_usecases.dart';
 import 'package:mani/features/asignacion/presentation/bloc/solicitudes_aliado_cubit.dart';
 import 'package:mani/core/platform/selector_fotos.dart';
+import 'package:mani/features/tenant_rules/data/tenant_rules_datasource.dart';
+import 'package:mani/features/tenant_rules/presentation/tenant_rules_cubit.dart';
 import 'package:mani/features/services/requests/data/datasources/solicitudes_cliente_remote_datasource.dart';
 import 'package:mani/features/services/requests/data/repositories/solicitudes_cliente_repository_impl.dart';
 import 'package:mani/features/services/requests/domain/repositories/solicitudes_cliente_repository.dart';
@@ -409,4 +411,10 @@ Future<void> init() async {
   sl.registerLazySingleton<IEmpleadosDirectosRemoteDataSource>(
     () => EmpleadosDirectosRemoteDataSource(gateway: sl()),
   );
+
+  // Features - Tenant Rules (SCRUM-1366 / HU-M01-03)
+  sl.registerLazySingleton<FuenteReglasTenant>(
+    () => GatewayFuenteReglasTenant(sl()),
+  );
+  sl.registerFactory(() => TenantRulesCubit(sl()));
 }

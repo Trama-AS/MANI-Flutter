@@ -149,6 +149,12 @@ List<EntradaMenu> entradasMenuPara(RolUsuario rol) {
           icono: Icons.report_outlined,
           ruta: '/admin/reportes/cotizaciones-fuera-de-rango',
         ),
+        // M-01 (SCRUM-1366).
+        EntradaMenu(
+          etiqueta: 'Reglas',
+          icono: Icons.rule_outlined,
+          ruta: '/admin/reglas',
+        ),
         // Empleados directos (SCRUM-1376): los registra el administrador, como exige Core.
         EntradaMenu(
           etiqueta: 'Empleados',
