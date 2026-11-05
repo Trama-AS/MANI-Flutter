@@ -180,14 +180,7 @@ class MapaCubit extends Cubit<MapaState> {
   /// Pide los límites de [ids] partiéndolos en tandas del tope que impone el
   /// contrato, y junta lo recibido: solo los dibujables, lo que no tiene límite
   /// y las atribuciones sin repetir.
-  Future<
-    ({
-      List<GeometriaZona> geometrias,
-      List<String> sinGeometria,
-      List<String> atribuciones,
-    })
-  >
-  _pedirEnTandas(List<String> ids) async {
+  Future<_GeometriasPedidas> _pedirEnTandas(List<String> ids) async {
     final geometrias = <GeometriaZona>[];
     final sinGeometria = <String>[];
     final atribuciones = <String>{};
@@ -198,10 +191,10 @@ class MapaCubit extends Cubit<MapaState> {
       sinGeometria.addAll(res.sinGeometria);
       atribuciones.addAll(res.atribuciones);
     }
-    return (
-      geometrias: geometrias,
-      sinGeometria: sinGeometria,
-      atribuciones: atribuciones.toList(growable: false),
+    return _GeometriasPedidas(
+      geometrias,
+      sinGeometria,
+      atribuciones.toList(growable: false),
     );
   }
 
@@ -270,4 +263,17 @@ class MapaCubit extends Cubit<MapaState> {
 
   List<Map<String, dynamic>> _zonas = const [];
   List<SitioUbicado> _misSitios = const [];
+}
+
+/// Lo recibido tras pedir los límites de varias zonas en tandas.
+class _GeometriasPedidas {
+  const _GeometriasPedidas(
+    this.geometrias,
+    this.sinGeometria,
+    this.atribuciones,
+  );
+
+  final List<GeometriaZona> geometrias;
+  final List<String> sinGeometria;
+  final List<String> atribuciones;
 }
