@@ -1,8 +1,9 @@
 import 'package:equatable/equatable.dart';
 
 /// Regla del sitio del cliente (ej. `mascotas: false`, `horario: "8-17"`),
-/// tal como la guarda `sitio.reglas` (JSONB). QS-06: el aliado debe verlas
-/// todas antes de aceptar.
+/// tal como la guarda `sitio.reglas` (JSONB). En la oferta llegan solo los
+/// requisitos; el contacto y las instrucciones de ingreso, tras la asignación
+/// (SCRUM-1388).
 class ReglaSitio extends Equatable {
   const ReglaSitio(this.clave, this.valor);
 

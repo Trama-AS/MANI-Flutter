@@ -57,7 +57,9 @@ class SolicitudEntity extends Equatable {
   final String zona;
   final String? zonaPadre;
 
-  /// Reglas del sitio: visibles ANTES de aceptar (QS-06).
+  /// Reglas del sitio. En la oferta Core envía solo los requisitos; el
+  /// contacto y las instrucciones de ingreso llegan tras la asignación
+  /// (SCRUM-1388).
   final List<ReglaSitio> reglasSitio;
 
   /// Problema descrito por el cliente al publicar (US-04.1.1).
