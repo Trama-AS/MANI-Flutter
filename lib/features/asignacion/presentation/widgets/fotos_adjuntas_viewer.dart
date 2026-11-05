@@ -5,6 +5,36 @@ import 'package:http/http.dart' as http;
 import 'package:mani/core/theme/app_theme.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+/// URL de una foto adjunta: una URL absoluta se usa tal cual; una ruta del
+/// bucket `solicitudes` se firma por una hora y, si la firma falla, se usa
+/// la URL pública. La sesión de Supabase solo se lee cuando hay que firmar.
+Future<String> resolverUrlStorage(String ruta) async {
+  if (ruta.startsWith('http://') || ruta.startsWith('https://')) return ruta;
+  final baseStorageUrl =
+      (dotenv.isInitialized ? dotenv.env['SUPABASE_URL'] : null) ??
+      'http://localhost:54321';
+  final publica = '$baseStorageUrl/storage/v1/object/public/solicitudes/$ruta';
+  try {
+    final token = Supabase.instance.client.auth.currentSession?.accessToken;
+    final res = await http.post(
+      Uri.parse('$baseStorageUrl/storage/v1/object/sign/solicitudes/$ruta'),
+      headers: {
+        'Content-Type': 'application/json',
+        if (token != null) 'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({'expiresIn': 3600}),
+    );
+    if (res.statusCode != 200) return publica;
+    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    final rawSigned = (data['signedURL'] ?? data['signedUrl'] ?? '').toString();
+    return rawSigned.startsWith('http')
+        ? rawSigned
+        : '$baseStorageUrl$rawSigned';
+  } catch (_) {
+    return publica;
+  }
+}
+
 /// Visor y miniatura de fotos adjuntas a una solicitud.
 /// Permite al aliado ver una preview inmediata y abrir un diálogo
 /// para examinar cada foto a mayor resolución con zoom interactivo.
@@ -13,10 +43,16 @@ class FotosAdjuntasPreview extends StatefulWidget {
     super.key,
     required this.fotosRutas,
     this.solicitudId,
+    this.resolverUrl = resolverUrlStorage,
   });
 
   final List<String> fotosRutas;
   final String? solicitudId;
+
+  /// Convierte la ruta guardada de una foto en una URL que se puede mostrar.
+  /// Por omisión firma la ruta en Storage ([resolverUrlStorage]); las pruebas
+  /// pasan otra para no depender de Supabase ni de la red.
+  final Future<String> Function(String ruta) resolverUrl;
 
   @override
   State<FotosAdjuntasPreview> createState() => _FotosAdjuntasPreviewState();
@@ -53,42 +89,8 @@ class _FotosAdjuntasPreviewState extends State<FotosAdjuntasPreview> {
     });
 
     try {
-      final baseStorageUrl =
-          dotenv.env['SUPABASE_URL'] ?? 'http://localhost:54321';
-      final token = Supabase.instance.client.auth.currentSession?.accessToken;
-
       for (final ruta in widget.fotosRutas) {
-        if (ruta.startsWith('http://') || ruta.startsWith('https://')) {
-          _resolvedUrls[ruta] = ruta;
-        } else {
-          try {
-            final uri = Uri.parse(
-              '$baseStorageUrl/storage/v1/object/sign/solicitudes/$ruta',
-            );
-            final res = await http.post(
-              uri,
-              headers: {
-                'Content-Type': 'application/json',
-                if (token != null) 'Authorization': 'Bearer $token',
-              },
-              body: jsonEncode({'expiresIn': 3600}),
-            );
-            if (res.statusCode == 200) {
-              final data = jsonDecode(res.body) as Map<String, dynamic>;
-              final rawSigned = (data['signedURL'] ?? data['signedUrl'] ?? '')
-                  .toString();
-              _resolvedUrls[ruta] = rawSigned.startsWith('http')
-                  ? rawSigned
-                  : '$baseStorageUrl$rawSigned';
-            } else {
-              _resolvedUrls[ruta] =
-                  '$baseStorageUrl/storage/v1/object/public/solicitudes/$ruta';
-            }
-          } catch (_) {
-            _resolvedUrls[ruta] =
-                '$baseStorageUrl/storage/v1/object/public/solicitudes/$ruta';
-          }
-        }
+        _resolvedUrls[ruta] = await widget.resolverUrl(ruta);
       }
     } catch (_) {
       _hasError = true;
@@ -625,6 +627,11 @@ class _FotosDetalleDialogState extends State<FotosDetalleDialog> {
                                 child: Image.network(
                                   widget.urls[index],
                                   fit: BoxFit.cover,
+                                  errorBuilder: (_, _, _) => const Icon(
+                                    Icons.broken_image,
+                                    size: 20,
+                                    color: AppTheme.textSecondary,
+                                  ),
                                 ),
                               ),
                             ),
