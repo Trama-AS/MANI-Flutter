@@ -1,5 +1,6 @@
 import 'package:mani/core/network/gateway_client.dart';
 
+import '../domain/evaluacion_tarifa.dart';
 import '../domain/tarifa.dart';
 
 /// Fuente del tarifario de referencia (M-10), separada para probar las
@@ -16,11 +17,15 @@ abstract interface class FuenteTarifas {
 
   Future<ReferenciaTarifa> referencia(String solicitudId);
 
+  /// Alerta de tarifa de una cotización (SCRUM-866): Rules decide si está en
+  /// rango; un 503 de Rules llega como error, nunca como resultado.
+  Future<EvaluacionTarifa> evaluacion(String cotizacionId);
+
   /// [desde] y [hasta] en `YYYY-MM-DD`, ambos inclusive.
   Future<ReporteFueraDeRango> reporteFueraDeRango(String desde, String hasta);
 }
 
-/// Tarifario por el Gateway a Core (SCRUM-885, 886 y 887). Tenant, usuario y
+/// Tarifario por el Gateway a Core (SCRUM-885, 886, 887 y 866). Tenant, usuario y
 /// rol salen del JWT; la app nunca los envía.
 class GatewayFuenteTarifas implements FuenteTarifas {
   GatewayFuenteTarifas(this._gateway);
@@ -30,6 +35,8 @@ class GatewayFuenteTarifas implements FuenteTarifas {
       '$rutaTarifas/categorias/$categoriaId/historial';
   static String rutaReferencia(String solicitudId) =>
       '/api/v1/core/solicitudes/$solicitudId/tarifa-referencia';
+  static String rutaEvaluacion(String cotizacionId) =>
+      '/api/v1/core/cotizaciones/$cotizacionId/evaluacion-tarifa';
   static const rutaReporte =
       '/api/v1/core/reportes/cotizaciones-fuera-de-rango';
 
@@ -59,6 +66,12 @@ class GatewayFuenteTarifas implements FuenteTarifas {
   Future<ReferenciaTarifa> referencia(String solicitudId) async =>
       ReferenciaTarifa.fromJson(
         await _gateway.get(rutaReferencia(solicitudId)),
+      );
+
+  @override
+  Future<EvaluacionTarifa> evaluacion(String cotizacionId) async =>
+      EvaluacionTarifa.fromJson(
+        await _gateway.get(rutaEvaluacion(cotizacionId)),
       );
 
   @override

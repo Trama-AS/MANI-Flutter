@@ -9,7 +9,9 @@ import 'package:mani/core/network/gateway_exception.dart';
 import 'package:mani/features/services/categories/domain/entities/categoria_servicio.dart';
 import 'package:mani/features/services/categories/domain/repositories/categorias_repository.dart';
 import 'package:mani/features/tariffs/data/tarifas_datasource.dart';
+import 'package:mani/features/tariffs/domain/evaluacion_tarifa.dart';
 import 'package:mani/features/tariffs/domain/tarifa.dart';
+import 'package:mani/features/tariffs/presentation/alerta_tarifa_cotizacion.dart';
 import 'package:mani/features/tariffs/presentation/referencia_tarifa_seccion.dart';
 import 'package:mani/features/tariffs/presentation/reporte_fuera_rango_page.dart';
 import 'package:mani/features/tariffs/presentation/tarifario_cubit.dart';
@@ -45,6 +47,9 @@ class _Tarifas implements FuenteTarifas {
   ReferenciaTarifa referenciaFija = const ReferenciaTarifa();
   Object? errorReporte;
   ReporteFueraDeRango? reporte;
+  Map<String, dynamic>? evaluacionJson;
+  Object? errorEvaluacion;
+  int evaluaciones = 0;
 
   Tarifa _nueva(String categoriaId, DatosTarifa d, int version) => Tarifa(
     id: 'tar-$categoriaId-$version',
@@ -114,6 +119,16 @@ class _Tarifas implements FuenteTarifas {
   @override
   Future<ReferenciaTarifa> referencia(String solicitudId) async =>
       referenciaFija;
+
+  @override
+  Future<EvaluacionTarifa> evaluacion(String cotizacionId) async {
+    evaluaciones++;
+    if (errorEvaluacion != null) throw errorEvaluacion!;
+    return EvaluacionTarifa.fromJson({
+      'cotizacionId': cotizacionId,
+      ...?evaluacionJson,
+    });
+  }
 
   @override
   Future<ReporteFueraDeRango> reporteFueraDeRango(
@@ -315,6 +330,192 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('referencia-error')), findsOneWidget);
       expect(find.textContaining('\$'), findsNothing);
+    });
+  });
+
+  // ============================================================== SCRUM-866 · HU-M06-02
+  group('866 · alerta de tarifa bidireccional', () {
+    const tarifa = {
+      'valorMin': 80000,
+      'valorTipico': 120000,
+      'valorMax': 180000,
+      'moneda': 'COP',
+    };
+
+    Future<void> montar(
+      WidgetTester tester,
+      _Tarifas fuente, {
+      bool esAliado = false,
+    }) async {
+      await tester.pumpWidget(
+        _app(
+          AlertaTarifaCotizacion(
+            fuente: fuente,
+            cotizacionId: 'cot-1',
+            esAliado: esAliado,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets(
+      'C1: por encima, el cliente y el aliado ven la alerta con la referencia y el motivo',
+      (tester) async {
+        for (final esAliado in [false, true]) {
+          final fuente = _Tarifas()
+            ..evaluacionJson = {
+              'resultado': 'POR_ENCIMA',
+              'total': 270000,
+              'desviacionPorcentaje': 50,
+              'tarifa': tarifa,
+            };
+          await montar(tester, fuente, esAliado: esAliado);
+          expect(find.byKey(const Key('alerta-tarifa-encima')), findsOneWidget);
+          expect(
+            find.text('Cotización por encima del rango de referencia'),
+            findsOneWidget,
+          );
+          expect(
+            find.text(
+              'El total (\$ 270.000,00) supera el máximo de referencia '
+              '(\$ 180.000,00) en 50 %.',
+            ),
+            findsOneWidget,
+          );
+          expect(
+            find.textContaining('\$ 80.000,00 – \$ 180.000,00 COP'),
+            findsOneWidget,
+          );
+          expect(
+            find.textContaining(
+              esAliado
+                  ? 'El cliente también ve este aviso'
+                  : 'El aliado también ve este aviso',
+            ),
+            findsOneWidget,
+            reason: 'bidireccional: cada parte sabe que la otra lo ve',
+          );
+          expect(
+            find.text('La cotización no cambia por este aviso.'),
+            findsOneWidget,
+          );
+        }
+      },
+    );
+
+    testWidgets('C1: por debajo muestra el mínimo cruzado y la desviación', (
+      tester,
+    ) async {
+      final fuente = _Tarifas()
+        ..evaluacionJson = {
+          'resultado': 'POR_DEBAJO',
+          'total': 60000,
+          'desviacionPorcentaje': 25,
+          'tarifa': tarifa,
+        };
+      await montar(tester, fuente);
+      expect(find.byKey(const Key('alerta-tarifa-debajo')), findsOneWidget);
+      expect(
+        find.text(
+          'El total (\$ 60.000,00) está por debajo del mínimo de referencia '
+          '(\$ 80.000,00) en 25 %.',
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('C1: dentro de banda no hay alerta falsa', (tester) async {
+      final fuente = _Tarifas()
+        ..evaluacionJson = {
+          'resultado': 'DENTRO_DE_RANGO',
+          'total': 120000,
+          'desviacionPorcentaje': 0,
+          'tarifa': tarifa,
+        };
+      await montar(tester, fuente, esAliado: true);
+      expect(find.byKey(const Key('alerta-tarifa-en-rango')), findsOneWidget);
+      expect(find.byKey(const Key('alerta-tarifa-encima')), findsNothing);
+      expect(find.byKey(const Key('alerta-tarifa-debajo')), findsNothing);
+      expect(find.byIcon(Icons.warning_amber_rounded), findsNothing);
+    });
+
+    testWidgets('C2: sin tarifa lo dice y no muestra ningún valor ni alerta', (
+      tester,
+    ) async {
+      final fuente = _Tarifas()
+        ..evaluacionJson = {
+          'resultado': 'SIN_TARIFA',
+          'total': 999999,
+          'desviacionPorcentaje': null,
+          'tarifa': null,
+        };
+      await montar(tester, fuente);
+      expect(find.byKey(const Key('alerta-tarifa-sin-tarifa')), findsOneWidget);
+      expect(find.textContaining('\$'), findsNothing);
+    });
+
+    testWidgets(
+      'C2: si Rules no responde (503) muestra el error de Core, sin resultado inventado, y permite reintentar',
+      (tester) async {
+        final fuente = _Tarifas()
+          ..errorEvaluacion = _error(
+            503,
+            'RULES_SERVICE_UNAVAILABLE',
+            'El servicio de reglas no está disponible',
+          );
+        await montar(tester, fuente);
+        expect(find.byKey(const Key('alerta-tarifa-error')), findsOneWidget);
+        expect(find.textContaining('\$'), findsNothing);
+        expect(find.byKey(const Key('alerta-tarifa-en-rango')), findsNothing);
+
+        fuente
+          ..errorEvaluacion = null
+          ..evaluacionJson = {
+            'resultado': 'POR_ENCIMA',
+            'total': 270000,
+            'desviacionPorcentaje': 50,
+            'tarifa': tarifa,
+          };
+        await tester.tap(find.text('Reintentar'));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('alerta-tarifa-encima')), findsOneWidget);
+        expect(fuente.evaluaciones, 2);
+      },
+    );
+
+    testWidgets('C3: una cotización ajena (404 de Core) no expone datos', (
+      tester,
+    ) async {
+      final fuente = _Tarifas()
+        ..errorEvaluacion = _error(
+          404,
+          'MANI-TAR-404Q',
+          'cotización no encontrada',
+        );
+      await montar(tester, fuente);
+      expect(find.byKey(const Key('alerta-tarifa-error')), findsOneWidget);
+      expect(find.textContaining('\$'), findsNothing);
+    });
+
+    test('un resultado desconocido o sin tarifa no se adivina', () {
+      expect(
+        () => EvaluacionTarifa.fromJson({
+          'cotizacionId': 'c',
+          'resultado': 'QUIZAS',
+          'total': 1,
+        }),
+        throwsFormatException,
+      );
+      expect(
+        () => EvaluacionTarifa.fromJson({
+          'cotizacionId': 'c',
+          'resultado': 'POR_ENCIMA',
+          'total': 1,
+          'tarifa': null,
+        }),
+        throwsFormatException,
+      );
     });
   });
 
