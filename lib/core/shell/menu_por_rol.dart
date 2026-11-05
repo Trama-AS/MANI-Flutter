@@ -64,6 +64,12 @@ List<EntradaMenu> entradasMenuPara(RolUsuario rol) {
           icono: Icons.apartment_outlined,
           ruta: '/cliente/sedes',
         ),
+        // Quejas del cliente (SCRUM-895).
+        EntradaMenu(
+          etiqueta: 'Mis quejas',
+          icono: Icons.feedback_outlined,
+          ruta: '/cliente/quejas',
+        ),
         // Sin entrada propia de mapa: el cliente mira el mapa para comprobar
         // dónde caen sus sedes, así que va dentro de «Mis sedes» (HU-M04-07).
         _avisos,
@@ -138,6 +144,12 @@ List<EntradaMenu> entradasMenuPara(RolUsuario rol) {
           icono: Icons.report_outlined,
           ruta: '/admin/reportes/cotizaciones-fuera-de-rango',
         ),
+        // M-01 (SCRUM-1366).
+        EntradaMenu(
+          etiqueta: 'Reglas',
+          icono: Icons.rule_outlined,
+          ruta: '/admin/reglas',
+        ),
         // Empleados directos (SCRUM-1376): los registra el administrador, como exige Core.
         EntradaMenu(
           etiqueta: 'Empleados',
@@ -155,6 +167,17 @@ List<EntradaMenu> entradasMenuPara(RolUsuario rol) {
           icono: Icons.forum_outlined,
           ruta: '/admin/conversaciones',
         ),
+        // M-12 (SCRUM-896 y 900).
+        EntradaMenu(
+          etiqueta: 'Quejas',
+          icono: Icons.support_agent_outlined,
+          ruta: '/admin/quejas',
+        ),
+        EntradaMenu(
+          etiqueta: 'Métricas',
+          icono: Icons.insights_outlined,
+          ruta: '/admin/metricas',
+        ),
         // Consulta del catálogo geográfico: muestra los límites de zonas y
         // barrios. No declara cobertura ni usa GPS (HU-M04-07).
         EntradaMenu(
@@ -163,6 +186,16 @@ List<EntradaMenu> entradasMenuPara(RolUsuario rol) {
           ruta: '/catalogo/mapa',
         ),
         _avisos,
+        _miPerfil,
+      ];
+    case RolUsuario.adminPlataforma:
+      return const [
+        _inicio,
+        EntradaMenu(
+          etiqueta: 'Tenants',
+          icono: Icons.domain_outlined,
+          ruta: '/plataforma/tenants',
+        ),
         _miPerfil,
       ];
     case RolUsuario.desconocido:
@@ -179,6 +212,8 @@ String etiquetaRol(RolUsuario rol) {
       return 'Aliado';
     case RolUsuario.adminTenant:
       return 'Administrador';
+    case RolUsuario.adminPlataforma:
+      return 'Administración de plataforma';
     case RolUsuario.desconocido:
       return 'Sin rol';
   }

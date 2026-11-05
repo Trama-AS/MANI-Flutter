@@ -61,6 +61,8 @@ import 'package:mani/features/asignacion/domain/repositories/i_asignacion_reposi
 import 'package:mani/features/asignacion/domain/usecases/asignacion_usecases.dart';
 import 'package:mani/features/asignacion/presentation/bloc/solicitudes_aliado_cubit.dart';
 import 'package:mani/core/platform/selector_fotos.dart';
+import 'package:mani/features/tenant_rules/data/tenant_rules_datasource.dart';
+import 'package:mani/features/tenant_rules/presentation/tenant_rules_cubit.dart';
 import 'package:mani/features/services/requests/data/datasources/solicitudes_cliente_remote_datasource.dart';
 import 'package:mani/features/services/requests/data/repositories/solicitudes_cliente_repository_impl.dart';
 import 'package:mani/features/services/requests/domain/repositories/solicitudes_cliente_repository.dart';
@@ -89,6 +91,9 @@ import 'package:mani/core/session/tenant_sesion.dart';
 import 'package:mani/features/services/ratings/data/calificacion_cierre_datasource.dart';
 import 'package:mani/features/services/ratings/data/politica_cancelacion_datasource.dart';
 import 'package:mani/features/tariffs/data/tarifas_datasource.dart';
+import 'package:mani/features/complaints/data/quejas_datasource.dart';
+import 'package:mani/features/metrics/data/metricas_datasource.dart';
+import 'package:mani/features/platform/data/tenants_datasource.dart';
 
 final sl = GetIt.instance; // sl = service locator
 
@@ -297,6 +302,11 @@ Future<void> init() async {
   );
   // Tarifario de referencia (M-10: SCRUM-885, 886 y 887), por el Gateway a Core.
   sl.registerLazySingleton<FuenteTarifas>(() => GatewayFuenteTarifas(sl()));
+  // Quejas, métricas y tenants (M-12: SCRUM-895, 896, 900 y 901), por el
+  // Gateway a Core. Los Cubits se crean en cada ruta.
+  sl.registerLazySingleton<FuenteQuejas>(() => GatewayFuenteQuejas(sl()));
+  sl.registerLazySingleton<FuenteMetricas>(() => GatewayFuenteMetricas(sl()));
+  sl.registerLazySingleton<FuenteTenants>(() => GatewayFuenteTenants(sl()));
   sl.registerLazySingleton<FuenteCobros>(() => GatewayFuenteCobros(sl()));
   sl.registerLazySingleton<GuardadorArchivo>(
     () => const FilePickerGuardadorArchivo(),
@@ -409,4 +419,10 @@ Future<void> init() async {
   sl.registerLazySingleton<IEmpleadosDirectosRemoteDataSource>(
     () => EmpleadosDirectosRemoteDataSource(gateway: sl()),
   );
+
+  // Features - Tenant Rules (SCRUM-1366 / HU-M01-03)
+  sl.registerLazySingleton<FuenteReglasTenant>(
+    () => GatewayFuenteReglasTenant(sl()),
+  );
+  sl.registerFactory(() => TenantRulesCubit(sl()));
 }

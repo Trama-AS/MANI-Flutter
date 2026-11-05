@@ -16,10 +16,15 @@ class MisSolicitudesPage extends StatelessWidget {
     this.onNuevaSolicitud,
     this.onVerCotizacion,
     this.onVerAliados,
+    this.onPresentarQueja,
     this.previsualizarCancelacion,
   });
 
   final VoidCallback? onNuevaSolicitud;
+
+  /// Presenta una queja sobre el servicio (HU-M12-01 / SCRUM-895). Solo se
+  /// ofrece cuando la solicitud ya tuvo aliado; Core vuelve a validarlo.
+  final void Function(String solicitudId)? onPresentarQueja;
 
   /// Consulta a Core la penalización que tendría cancelar (SCRUM-878) para
   /// mostrarla antes de confirmar. Sin ella el diálogo no muestra el resumen.
@@ -71,6 +76,12 @@ class MisSolicitudesPage extends StatelessWidget {
                                 s.estado != EstadoSeguimiento.pendiente
                             ? null
                             : () => onVerAliados!(s.id),
+                        onPresentarQueja:
+                            onPresentarQueja == null ||
+                                s.estado == EstadoSeguimiento.pendiente ||
+                                s.estado == EstadoSeguimiento.otro
+                            ? null
+                            : () => onPresentarQueja!(s.id),
                         cancelando: state.cancelandoId == s.id,
                         onCancelar:
                             !s.puedeCancelar || state.cancelandoId != null
@@ -274,6 +285,7 @@ class _TarjetaSolicitud extends StatelessWidget {
     this.solicitud, {
     this.onVerCotizacion,
     this.onVerAliados,
+    this.onPresentarQueja,
     this.onCancelar,
     this.cancelando = false,
   });
@@ -283,6 +295,9 @@ class _TarjetaSolicitud extends StatelessWidget {
 
   /// Solo para solicitudes pendientes (SCRUM-1401).
   final VoidCallback? onVerAliados;
+
+  /// Solo para solicitudes que ya tuvieron aliado (SCRUM-895).
+  final VoidCallback? onPresentarQueja;
 
   /// Cancela antes de la ejecución (SCRUM-877); `null` si no se puede.
   final VoidCallback? onCancelar;
@@ -319,6 +334,7 @@ class _TarjetaSolicitud extends StatelessWidget {
             ),
             if (onVerCotizacion != null ||
                 onVerAliados != null ||
+                onPresentarQueja != null ||
                 onCancelar != null ||
                 cancelando)
               Wrap(
@@ -350,6 +366,13 @@ class _TarjetaSolicitud extends StatelessWidget {
                       icon: const Icon(Icons.groups_outlined),
                       label: const Text('Ver aliados'),
                       onPressed: onVerAliados,
+                    ),
+                  if (onPresentarQueja != null)
+                    TextButton.icon(
+                      key: Key('presentar-queja-${solicitud.id}'),
+                      icon: const Icon(Icons.feedback_outlined),
+                      label: const Text('Presentar queja'),
+                      onPressed: onPresentarQueja,
                     ),
                   if (onVerCotizacion != null)
                     TextButton.icon(
