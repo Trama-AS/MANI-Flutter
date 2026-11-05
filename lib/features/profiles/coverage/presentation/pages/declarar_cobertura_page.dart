@@ -246,11 +246,19 @@ class _DeclararCoberturaPageState extends State<DeclararCoberturaPage> {
 
               // Lo marcado se pinta en verde mientras se marca: el mapa lee la
               // selección en curso, no la ya guardada.
+              // El mapa es otra forma de marcar lo mismo: toca la zona y se
+              // alterna, igual que su casilla en la lista. Se elige una zona
+              // del catálogo en los dos casos; lo que cambia es el gesto.
               final mapa = MapaZonas(
                 key: const Key('cobertura_mapa'),
                 coberturaResaltada: c.seleccion.ids,
                 leyendaCobertura:
-                    'En verde, lo que llevas seleccionado. Se aplica al guardar.',
+                    'En verde, lo que llevas seleccionado. Toca una zona para '
+                    'agregarla o quitarla. Se aplica al guardar.',
+                onZonaTocada: (zonaId) {
+                  final zona = c.zonaDelCatalogo(zonaId);
+                  if (zona != null) c.alternar(zona);
+                },
               );
 
               if (restricciones.maxWidth >= anchoMapaAlLado) {

@@ -18,6 +18,7 @@ class MapaZonas extends StatelessWidget {
     this.coberturaResaltada,
     this.leyendaCobertura,
     this.alto,
+    this.onZonaTocada,
   });
 
   /// Zonas a resaltar en verde. Cuando se monta dentro de la pantalla de
@@ -34,6 +35,15 @@ class MapaZonas extends StatelessWidget {
   /// Sin alto ocupa el espacio disponible, que es lo que quiere una pantalla
   /// dedicada al mapa.
   final double? alto;
+
+  /// Con esto el mapa **es el selector**: cada zona lleva encima su nombre y
+  /// una marca de verificación, y tocarla la alterna. Sigue eligiéndose una
+  /// zona del catálogo —lo que cambia es el gesto, no el dato—, así que
+  /// ADR-0011 se mantiene: sin geometría propia, sin radio y sin
+  /// geolocalización en vivo.
+  ///
+  /// Sin esto el mapa es de solo lectura.
+  final void Function(String zonaId)? onZonaTocada;
 
   /// Centro de respaldo mientras no hay límites: el centro de Bogotá. Solo
   /// encuadra la vista; no se dibuja nada en esa posición.
@@ -66,12 +76,19 @@ class MapaZonas extends StatelessWidget {
                     'El catálogo no tiene todavía los límites de esta zona. '
                     'No se dibuja una forma aproximada.',
               )
-            : _Mapa(state: state, resaltadas: resaltadas);
+            : _Mapa(
+                state: state,
+                resaltadas: resaltadas,
+                onZonaTocada: onZonaTocada,
+              );
 
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (state.localidades.length > 1) _SelectorLocalidad(state: state),
+            // En modo selector están todas las localidades a la vez, así que
+            // un desplegable para elegir una sola sobra.
+            if (onZonaTocada == null && state.localidades.length > 1)
+              _SelectorLocalidad(state: state),
             if (alto == null)
               Expanded(child: lienzo)
             else
@@ -211,10 +228,15 @@ class _Encuadre {
 }
 
 class _Mapa extends StatefulWidget {
-  const _Mapa({required this.state, required this.resaltadas});
+  const _Mapa({
+    required this.state,
+    required this.resaltadas,
+    this.onZonaTocada,
+  });
 
   final MapaState state;
   final Set<String> resaltadas;
+  final void Function(String zonaId)? onZonaTocada;
 
   @override
   State<_Mapa> createState() => _MapaState();
@@ -298,6 +320,25 @@ class _MapaState extends State<_Mapa> {
           userAgentPackageName: 'co.mani.app',
         ),
         PolygonLayer(polygons: poligonos),
+        // Modo selector: cada zona lleva su nombre y una marca que dice si
+        // está elegida. Tocarla la alterna, igual que la casilla de la lista.
+        if (widget.onZonaTocada != null)
+          MarkerLayer(
+            markers: [
+              for (final g in widget.state.geometrias)
+                if (_centroDe(g.anillos) case final centro?)
+                  Marker(
+                    point: centro,
+                    width: 128,
+                    height: 56,
+                    child: _MarcaZona(
+                      nombre: g.nombre,
+                      elegida: widget.resaltadas.contains(g.zonaId),
+                      onTocar: () => widget.onZonaTocada!(g.zonaId),
+                    ),
+                  ),
+            ],
+          ),
         // Sedes propias con punto capturado. Las que no lo tienen no se
         // dibujan en el centroide de su zona: se cuentan aparte (C2).
         MarkerLayer(
@@ -328,6 +369,91 @@ class _MapaState extends State<_Mapa> {
           ],
         ),
       ],
+    );
+  }
+}
+
+/// Punto donde colocar la marca de una zona: el promedio de los vértices del
+/// anillo más grande. No es el centroide exacto del polígono, y no hace falta
+/// que lo sea: solo sitúa una etiqueta dentro de la zona.
+LatLng? _centroDe(List<List<LatLng>> anillos) {
+  if (anillos.isEmpty) return null;
+  var mayor = anillos.first;
+  for (final a in anillos) {
+    if (a.length > mayor.length) mayor = a;
+  }
+  if (mayor.isEmpty) return null;
+  var lat = 0.0;
+  var lon = 0.0;
+  for (final p in mayor) {
+    lat += p.latitude;
+    lon += p.longitude;
+  }
+  return LatLng(lat / mayor.length, lon / mayor.length);
+}
+
+/// Nombre de la zona y su marca de elegida, encima del polígono.
+class _MarcaZona extends StatelessWidget {
+  const _MarcaZona({
+    required this.nombre,
+    required this.elegida,
+    required this.onTocar,
+  });
+
+  final String nombre;
+  final bool elegida;
+  final VoidCallback onTocar;
+
+  @override
+  Widget build(BuildContext context) {
+    const verde = Color(0xFF166534);
+    return GestureDetector(
+      onTap: onTocar,
+      behavior: HitTestBehavior.opaque,
+      child: Tooltip(
+        message: elegida ? 'Quitar $nombre' : 'Agregar $nombre',
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              key: Key('mapa_marca_$nombre'),
+              decoration: BoxDecoration(
+                color: elegida ? verde : Colors.white,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: elegida ? verde : Colors.black54,
+                  width: 2,
+                ),
+              ),
+              padding: const EdgeInsets.all(4),
+              child: Icon(
+                elegida ? Icons.check : Icons.add,
+                size: 18,
+                color: elegida ? Colors.white : Colors.black54,
+              ),
+            ),
+            const SizedBox(height: 2),
+            // Fondo propio: sobre las teselas el texto suelto no se lee.
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.85),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+              child: Text(
+                nombre,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

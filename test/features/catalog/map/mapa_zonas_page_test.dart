@@ -47,6 +47,13 @@ class _CubitFalso extends Cubit<MapaState> implements MapaCubit {
   Future<void> cargar() async {}
 
   @override
+  Future<void> cargarPanoramica() async {
+    panoramica = true;
+  }
+
+  bool panoramica = false;
+
+  @override
   Future<void> seleccionar(String localidadId) async {
     seleccionada = localidadId;
   }
@@ -439,4 +446,100 @@ void main() {
       expect(find.textContaining('lo que llevas seleccionado'), findsOneWidget);
     },
   );
+
+  group('modo selector: el mapa marca cobertura (SCRUM-1396)', () {
+    Widget _selector({
+      required Set<String> elegidas,
+      required void Function(String) onTocar,
+    }) => MaterialApp(
+      home: BlocProvider<MapaCubit>.value(
+        value: _CubitFalso(
+          MapaState(
+            estado: MapaEstado.listo,
+            localidades: const [
+              {'id': _chapinero, 'name': 'Chapinero', 'level': 'LOCALIDAD'},
+              {'id': 'otra-id', 'name': 'Suba', 'level': 'LOCALIDAD'},
+            ],
+            geometrias: [
+              GeometriaZona(
+                zonaId: _chico,
+                nombre: 'Chicó Norte',
+                nivel: 'BARRIO',
+                anillos: _anillo,
+                atribucion: 'UAECD',
+              ),
+            ],
+          ),
+        ),
+        child: Scaffold(
+          body: MapaZonas(coberturaResaltada: elegidas, onZonaTocada: onTocar),
+        ),
+      ),
+    );
+
+    testWidgets('cada zona lleva su nombre encima', (tester) async {
+      await tester.pumpWidget(_selector(elegidas: const {}, onTocar: (_) {}));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Chicó Norte'), findsOneWidget);
+      expect(find.byKey(const Key('mapa_marca_Chicó Norte')), findsOneWidget);
+    });
+
+    testWidgets('tocar la zona avisa con su id', (tester) async {
+      final tocadas = <String>[];
+      await tester.pumpWidget(
+        _selector(elegidas: const {}, onTocar: tocadas.add),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('mapa_marca_Chicó Norte')));
+      await tester.pumpAndSettle();
+
+      expect(tocadas, [_chico]);
+    });
+
+    testWidgets('la marca distingue elegida de no elegida', (tester) async {
+      await tester.pumpWidget(_selector(elegidas: const {}, onTocar: (_) {}));
+      await tester.pumpAndSettle();
+      expect(find.byIcon(Icons.add), findsOneWidget);
+      expect(find.byIcon(Icons.check), findsNothing);
+
+      await tester.pumpWidget(
+        _selector(elegidas: const {_chico}, onTocar: (_) {}),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byIcon(Icons.check), findsOneWidget);
+      expect(find.byIcon(Icons.add), findsNothing);
+    });
+
+    testWidgets('no ofrece el desplegable de localidad', (tester) async {
+      // En panorámica están todas a la vez: elegir una sola sobra y confunde.
+      await tester.pumpWidget(_selector(elegidas: const {}, onTocar: (_) {}));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('mapa_selector_localidad')), findsNothing);
+    });
+
+    testWidgets('sin modo selector no hay marcas que tocar', (tester) async {
+      await tester.pumpWidget(
+        _app(
+          MapaState(
+            estado: MapaEstado.listo,
+            geometrias: [
+              GeometriaZona(
+                zonaId: _chico,
+                nombre: 'Chicó Norte',
+                nivel: 'BARRIO',
+                anillos: _anillo,
+                atribucion: 'UAECD',
+              ),
+            ],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('mapa_marca_Chicó Norte')), findsNothing);
+    });
+  });
 }

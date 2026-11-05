@@ -419,7 +419,9 @@ final appRouter = GoRouter(
           // El mapa va dentro: el aliado marca por lista y ve pintado lo que
           // lleva marcado, sin cambiar de pantalla (HU-M04-07 / SCRUM-1396).
           builder: (context, state) => BlocProvider(
-            create: (_) => sl<MapaCubit>()..cargar(),
+            // Panorámica: para elegir cobertura hace falta ver la ciudad
+            // entera, no una localidad cada vez.
+            create: (_) => sl<MapaCubit>()..cargarPanoramica(),
             child: DeclararCoberturaPage(controller: sl(), conMapa: true),
           ),
         ),
