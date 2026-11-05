@@ -99,6 +99,9 @@ class MapaCubit extends Cubit<MapaState> {
 
   final MapaRemoteDataSource _datos;
 
+  /// Tope por petición que impone el contrato de Core.
+  static const _porPeticion = GatewayMapaDataSource.maxZonasPorPeticion;
+
   Future<void> cargar() async {
     emit(state.copyWith(estado: MapaEstado.cargando));
     try {
@@ -126,6 +129,58 @@ class MapaCubit extends Cubit<MapaState> {
         ),
       );
       await seleccionar('${localidades.first['id']}');
+    } on GatewayException catch (e) {
+      emit(state.copyWith(estado: MapaEstado.error, mensajeError: e.message));
+    }
+  }
+
+  /// Carga **todas** las localidades a la vez, sin barrios.
+  ///
+  /// Es el modo que necesita la declaración de cobertura: el aliado elige
+  /// sobre el mapa de la ciudad entera, así que no sirve mostrarle una
+  /// localidad cada vez. Se pide en tandas porque el contrato topa cada
+  /// petición en [MapaRemoteDataSource] y la ciudad puede tener más.
+  Future<void> cargarPanoramica() async {
+    emit(state.copyWith(estado: MapaEstado.cargando));
+    try {
+      final zonas = await _datos.listarZonas();
+      final localidades = zonas
+          .where((z) => z['level'] == 'LOCALIDAD' && z['selectable'] != false)
+          .toList(growable: false);
+      if (localidades.isEmpty) {
+        emit(state.copyWith(estado: MapaEstado.vacio, localidades: const []));
+        return;
+      }
+      _zonas = zonas;
+      final cobertura = await _cargarCoberturaTolerante();
+
+      final ids = localidades.map((z) => '${z['id']}').toList();
+      final geometrias = <GeometriaZona>[];
+      final sinGeometria = <String>[];
+      final atribuciones = <String>{};
+      for (var i = 0; i < ids.length; i += _porPeticion) {
+        final tanda = ids.sublist(
+          i,
+          i + _porPeticion > ids.length ? ids.length : i + _porPeticion,
+        );
+        final res = await _datos.obtenerGeometrias(tanda);
+        geometrias.addAll(res.geometrias.where((g) => g.tienePuntos));
+        sinGeometria.addAll(res.sinGeometria);
+        atribuciones.addAll(res.atribuciones);
+      }
+
+      emit(
+        state.copyWith(
+          estado: geometrias.isEmpty ? MapaEstado.vacio : MapaEstado.listo,
+          localidades: localidades,
+          geometrias: geometrias,
+          sinGeometria: sinGeometria,
+          atribuciones: atribuciones.toList(growable: false),
+          coberturaPropia: cobertura,
+          sitios: const [],
+          sitiosSinUbicacion: 0,
+        ),
+      );
     } on GatewayException catch (e) {
       emit(state.copyWith(estado: MapaEstado.error, mensajeError: e.message));
     }

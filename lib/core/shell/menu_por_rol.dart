@@ -63,8 +63,6 @@ const _entradasCliente = [
     icono: Icons.apartment_outlined,
     ruta: '/cliente/sedes',
   ),
-  // El cliente ubica sus propias sedes en el catálogo geográfico (HU-M04-07).
-  _mapaZonas,
   // Quejas del cliente (SCRUM-895).
   EntradaMenu(
     etiqueta: 'Mis quejas',
@@ -91,9 +89,6 @@ const _entradasAliado = [
     icono: Icons.checklist_outlined,
     ruta: '/aliado/cobertura',
   ),
-  // El aliado ve resaltada la cobertura que ya declaró; la cambia en
-  // «Cobertura», por lista y hasta localidad (HU-M04-07).
-  _mapaZonas,
   EntradaMenu(
     etiqueta: 'Categorías',
     icono: Icons.category_outlined,
