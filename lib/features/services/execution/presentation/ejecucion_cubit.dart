@@ -41,14 +41,19 @@ class EjecucionCubit extends Cubit<EjecucionState> {
   final FuenteEjecucion _fuente;
   final String solicitudId;
 
-  Future<void> cargar() async {
-    emit(EjecucionState(cargando: true, ejecucion: state.ejecucion));
+  /// Con [silencioso] (sondeo, SCRUM-1644) no muestra cargando, no pisa una
+  /// marca en curso y, si falla, conserva lo que ya se ve sin avisar.
+  Future<void> cargar({bool silencioso = false}) async {
+    if (silencioso && (state.enviando || state.cargando)) return;
+    if (!silencioso) {
+      emit(EjecucionState(cargando: true, ejecucion: state.ejecucion));
+    }
     try {
       final e = await _fuente.consultar(solicitudId);
-      if (isClosed) return;
+      if (isClosed || (silencioso && state.enviando)) return;
       emit(EjecucionState(ejecucion: e));
     } on CotizacionFailure catch (f) {
-      if (isClosed) return;
+      if (isClosed || silencioso) return;
       emit(EjecucionState(ejecucion: state.ejecucion, error: f.mensajeUsuario));
     }
   }

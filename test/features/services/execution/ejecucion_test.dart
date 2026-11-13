@@ -239,4 +239,53 @@ void main() {
       );
     },
   );
+
+  group('SCRUM-1644 · sondeo silencioso', () {
+    test('trae el estado nuevo sin pasar por cargando', () async {
+      final f = _FuenteFake('ACEPTADA');
+      final cubit = EjecucionCubit(f, 'sol-1');
+      await cubit.cargar();
+      final estados = <EjecucionState>[];
+      final sub = cubit.stream.listen(estados.add);
+
+      f.estado = 'EN_EJECUCION';
+      await cubit.cargar(silencioso: true);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(cubit.state.ejecucion?.enEjecucion, isTrue);
+      expect(estados.any((e) => e.cargando), isFalse);
+      await sub.cancel();
+      await cubit.close();
+    });
+
+    test('un fallo conserva lo que se ve y no muestra error', () async {
+      final f = _FuenteFake('ACEPTADA');
+      final cubit = EjecucionCubit(f, 'sol-1');
+      await cubit.cargar();
+      f.falloConsultar = const CotizacionFailure(
+        CotizacionErrorTipo.sinConexion,
+      );
+
+      await cubit.cargar(silencioso: true);
+
+      expect(cubit.state.ejecucion, isNotNull);
+      expect(cubit.state.error, isNull);
+      expect(cubit.state.aviso, isNull);
+      await cubit.close();
+    });
+
+    test('no consulta mientras se registra una marca', () async {
+      final f = _FuenteFake('ACEPTADA');
+      final cubit = EjecucionCubit(f, 'sol-1');
+      await cubit.cargar();
+      f.llamadas.clear();
+
+      final marca = cubit.marcar(HitoEjecucion.inicio);
+      await cubit.cargar(silencioso: true);
+      await marca;
+
+      expect(f.llamadas, ['marcar:${HitoEjecucion.inicio.ruta}', 'consultar']);
+      await cubit.close();
+    });
+  });
 }

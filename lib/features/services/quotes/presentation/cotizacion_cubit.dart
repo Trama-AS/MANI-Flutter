@@ -66,14 +66,17 @@ class CotizacionCubit extends Cubit<CotizacionState> {
   final FuenteCotizaciones _fuente;
   final String solicitudId;
 
-  Future<void> cargar() async {
-    emit(state.copiar(cargando: true));
+  /// Con [silencioso] (sondeo, SCRUM-1644) no muestra cargando, no pisa una
+  /// acción en curso y, si falla, conserva lo que ya se ve sin avisar.
+  Future<void> cargar({bool silencioso = false}) async {
+    if (silencioso && (state.enviando || state.cargando)) return;
+    if (!silencioso) emit(state.copiar(cargando: true));
     try {
       final lista = await _fuente.listar(solicitudId);
-      if (isClosed) return;
+      if (isClosed || (silencioso && state.enviando)) return;
       emit(CotizacionState(cotizaciones: lista));
     } on CotizacionFailure catch (f) {
-      if (isClosed) return;
+      if (isClosed || silencioso) return;
       // Si ya había datos se conservan y se avisa; si no, se muestra el error.
       emit(
         state.cotizaciones.isEmpty
