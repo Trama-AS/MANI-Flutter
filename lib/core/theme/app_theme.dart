@@ -234,11 +234,11 @@ class AppTheme {
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radiusXl),
-          borderSide: const BorderSide(color: error, width: 2),
+          borderSide: const BorderSide(color: error, width: borderMedium),
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radiusXl),
-          borderSide: const BorderSide(color: error, width: 2.5),
+          borderSide: const BorderSide(color: error, width: borderThick),
         ),
       ),
       dialogTheme: DialogThemeData(
@@ -261,7 +261,7 @@ class AppTheme {
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(radiusXl),
-          side: const BorderSide(color: dark, width: 2),
+          side: const BorderSide(color: dark, width: borderMedium),
         ),
       ),
       snackBarTheme: SnackBarThemeData(
@@ -274,7 +274,7 @@ class AppTheme {
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(radiusXl),
-          side: const BorderSide(color: primary, width: 2),
+          side: const BorderSide(color: primary, width: borderMedium),
         ),
       ),
       dividerTheme: const DividerThemeData(color: dark, thickness: 1.5),
