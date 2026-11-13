@@ -13,7 +13,9 @@ import 'package:flutter/widgets.dart';
 /// - No pausa en `inactive`: en web la ventana pasa a `inactive` solo con
 ///   perder el foco, y debe seguir actualizándose aunque esté a la vista junto
 ///   a otra ventana.
-/// - Al volver a ser visible consulta enseguida y reinicia el intervalo.
+/// - Al volver a la pestaña o a la app consulta enseguida y reinicia el
+///   intervalo. Al volver de otra ruta (un diálogo, el chat) solo reanuda el
+///   intervalo.
 /// - Nunca lanza dos consultas a la vez: si la anterior no terminó, omite el
 ///   turno.
 class RefrescoPeriodico extends StatefulWidget {
@@ -62,9 +64,11 @@ class _RefrescoPeriodicoState extends State<RefrescoPeriodico>
     // Sin ruta (p. ej. en una prueba sin Navigator) se considera visible.
     final actual = ModalRoute.isCurrentOf(context) ?? true;
     if (actual == _rutaActual && _timer != null) return;
-    final volvio = actual && !_rutaActual;
     _rutaActual = actual;
-    _reprogramar(consultarYa: volvio);
+    // Al volver de otra ruta solo se reanuda el intervalo, sin consultar
+    // enseguida: lo que estaba encima suele ser un diálogo que dispara una
+    // acción (confirmar, cancelar), y el Cubit ya relee tras cada acción.
+    _reprogramar();
   }
 
   @override

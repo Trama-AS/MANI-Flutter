@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -79,6 +80,19 @@ class _FuenteFake implements FuenteCotizaciones {
     final c = _cot(version: lista.first.version, estado: estado);
     lista = [c, ...lista.skip(1)];
     return c;
+  }
+}
+
+/// Devuelve lo que había al consultar, pero tarda hasta que se abra [compuerta].
+class _FuenteLenta extends _FuenteFake {
+  Completer<void>? compuerta;
+
+  @override
+  Future<List<Cotizacion>> listar(String solicitudId) async {
+    final c = compuerta;
+    final foto = await super.listar(solicitudId);
+    if (c != null) await c.future;
+    return foto;
   }
 }
 
@@ -572,5 +586,25 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('cotizacion-v1')), findsOneWidget);
     });
+  });
+
+  test('SCRUM-1644: una respuesta vieja del sondeo no pisa lo que dejó una '
+      'acción posterior', () async {
+    final f = _FuenteLenta()..lista = [_cot()];
+    final cubit = CotizacionCubit(f, 'sol-1');
+    await cubit.cargar();
+
+    f.compuerta = Completer<void>();
+    final sondeo = cubit.cargar(silencioso: true);
+    final compuerta = f.compuerta!;
+    f.compuerta = null;
+    await cubit.responder(DecisionCotizacion.aceptar);
+    expect(cubit.state.vigente?.estado, EstadoCotizacion.aceptada);
+
+    compuerta.complete();
+    await sondeo;
+
+    expect(cubit.state.vigente?.estado, EstadoCotizacion.aceptada);
+    await cubit.close();
   });
 }

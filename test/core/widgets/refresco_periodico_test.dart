@@ -88,8 +88,8 @@ void main() {
       expect(consultas, 0);
     });
 
-    testWidgets('pausa mientras otra ruta tapa la pantalla y consulta al '
-        'volver', (tester) async {
+    testWidgets('pausa mientras otra ruta tapa la pantalla y al volver solo '
+        'reanuda el intervalo', (tester) async {
       await tester.pumpWidget(pantalla());
       final navegador = tester.state<NavigatorState>(find.byType(Navigator));
 
@@ -105,7 +105,31 @@ void main() {
 
       navegador.pop();
       await tester.pumpAndSettle();
-      expect(consultas, antes + 1, reason: 'al volver consulta enseguida');
+      expect(
+        consultas,
+        antes,
+        reason:
+            'al cerrar un diálogo no consulta: el Cubit ya relee tras la '
+            'acción que dispara',
+      );
+
+      await tester.pump(_intervalo);
+      expect(consultas, antes + 1, reason: 'retoma el intervalo');
+    });
+
+    testWidgets('un diálogo abierto encima también pausa', (tester) async {
+      await tester.pumpWidget(pantalla());
+      final contexto = tester.element(find.text('servicio'));
+
+      unawaited(
+        showDialog<void>(
+          context: contexto,
+          builder: (_) => const AlertDialog(content: Text('confirmar')),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.pump(_intervalo * 2);
+      expect(consultas, 0);
     });
 
     testWidgets('no lanza una consulta si la anterior no terminó', (

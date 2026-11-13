@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -103,6 +104,21 @@ class _FuenteFake implements FuenteAdiciones {
         estado: decision == DecisionAdicion.aceptar ? 'ACEPTADA' : 'RECHAZADA',
       ),
     ]);
+  }
+}
+
+/// Devuelve lo que había al consultar, pero tarda hasta que se abra [compuerta].
+class _FuenteLenta extends _FuenteFake {
+  _FuenteLenta(super.datos);
+
+  Completer<void>? compuerta;
+
+  @override
+  Future<AdicionesServicio> listar(String solicitudId) async {
+    final c = compuerta;
+    final foto = await super.listar(solicitudId);
+    if (c != null) await c.future;
+    return foto;
   }
 }
 
@@ -633,5 +649,26 @@ void main() {
       );
       expect(find.byKey(const Key('adicion-pendiente-aliado')), findsOneWidget);
     });
+  });
+
+  test('SCRUM-1644: una respuesta vieja del sondeo no pisa la decisión '
+      'posterior', () async {
+    final f = _FuenteLenta(_datos([_adicionJson('adi-1')]));
+    final c = AdicionesCubit(f, 'sol-1');
+    await c.cargar();
+    expect(c.state.datos!.hayPendiente, isTrue);
+
+    f.compuerta = Completer<void>();
+    final sondeo = c.cargar(silencioso: true);
+    final compuerta = f.compuerta!;
+    f.compuerta = null;
+    await c.responder('adi-1', DecisionAdicion.aceptar);
+    expect(c.state.datos!.hayPendiente, isFalse);
+
+    compuerta.complete();
+    await sondeo;
+
+    expect(c.state.datos!.hayPendiente, isFalse);
+    await c.close();
   });
 }
