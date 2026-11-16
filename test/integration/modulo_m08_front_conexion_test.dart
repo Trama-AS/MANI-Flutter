@@ -449,6 +449,8 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('menu-solicitud-$_sol')));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('cancelar-solicitud-$_sol')));
       await tester.pumpAndSettle();
       return fuente;

@@ -58,6 +58,12 @@ class _Fuente implements FuenteSeguimiento {
   }
 }
 
+/// Abre el menú «⋮» de la tarjeta de una solicitud.
+Future<void> abrirMenuDe(WidgetTester tester, String id) async {
+  await tester.tap(find.byKey(Key('menu-solicitud-$id')));
+  await tester.pumpAndSettle();
+}
+
 /// Fuente cuya consulta falla mientras [falla] devuelva true.
 class _FuenteConFalla implements FuenteSeguimiento {
   _FuenteConFalla(this.falla, this.lista);
@@ -299,9 +305,11 @@ void main() {
         ]),
       );
 
+      expect(find.byKey(const Key('menu-solicitud-a')), findsOneWidget);
+      expect(find.byKey(const Key('menu-solicitud-b')), findsNothing);
+      expect(find.byKey(const Key('menu-solicitud-c')), findsNothing);
+      await abrirMenuDe(tester, 'a');
       expect(find.byKey(const Key('cancelar-solicitud-a')), findsOneWidget);
-      expect(find.byKey(const Key('cancelar-solicitud-b')), findsNothing);
-      expect(find.byKey(const Key('cancelar-solicitud-c')), findsNothing);
     });
 
     testWidgets('pide confirmación; «Volver» no cancela', (tester) async {
@@ -312,6 +320,7 @@ void main() {
         ], cancelacion: _solicitud(estado: 'CANCELADA')),
       );
 
+      await abrirMenuDe(tester, 'sol-1');
       await tester.tap(find.byKey(const Key('cancelar-solicitud-sol-1')));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('dialogo-cancelar')), findsOneWidget);
@@ -333,6 +342,7 @@ void main() {
           ], cancelacion: _solicitud(estado: 'CANCELADA')),
         );
 
+        await abrirMenuDe(tester, 'sol-1');
         await tester.tap(find.byKey(const Key('cancelar-solicitud-sol-1')));
         await tester.pumpAndSettle();
         expect(
@@ -348,7 +358,7 @@ void main() {
 
         expect(f.cancelaciones, [('sol-1', 'Ya no lo necesito')]);
         expect(find.text('Cancelada'), findsOneWidget);
-        expect(find.byKey(const Key('cancelar-solicitud-sol-1')), findsNothing);
+        expect(find.byKey(const Key('menu-solicitud-sol-1')), findsNothing);
         expect(find.byKey(const Key('cancelacion-ok')), findsOneWidget);
       },
     );
@@ -369,6 +379,7 @@ void main() {
         ),
       );
 
+      await abrirMenuDe(tester, 'sol-1');
       await tester.tap(find.byKey(const Key('cancelar-solicitud-sol-1')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('cancelar-confirmar')));
